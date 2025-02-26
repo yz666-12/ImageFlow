@@ -31,7 +31,7 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 ## 📸 界面预览
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow.png" alt="ImageFlow" width="45%">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
