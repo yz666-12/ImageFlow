@@ -354,4 +354,72 @@ body.theme-transition {
     align-items: center;
     justify-content: center;
     height: 200px; /* Fixed height for empty state */
+}
+
+/* API Key Verification Styles */
+#api-key-overlay {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#api-key-overlay.visible {
+    opacity: 1;
+}
+
+#api-key-input {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#api-key-input:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+#api-key-error {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+    20%, 80% {
+        transform: translate3d(2px, 0, 0);
+    }
+    30%, 50%, 70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+    40%, 60% {
+        transform: translate3d(4px, 0, 0);
+    }
+}
+
+.api-key-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.api-key-badge.valid {
+    background-color: rgba(52, 211, 153, 0.1);
+    color: #10b981;
+}
+
+.api-key-badge.invalid {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.dark .api-key-badge.valid {
+    background-color: rgba(52, 211, 153, 0.2);
+    color: #34d399;
+}
+
+.dark .api-key-badge.invalid {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
 } 

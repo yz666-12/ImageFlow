@@ -26,7 +26,8 @@ func main() {
 
 	// 设置路由
 	http.HandleFunc("/api/random", handlers.RandomImage(cfg))
-	http.HandleFunc("/upload", handlers.UploadHandler(cfg))
+	http.HandleFunc("/validate-api-key", handlers.ValidateAPIKey(cfg))
+	http.HandleFunc("/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
 
 	// 提供静态文件
 	fs := http.FileServer(http.Dir("static"))

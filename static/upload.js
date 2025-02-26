@@ -1,4 +1,149 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // API Key Management
+    const apiKeyOverlay = document.getElementById('api-key-overlay');
+    const apiKeyForm = document.getElementById('api-key-form');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const apiKeyError = document.getElementById('api-key-error');
+    const manageApiKeyBtn = document.getElementById('manage-api-key');
+    
+    // Check if API key exists
+    function checkApiKey() {
+        const apiKey = localStorage.getItem('api_key');
+        if (!apiKey) {
+            showApiKeyOverlay();
+        }
+    }
+    
+    // Display API key verification overlay
+    function showApiKeyOverlay() {
+        apiKeyOverlay.classList.remove('hidden');
+        setTimeout(() => {
+            apiKeyOverlay.classList.add('visible');
+        }, 10);
+        apiKeyInput.focus();
+    }
+    
+    // Hide API key verification overlay
+    function hideApiKeyOverlay() {
+        apiKeyOverlay.classList.remove('visible');
+        setTimeout(() => {
+            apiKeyOverlay.classList.add('hidden');
+        }, 300);
+    }
+    
+    // Validate API key
+    function validateApiKey(key) {
+        return fetch('/validate-api-key', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${key}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.valid) {
+                localStorage.setItem('api_key', key);
+                return true;
+            }
+            return false;
+        })
+        .catch(error => {
+            console.error('API key validation error:', error);
+            return false;
+        });
+    }
+    
+    // Handle API key form submission
+    apiKeyForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const key = apiKeyInput.value.trim();
+        
+        if (!key) {
+            showApiKeyError('请输入 API 密钥');
+            return;
+        }
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>验证中...</span>';
+        
+        validateApiKey(key)
+            .then(valid => {
+                if (valid) {
+                    hideApiKeyOverlay();
+                    showStatus('API 密钥验证成功', 'success');
+                    updateApiKeyStatus(true);
+                } else {
+                    showApiKeyError('无效的 API 密钥');
+                }
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            });
+    });
+    
+    // Show API key error
+    function showApiKeyError(message) {
+        apiKeyError.textContent = message;
+        apiKeyError.classList.remove('hidden');
+        apiKeyInput.classList.add('border-red-500', 'dark:border-red-500');
+        
+        setTimeout(() => {
+            apiKeyError.classList.remove('shake');
+            void apiKeyError.offsetWidth; // Force reflow
+            apiKeyError.classList.add('shake');
+        }, 0);
+    }
+    
+    // Update API key status in UI
+    function updateApiKeyStatus(isValid) {
+        if (isValid) {
+            manageApiKeyBtn.innerHTML = `
+                <div class="relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                </div>
+            `;
+        } else {
+            manageApiKeyBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+            `;
+        }
+    }
+    
+    // Manage API key button click handler
+    manageApiKeyBtn.addEventListener('click', function() {
+        const apiKey = localStorage.getItem('api_key');
+        
+        if (apiKey) {
+            // Show API key management dialog
+            if (confirm('您想要管理您的 API 密钥吗？\n\n• 确定: 清除当前 API 密钥并输入新的密钥\n• 取消: 保持当前设置')) {
+                localStorage.removeItem('api_key');
+                updateApiKeyStatus(false);
+                showApiKeyOverlay();
+            }
+        } else {
+            showApiKeyOverlay();
+        }
+    });
+    
+    // Check API key on page load
+    checkApiKey();
+    
+    // Update API key status in UI based on stored key
+    updateApiKeyStatus(!!localStorage.getItem('api_key'));
+    
     // 暗黑模式处理
     const themeToggleBtn = document.getElementById('theme-toggle');
     const htmlElement = document.documentElement;
@@ -212,6 +357,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        const apiKey = localStorage.getItem('api_key');
+        if (!apiKey) {
+            showStatus('请先验证 API 密钥', 'error');
+            showApiKeyOverlay();
+            return;
+        }
+        
         const formData = new FormData(this);
         
         uploadBtn.disabled = true;
@@ -221,9 +373,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         fetch('/upload', {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            },
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                // API key is invalid or expired
+                localStorage.removeItem('api_key');
+                updateApiKeyStatus(false);
+                showApiKeyOverlay();
+                throw new Error('API 密钥无效或已过期');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.status === 'success') {
                 showStatus('上传成功！', 'success');
