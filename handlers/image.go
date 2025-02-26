@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	
-	"github.com/yourusername/ImageFlow/config"
-	"github.com/yourusername/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 )
 
 // RandomImage 处理随机图片请求

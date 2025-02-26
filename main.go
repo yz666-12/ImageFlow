@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	
-	"./config"
-	"./handlers"
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/handlers"
 )
 
 func main() {
