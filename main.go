@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	
-	"github.com/yourusername/random-image-api/config"
-	"github.com/yourusername/random-image-api/handlers"
+	"./config"
+	"./handlers"
 )
 
 func main() {

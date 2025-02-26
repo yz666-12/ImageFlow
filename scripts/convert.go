@@ -88,11 +88,13 @@ func main() {
 			if *format == "webp" {
 				cmd = exec.Command("cwebp", "-q", fmt.Sprintf("%d", *quality), file, "-o", outFile)
 			} else {
-				cmd = exec.Command("avifenc", "--min", "0", "--max", "63", "-a", "end-usage=q", "-a", fmt.Sprintf("cq-level=%d", *quality), file, outFile)
+				cmd = exec.Command("avifenc", "-q", fmt.Sprintf("%d", *quality), file, outFile)
 			}
 			
-			if err := cmd.Run(); err != nil {
-				log.Printf("转换失败 %s: %v", file, err)
+			// 捕获命令输出以便调试
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				log.Printf("转换失败 %s: %v\n输出: %s", file, err, string(output))
 				return
 			}
 			

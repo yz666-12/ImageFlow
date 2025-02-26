@@ -16,7 +16,7 @@ type Config struct {
 func Load() (*Config, error) {
 	// 默认配置
 	cfg := &Config{
-		ServerAddr:    ":8080",
+		ServerAddr:    "0.0.0.0:8686",
 		ImageBasePath: "./static",
 		AvifSupport:   true,
 	}
