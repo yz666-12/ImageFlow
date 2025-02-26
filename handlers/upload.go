@@ -27,7 +27,7 @@ func init() {
 func UploadHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
-			http.ServeFile(w, r, "static/upload.html")
+			http.ServeFile(w, r, "static/index.html")
 			return
 		}
 
@@ -79,7 +79,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 
 		// 确定目标目录
 		targetDir := filepath.Join(cfg.ImageBasePath, orientation)
-		
+
 		// 生成规范的文件名: 年月日_时分秒_随机数.扩展名
 		timestamp := time.Now().Format("20060102_150405")
 		randomPart := fmt.Sprintf("%04d", rand.Intn(10000)) // 添加4位随机数
@@ -194,4 +194,4 @@ func convertImage(sourcePath, baseDir string, cfg *config.Config) {
 
 	wg.Wait()
 	fmt.Printf("图片 %s 转换完成\n", sourcePath)
-} 
+}

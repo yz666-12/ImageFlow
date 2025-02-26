@@ -1,0 +1,293 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* 暗黑模式变量 */
+:root {
+    --bg-light: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+    --bg-dark: linear-gradient(135deg, #1a1c2e 0%, #2d3748 100%);
+    --bubble-light: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    --bubble-dark: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+    --pattern-light: rgba(156, 146, 172, 0.05);
+    --pattern-dark: rgba(156, 146, 172, 0.1);
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+/* 暗黑模式滚动条 */
+.dark::-webkit-scrollbar-track {
+    background: #2d3748;
+}
+
+.dark::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+.dark::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+}
+
+/* 全局样式 */
+html {
+    height: 100%;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: var(--bg-light);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    color: #1a202c;
+}
+
+/* 暗黑模式基础样式 */
+html.dark {
+    background: var(--bg-dark);
+    color: #e2e8f0;
+}
+
+.dark body, body.dark-mode {
+    background: var(--bg-dark);
+    color: #e2e8f0;
+}
+
+/* 亮色模式基础样式 */
+html:not(.dark) {
+    background: var(--bg-light);
+    color: #1a202c;
+}
+
+body.light-mode {
+    background: var(--bg-light);
+    color: #1a202c;
+}
+
+/* 确保页面背景在暗黑模式下正确显示 */
+.page-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.dark .page-bg, .dark-mode .page-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-color: #1a1c2e; /* 确保背景颜色也是暗色 */
+}
+
+.light-mode .page-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-color: #f5f7fa; /* 确保背景颜色是亮色 */
+}
+
+.drop-zone {
+    border: 2px dashed #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.dark .drop-zone {
+    border-color: #4b5563;
+}
+
+.drop-zone.active {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.dark .drop-zone.active {
+    border-color: #60a5fa;
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.file-item {
+    transition: all 0.3s ease;
+}
+
+.progress-bar {
+    transition: width 0.5s ease;
+}
+
+.upload-btn {
+    transition: all 0.2s ease;
+}
+
+.upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .upload-btn:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+}
+
+.upload-btn:active {
+    transform: translateY(0);
+}
+
+.logo-gradient {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+/* 动态背景 */
+.animated-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    opacity: 0.5;
+}
+
+.animated-bg .bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--bubble-light);
+    animation: float 15s infinite ease-in-out;
+}
+
+.dark .animated-bg .bubble {
+    background: var(--bubble-dark);
+}
+
+.animated-bg .bubble:nth-child(1) {
+    width: 100px;
+    height: 100px;
+    left: 10%;
+    top: 20%;
+    animation-delay: 0s;
+}
+
+.animated-bg .bubble:nth-child(2) {
+    width: 150px;
+    height: 150px;
+    right: 15%;
+    top: 40%;
+    animation-delay: 2s;
+}
+
+.animated-bg .bubble:nth-child(3) {
+    width: 80px;
+    height: 80px;
+    left: 20%;
+    bottom: 30%;
+    animation-delay: 4s;
+}
+
+.animated-bg .bubble:nth-child(4) {
+    width: 120px;
+    height: 120px;
+    right: 25%;
+    bottom: 20%;
+    animation-delay: 6s;
+}
+
+.animated-bg .bubble:nth-child(5) {
+    width: 200px;
+    height: 200px;
+    left: 40%;
+    top: 60%;
+    animation-delay: 8s;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0) translateX(0) rotate(0);
+    }
+    33% {
+        transform: translateY(-20px) translateX(10px) rotate(5deg);
+    }
+    66% {
+        transform: translateY(10px) translateX(-10px) rotate(-5deg);
+    }
+    100% {
+        transform: translateY(0) translateX(0) rotate(0);
+    }
+}
+
+/* 自定义动画类 */
+.fade-in {
+    animation: fadeIn 0.4s ease forwards;
+}
+
+.fade-out {
+    animation: fadeOut 0.4s ease forwards;
+}
+
+.slide-up {
+    animation: slideUp 0.4s ease forwards;
+}
+
+.slide-down {
+    animation: slideDown 0.4s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(20px); opacity: 0; }
+}
+
+/* 主题切换动画 */
+.theme-transition {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.theme-transition {
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* 移动设备优化 */
+@media (max-width: 640px) {
+    .max-w-4xl {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .text-4xl {
+        font-size: 1.75rem;
+    }
+    
+    .file-item .flex {
+        flex-direction: column;
+    }
+    
+    .file-item .w-16 {
+        width: 100%;
+        height: 120px;
+        margin-bottom: 1rem;
+    }
+    
+    .file-item .ml-4 {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+} 
