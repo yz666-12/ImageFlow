@@ -149,8 +149,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // 检查文件大小
-            if (file.size > 10 * 1024 * 1024) { // 10MB
-                showStatus('图片大小不能超过 10MB', 'error');
+            if (file.size > 100 * 1024 * 1024) { // 100MB
+                showStatus('图片大小不能超过 100MB', 'error');
                 return;
             }
             
@@ -318,38 +318,42 @@ document.addEventListener('DOMContentLoaded', function() {
         noUploads.style.display = 'none';
         
         const item = document.createElement('div');
-        item.className = 'file-item bg-gray-50 dark:bg-gray-700 rounded-xl p-4 border border-gray-100 dark:border-gray-600 opacity-0 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+        item.className = 'file-item bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-100 dark:border-gray-600 opacity-0 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
         
         const orientation = data.orientation === 'landscape' ? '横屏' : '竖屏';
         
+        // Create a more compact layout with circular progress
         item.innerHTML = `
-            <div class="flex items-center">
-                <div class="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src="${URL.createObjectURL(file)}" class="w-full h-full object-cover" alt="${file.name}">
-                </div>
-                <div class="ml-4 flex-grow">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-xs">${file.name}</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 mr-2">
-                                    ${orientation}
-                                </span>
-                                <span>${formatFileSize(file.size)}</span>
-                            </p>
-                        </div>
-                        <div class="conversion-status text-xs font-medium text-yellow-600 dark:text-yellow-400">
-                            转换中...
-                        </div>
+            <div class="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden flex-shrink-0 mr-3">
+                <img src="${URL.createObjectURL(file)}" class="w-full h-full object-cover" alt="${file.name}">
+            </div>
+            <div class="flex-grow">
+                <div class="flex justify-between items-center">
+                    <div class="max-w-[160px]">
+                        <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${file.name}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 mr-2">
+                                ${orientation}
+                            </span>
+                            <span>${formatFileSize(file.size)}</span>
+                        </p>
                     </div>
-                    <div class="mt-2 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 overflow-hidden">
-                        <div class="progress-bar bg-gradient-to-r from-indigo-500 to-purple-600 h-full" style="width: 0%"></div>
+                    <div class="flex items-center ml-2">
+                        <div class="circular-progress mr-2" style="--progress: 0%; --progress-color: var(--${isDarkMode() ? 'dark' : 'light'}-circular-progress);">
+                            <span class="progress-value">0%</span>
+                        </div>
+                        <div class="conversion-status text-xs font-medium text-yellow-600 dark:text-yellow-400">处理中</div>
                     </div>
                 </div>
             </div>
         `;
         
         uploads.insertBefore(item, uploads.firstChild);
+        
+        // Add CSS variables for progress colors
+        document.documentElement.style.setProperty('--light-circular-progress', 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)');
+        document.documentElement.style.setProperty('--dark-circular-progress', 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)');
+        document.documentElement.style.setProperty('--progress-text', isDarkMode() ? '#e2e8f0' : '#1a202c');
         
         // 添加动画类
         item.classList.add('fade-in');
@@ -359,8 +363,9 @@ document.addEventListener('DOMContentLoaded', function() {
             item.style.opacity = 1;
         }, 400);
         
-        // 模拟进度条和转换完成
-        const progressBar = item.querySelector('.progress-bar');
+        // 模拟进度圆环和转换完成
+        const circularProgress = item.querySelector('.circular-progress');
+        const progressValue = item.querySelector('.progress-value');
         const conversionStatus = item.querySelector('.conversion-status');
         
         // 模拟进度增加
@@ -378,15 +383,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     conversionStatus.classList.add('text-green-600', 'dark:text-green-400');
                     
                     // 添加完成效果
-                    const isDarkMode = htmlElement.classList.contains('dark');
-                    item.style.backgroundColor = isDarkMode ? '#065f46' : '#f0fdf4';
+                    const isDarkModeActive = isDarkMode();
+                    item.style.backgroundColor = isDarkModeActive ? '#065f46' : '#f0fdf4';
                     setTimeout(() => {
                         item.style.backgroundColor = '';
                     }, 1500);
                 }, 500);
             }
-            progressBar.style.width = `${progress}%`;
+            
+            // Update circular progress
+            circularProgress.style.setProperty('--progress', `${progress}%`);
+            progressValue.textContent = `${Math.floor(progress)}%`;
         }, 300);
+    }
+    
+    // Helper function to check dark mode
+    function isDarkMode() {
+        return document.documentElement.classList.contains('dark');
     }
     
     function formatFileSize(bytes) {
