@@ -22,6 +22,11 @@ func main() {
 	
 	// 设置路由
 	http.HandleFunc("/api/random", handlers.RandomImage(cfg))
+	http.HandleFunc("/upload", handlers.UploadHandler(cfg))
+	
+	// 提供静态文件
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 	
 	// 启动服务器
 	log.Printf("Starting server on %s", cfg.ServerAddr)

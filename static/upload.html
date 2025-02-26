@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageFlow - 图片上传</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .upload-container {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s;
+        }
+        .upload-container:hover {
+            border-color: #999;
+        }
+        .upload-container.dragover {
+            background-color: #f7f7f7;
+            border-color: #666;
+        }
+        #file-input {
+            display: none;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 20px;
+            display: none;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        #upload-list {
+            margin-top: 30px;
+        }
+        .upload-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .upload-item img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            margin-right: 15px;
+        }
+        .upload-info {
+            flex-grow: 1;
+        }
+        .upload-status {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImageFlow 图片上传</h1>
+    
+    <div class="upload-container" id="drop-area">
+        <p>拖放图片到这里或点击选择文件</p>
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png">
+        <button class="btn" id="select-btn">选择图片</button>
+        <img id="preview" alt="预览">
+    </div>
+    
+    <button class="btn" id="upload-btn" style="display: none;">上传图片</button>
+    
+    <div id="status"></div>
+    
+    <div id="upload-list">
+        <h2>最近上传</h2>
+        <div id="uploads"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('drop-area');
+            const fileInput = document.getElementById('file-input');
+            const selectBtn = document.getElementById('select-btn');
+            const uploadBtn = document.getElementById('upload-btn');
+            const preview = document.getElementById('preview');
+            const status = document.getElementById('status');
+            const uploads = document.getElementById('uploads');
+            
+            let selectedFile = null;
+            
+            // 点击选择按钮
+            selectBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // 文件选择变化
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // 拖放事件
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('dragover');
+            }
+            
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            }
+            
+            function handleFileSelect(e) {
+                if (fileInput.files.length > 0) {
+                    handleFile(fileInput.files[0]);
+                }
+            }
+            
+            function handleFile(file) {
+                // 检查文件类型
+                if (!file.type.match('image/jpeg') && !file.type.match('image/png')) {
+                    showStatus('只支持 JPG 和 PNG 格式的图片', 'error');
+                    return;
+                }
+                
+                selectedFile = file;
+                
+                // 显示预览
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    uploadBtn.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // 上传按钮点击
+            uploadBtn.addEventListener('click', uploadFile);
+            
+            function uploadFile() {
+                if (!selectedFile) {
+                    showStatus('请先选择图片', 'error');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+                
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = '上传中...';
+                showStatus('正在上传...', '');
+                
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showStatus('上传成功: ' + data.message, 'success');
+                        addUploadToList(selectedFile, data);
+                        
+                        // 重置表单
+                        preview.style.display = 'none';
+                        uploadBtn.style.display = 'none';
+                        fileInput.value = '';
+                        selectedFile = null;
+                    } else {
+                        showStatus('上传失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showStatus('上传出错: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '上传图片';
+                });
+            }
+            
+            function showStatus(message, type) {
+                status.textContent = message;
+                status.style.display = 'block';
+                status.className = '';
+                if (type) {
+                    status.classList.add(type);
+                }
+            }
+            
+            function addUploadToList(file, data) {
+                const item = document.createElement('div');
+                item.className = 'upload-item';
+                
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                
+                const info = document.createElement('div');
+                info.className = 'upload-info';
+                info.innerHTML = `
+                    <div>文件名: ${file.name}</div>
+                    <div>方向: ${data.orientation === 'landscape' ? '横屏' : '竖屏'}</div>
+                    <div>大小: ${formatFileSize(file.size)}</div>
+                `;
+                
+                const statusEl = document.createElement('div');
+                statusEl.className = 'upload-status';
+                statusEl.textContent = '转换中...';
+                
+                item.appendChild(img);
+                item.appendChild(info);
+                item.appendChild(statusEl);
+                
+                uploads.insertBefore(item, uploads.firstChild);
+                
+                // 模拟转换完成
+                setTimeout(() => {
+                    statusEl.textContent = '已完成';
+                    statusEl.style.color = '#4CAF50';
+                }, 3000);
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+                else return (bytes / 1048576).toFixed(2) + ' MB';
+            }
+        });
+    </script>
+</body>
+</html> 
