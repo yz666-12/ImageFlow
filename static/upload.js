@@ -241,7 +241,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 文件选择变化
-    fileInput.addEventListener('change', handleFileSelect);
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(e.target.files);
+    });
     
     // 拖放事件
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -275,84 +277,102 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function handleDrop(e) {
         const dt = e.dataTransfer;
-        const files = dt.files;
-        
-        if (files.length > 0) {
-            handleFiles(files);
-        }
+        handleFiles(dt.files);
     }
     
-    function handleFiles(files) {
-        if (files.length > 0) {
-            const file = files[0];
-            
+    function handleFiles(fileList) {
+        const validFiles = [];
+        const maxFiles = 10; // 最大允许上传10个文件
+        
+        // 检查文件数量
+        if (fileList.length > maxFiles) {
+            showStatus(`一次最多只能上传 ${maxFiles} 个文件`, 'error');
+            return;
+        }
+        
+        // 将 FileList 转换为数组并验证每个文件
+        Array.from(fileList).forEach(file => {
             // 检查文件类型
             const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
             if (!validTypes.includes(file.type)) {
-                showStatus('只支持 JPG 和 PNG 格式的图片', 'error');
+                showStatus(`文件 ${file.name} 格式不支持，只支持 JPG 和 PNG`, 'error');
                 return;
             }
             
             // 检查文件大小
             if (file.size > 100 * 1024 * 1024) { // 100MB
-                showStatus('图片大小不能超过 100MB', 'error');
+                showStatus(`文件 ${file.name} 太大，不能超过 100MB`, 'error');
                 return;
             }
             
-            selectedFile = file;
-            fileInput.files = files;
-            displayPreview(file);
+            validFiles.push(file);
+        });
+        
+        if (validFiles.length > 0) {
+            displayPreviews(validFiles);
         }
     }
     
-    function handleFileSelect(e) {
-        const files = e.target.files;
-        handleFiles(files);
-    }
-    
-    function displayPreview(file) {
-        const reader = new FileReader();
+    function displayPreviews(files) {
+        // 清空预览容器
+        previewContainer.innerHTML = '';
+        previewContainer.classList.remove('hidden');
+        uploadBtnContainer.classList.remove('hidden');
         
-        reader.onload = function(e) {
-            preview.src = e.target.result;
-            previewContainer.classList.remove('hidden');
-            uploadBtnContainer.classList.remove('hidden');
+        // 创建预览容器的包装器
+        const previewsWrapper = document.createElement('div');
+        previewsWrapper.className = 'preview-container grid grid-cols-2 sm:grid-cols-3 gap-4';
+        previewContainer.appendChild(previewsWrapper);
+        
+        files.forEach((file, index) => {
+            const previewWrapper = document.createElement('div');
+            previewWrapper.className = 'preview-item relative bg-gray-50 dark:bg-gray-700 rounded-lg transition-all duration-300 ease-in-out overflow-hidden';
             
-            // 添加动画类
-            previewContainer.classList.add('slide-up');
-            uploadBtnContainer.classList.add('slide-up');
+            // 创建预览图片的 URL
+            const previewUrl = URL.createObjectURL(file);
             
-            // 动画结束后移除类
-            setTimeout(() => {
-                previewContainer.classList.remove('slide-up');
-                uploadBtnContainer.classList.remove('slide-up');
-            }, 400);
-        };
-        reader.readAsDataURL(file);
+            const previewContent = `
+                <div class="relative aspect-square">
+                    <img src="${previewUrl}" class="w-full h-full object-cover" alt="${file.name}">
+                    <div class="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity duration-200"></div>
+                    <button type="button" class="remove-preview absolute top-2 right-2 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100" data-index="${index}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-3">
+                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${file.name}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${formatFileSize(file.size)}</p>
+                </div>
+            `;
+            
+            previewWrapper.innerHTML = previewContent;
+            previewsWrapper.appendChild(previewWrapper);
+            
+            // 存储文件引用和 URL
+            previewWrapper._file = file;
+            previewWrapper._previewUrl = previewUrl;
+            
+            // 添加删除预览的事件处理
+            previewWrapper.querySelector('.remove-preview').addEventListener('click', function(e) {
+                e.stopPropagation(); // 防止触发父元素的点击事件
+                URL.revokeObjectURL(previewUrl); // 释放 URL 对象
+                previewWrapper.remove();
+                if (previewsWrapper.children.length === 0) {
+                    previewContainer.classList.add('hidden');
+                    uploadBtnContainer.classList.add('hidden');
+                }
+            });
+        });
     }
-    
-    // 移除预览图片
-    removeBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        previewContainer.classList.add('slide-down');
-        uploadBtnContainer.classList.add('slide-down');
-        
-        setTimeout(() => {
-            previewContainer.classList.add('hidden');
-            uploadBtnContainer.classList.add('hidden');
-            previewContainer.classList.remove('slide-down');
-            uploadBtnContainer.classList.remove('slide-down');
-            fileInput.value = '';
-            selectedFile = null;
-        }, 400);
-    });
     
     // 表单提交
     uploadForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        if (!selectedFile) {
+        const previews = previewContainer.querySelectorAll('.preview-item');
+        if (previews.length === 0) {
             showStatus('请先选择图片', 'error');
             return;
         }
@@ -364,7 +384,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        const formData = new FormData(this);
+        const formData = new FormData();
+        previews.forEach(preview => {
+            // 使用存储的原始文件
+            const file = preview._file;
+            if (file) {
+                formData.append('images[]', file);
+            }
+        });
         
         uploadBtn.disabled = true;
         uploadBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>上传中...</span>';
@@ -380,7 +407,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (response.status === 401) {
-                // API key is invalid or expired
                 localStorage.removeItem('api_key');
                 updateApiKeyStatus(false);
                 showApiKeyOverlay();
@@ -389,24 +415,34 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            if (data.status === 'success') {
-                showStatus('上传成功！', 'success');
-                addUploadToList(selectedFile, data);
+            let successCount = 0;
+            let errorCount = 0;
+            
+            data.results.forEach(result => {
+                if (result.status === 'success') {
+                    successCount++;
+                    addUploadToList(result);
+                } else {
+                    errorCount++;
+                    showStatus(`文件 ${result.filename} 上传失败: ${result.message}`, 'error');
+                }
+            });
+            
+            if (successCount > 0) {
+                showStatus(`成功上传 ${successCount} 个文件${errorCount > 0 ? `，${errorCount} 个文件失败` : ''}`, 'success');
                 
-                // 重置表单
-                previewContainer.classList.add('slide-down');
-                uploadBtnContainer.classList.add('slide-down');
+                // 清理所有预览的 URL 对象
+                const previews = previewContainer.querySelectorAll('.preview-item');
+                previews.forEach(preview => {
+                    if (preview._previewUrl) {
+                        URL.revokeObjectURL(preview._previewUrl);
+                    }
+                });
                 
-                setTimeout(() => {
-                    previewContainer.classList.add('hidden');
-                    uploadBtnContainer.classList.add('hidden');
-                    previewContainer.classList.remove('slide-down');
-                    uploadBtnContainer.classList.remove('slide-down');
-                    fileInput.value = '';
-                    selectedFile = null;
-                }, 400);
+                // 重置表单和预览
+                resetUploadForm();
             } else {
-                showStatus('上传失败: ' + data.message, 'error');
+                showStatus('所有文件上传失败', 'error');
             }
         })
         .catch(error => {
@@ -417,6 +453,25 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadBtn.innerHTML = '上传图片';
         });
     });
+    
+    function resetUploadForm() {
+        // 重置文件输入
+        fileInput.value = '';
+        
+        // 添加淡出动画
+        previewContainer.classList.add('fade-out');
+        uploadBtnContainer.classList.add('fade-out');
+        
+        // 等待动画完成后清理
+        setTimeout(() => {
+            previewContainer.innerHTML = '';
+            previewContainer.classList.add('hidden');
+            previewContainer.classList.remove('fade-out');
+            
+            uploadBtnContainer.classList.add('hidden');
+            uploadBtnContainer.classList.remove('fade-out');
+        }, 300);
+    }
     
     function showStatus(message, type) {
         statusContainer.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'bg-indigo-50', 'bg-green-900', 'bg-red-900', 'bg-indigo-900');
@@ -477,47 +532,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function addUploadToList(file, data) {
+    function addUploadToList(result) {
         // 隐藏"暂无上传记录"
         noUploads.style.display = 'none';
         
         const item = document.createElement('div');
         item.className = 'file-item bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-100 dark:border-gray-600 opacity-0 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
         
-        const orientation = data.orientation === 'landscape' ? '横屏' : '竖屏';
+        // 使用文件名作为显示名称
+        const displayName = result.filename || '未知文件';
+        const orientation = result.orientation === 'landscape' ? '横屏' : '竖屏';
         
-        // Create a more compact layout with circular progress
         item.innerHTML = `
-            <div class="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden flex-shrink-0 mr-3">
-                <img src="${URL.createObjectURL(file)}" class="w-full h-full object-cover" alt="${file.name}">
-            </div>
-            <div class="flex-grow">
-                <div class="flex justify-between items-center">
-                    <div class="max-w-[160px]">
-                        <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${file.name}</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 mr-2">
-                                ${orientation}
-                            </span>
-                            <span>${formatFileSize(file.size)}</span>
-                        </p>
+            <div class="flex items-center p-3">
+                <div class="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden flex-shrink-0 mr-3">
+                    <div class="w-full h-full flex items-center justify-center bg-indigo-100 dark:bg-indigo-900">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-500 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
                     </div>
-                    <div class="flex items-center ml-2">
-                        <div class="circular-progress mr-2" style="--progress: 0%; --progress-color: var(--${isDarkMode() ? 'dark' : 'light'}-circular-progress);">
-                            <span class="progress-value">0%</span>
+                </div>
+                <div class="flex-grow">
+                    <div class="flex justify-between items-center">
+                        <div class="max-w-[160px]">
+                            <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${displayName}</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 mr-2">
+                                    ${orientation}
+                                </span>
+                                <span class="text-xs text-gray-500">${result.savedAs || ''}</span>
+                            </p>
                         </div>
-                        <div class="conversion-status text-xs font-medium text-yellow-600 dark:text-yellow-400">处理中</div>
+                        <div class="flex items-center ml-2">
+                            <div class="text-xs font-medium text-green-600 dark:text-green-400">已完成</div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         
         uploads.insertBefore(item, uploads.firstChild);
-        
-        // Add CSS variables for progress colors
-        document.documentElement.style.setProperty('--light-circular-progress', 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)');
-        document.documentElement.style.setProperty('--dark-circular-progress', 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)');
-        document.documentElement.style.setProperty('--progress-text', isDarkMode() ? '#e2e8f0' : '#1a202c');
         
         // 添加动画类
         item.classList.add('fade-in');
@@ -526,39 +580,6 @@ document.addEventListener('DOMContentLoaded', function() {
             item.classList.remove('fade-in');
             item.style.opacity = 1;
         }, 400);
-        
-        // 模拟进度圆环和转换完成
-        const circularProgress = item.querySelector('.circular-progress');
-        const progressValue = item.querySelector('.progress-value');
-        const conversionStatus = item.querySelector('.conversion-status');
-        
-        // 模拟进度增加
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                
-                // 转换完成
-                setTimeout(() => {
-                    conversionStatus.textContent = '已完成';
-                    conversionStatus.classList.remove('text-yellow-600', 'dark:text-yellow-400');
-                    conversionStatus.classList.add('text-green-600', 'dark:text-green-400');
-                    
-                    // 添加完成效果
-                    const isDarkModeActive = isDarkMode();
-                    item.style.backgroundColor = isDarkModeActive ? '#065f46' : '#f0fdf4';
-                    setTimeout(() => {
-                        item.style.backgroundColor = '';
-                    }, 1500);
-                }, 500);
-            }
-            
-            // Update circular progress
-            circularProgress.style.setProperty('--progress', `${progress}%`);
-            progressValue.textContent = `${Math.floor(progress)}%`;
-        }, 300);
     }
     
     // Helper function to check dark mode

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -32,94 +33,148 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		// 解析表单
-		err := r.ParseMultipartForm(32 << 20) // 32MB 最大内存
+		err := r.ParseMultipartForm(100 << 20) // 100MB 最大内存
 		if err != nil {
 			http.Error(w, "无法解析表单", http.StatusBadRequest)
 			return
 		}
 
 		// 获取上传的文件
-		file, handler, err := r.FormFile("image")
-		if err != nil {
-			http.Error(w, "无法获取上传的文件", http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-
-		// 检查文件类型
-		ext := strings.ToLower(filepath.Ext(handler.Filename))
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-			http.Error(w, "只支持 JPG 和 PNG 格式", http.StatusBadRequest)
+		files := r.MultipartForm.File["images[]"] // 修改为 images[]
+		if len(files) == 0 {
+			http.Error(w, "没有上传文件", http.StatusBadRequest)
 			return
 		}
 
-		// 创建临时文件
-		tempFile, err := os.CreateTemp("", "upload-*"+ext)
-		if err != nil {
-			http.Error(w, "无法创建临时文件", http.StatusInternalServerError)
-			return
+		results := make([]map[string]interface{}, 0)
+
+		for _, fileHeader := range files {
+			// 检查文件类型
+			ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+			if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "只支持 JPG 和 PNG 格式",
+				})
+				continue
+			}
+
+			// 打开上传的文件
+			file, err := fileHeader.Open()
+			if err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法打开文件",
+				})
+				continue
+			}
+			defer file.Close()
+
+			// 创建临时文件
+			tempFile, err := os.CreateTemp("", "upload-*"+ext)
+			if err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法创建临时文件",
+				})
+				continue
+			}
+			tempPath := tempFile.Name()
+			defer os.Remove(tempPath)
+			defer tempFile.Close()
+
+			// 复制上传的文件到临时文件
+			_, err = io.Copy(tempFile, file)
+			if err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法保存文件",
+				})
+				continue
+			}
+			tempFile.Close()
+
+			// 检测图片方向
+			orientation, err := detectOrientation(tempPath)
+			if err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法检测图片方向",
+				})
+				continue
+			}
+
+			// 确定目标目录
+			targetDir := filepath.Join(cfg.ImageBasePath, orientation)
+
+			// 生成规范的文件名
+			timestamp := time.Now().Format("20060102_150405")
+			randomPart := fmt.Sprintf("%04d", rand.Intn(10000))
+			filename := fmt.Sprintf("%s_%s%s", timestamp, randomPart, ext)
+			targetPath := filepath.Join(targetDir, filename)
+
+			// 确保目标目录存在
+			if err := os.MkdirAll(targetDir, 0755); err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法创建目标目录",
+				})
+				continue
+			}
+
+			// 复制文件到目标位置
+			if err := copyFile(tempPath, targetPath); err != nil {
+				results = append(results, map[string]interface{}{
+					"filename": fileHeader.Filename,
+					"status":   "error",
+					"message":  "无法保存到目标位置",
+				})
+				continue
+			}
+
+			// 异步转换为 WebP 和 AVIF
+			go convertImage(targetPath, targetDir, cfg)
+
+			// 添加成功结果
+			results = append(results, map[string]interface{}{
+				"filename":    fileHeader.Filename,
+				"status":      "success",
+				"message":     "上传成功",
+				"savedAs":     filename,
+				"orientation": orientation,
+			})
 		}
-		defer os.Remove(tempFile.Name())
-		defer tempFile.Close()
 
-		// 复制上传的文件到临时文件
-		_, err = io.Copy(tempFile, file)
-		if err != nil {
-			http.Error(w, "无法保存上传的文件", http.StatusInternalServerError)
-			return
-		}
-		tempFile.Close() // 关闭文件以便后续读取
-
-		// 检测图片方向
-		orientation, err := detectOrientation(tempFile.Name())
-		if err != nil {
-			http.Error(w, "无法检测图片方向: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// 确定目标目录
-		targetDir := filepath.Join(cfg.ImageBasePath, orientation)
-
-		// 生成规范的文件名: 年月日_时分秒_随机数.扩展名
-		timestamp := time.Now().Format("20060102_150405")
-		randomPart := fmt.Sprintf("%04d", rand.Intn(10000)) // 添加4位随机数
-		filename := fmt.Sprintf("%s_%s%s", timestamp, randomPart, ext)
-		targetPath := filepath.Join(targetDir, filename)
-
-		// 复制文件到目标目录
-		srcFile, err := os.Open(tempFile.Name())
-		if err != nil {
-			http.Error(w, "无法打开临时文件", http.StatusInternalServerError)
-			return
-		}
-		defer srcFile.Close()
-
-		// 确保目标目录存在
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
-			http.Error(w, "无法创建目标目录", http.StatusInternalServerError)
-			return
-		}
-
-		dstFile, err := os.Create(targetPath)
-		if err != nil {
-			http.Error(w, "无法创建目标文件", http.StatusInternalServerError)
-			return
-		}
-		defer dstFile.Close()
-
-		_, err = io.Copy(dstFile, srcFile)
-		if err != nil {
-			http.Error(w, "无法保存文件到目标目录", http.StatusInternalServerError)
-			return
-		}
-
-		// 异步转换为 WebP 和 AVIF
-		go convertImage(targetPath, targetDir, cfg)
-
-		// 返回成功消息
+		// 返回所有文件的处理结果
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"success","message":"图片上传成功","orientation":"%s","filename":"%s"}`, orientation, filename)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": results,
+		})
 	}
+}
+
+// 添加辅助函数
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
 }
 
 // 检测图片方向
