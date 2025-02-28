@@ -1,0 +1,19 @@
+# 忽略static目录下的landscape和portrait文件夹
+static/landscape/
+static/portrait/
+
+# 系统文件
+.DS_Store
+
+# 编译生成的二进制文件
+imageflow
+
+# IDE配置文件
+.idea/
+.vscode/
+
+# 依赖目录
+vendor/
+
+# 日志文件
+*.log
