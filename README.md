@@ -190,6 +190,7 @@ ImageFlow/
 ├── scripts/        # 实用脚本
 ├── static/         # 静态文件和图片存储
 │   ├── images/     # 图标和界面图片
+│   ├── index.html  # 主页
 │   ├── styles.css  # 样式表
 │   ├── upload.js   # 上传功能脚本
 │   ├── landscape/  # 横屏图片
