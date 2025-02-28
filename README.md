@@ -181,16 +181,6 @@ sudo systemctl enable imageflow
 sudo systemctl start imageflow
 ```
 
-### Docker 部署
-
-```bash
-# 构建镜像
-docker build -t imageflow .
-
-# 运行容器
-docker run -d -p 8686:8686 -v /path/to/images:/app/static imageflow
-```
-
 ## 📁 项目结构
 
 ```
