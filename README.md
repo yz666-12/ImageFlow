@@ -9,10 +9,11 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 
 ## ✨ 主要特性
 
+- **API 密钥验证**：安全的 API 密钥验证机制，保护您的图片资源
 - **自适应图片服务**：根据设备类型（桌面/移动）自动提供横屏或竖屏图片
 - **现代格式支持**：自动检测浏览器兼容性，提供 WebP 或 AVIF 格式的图片
 - **简单的 API**：通过简单的 API 调用获取随机图片
-- **用户友好的上传界面**：拖放式上传界面，支持暗黑模式，方便管理图片资源
+- **用户友好的上传界面**：拖放式上传界面，支持暗黑模式，实时预览，方便管理图片资源
 - **自动图片处理**：上传后自动检测图片方向并转换为多种格式
 - **异步处理**：图片转换在后台进行，不影响主服务
 - **高性能**：针对网络性能优化，减少加载时间
@@ -20,19 +21,20 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 
 ## 🚀 技术优势
 
-1. **格式转换**：自动将上传的图片转换为 WebP 和 AVIF 格式，减少文件大小高达 30-50%
-2. **设备适配**：为不同设备提供最合适的图片方向，提升用户体验
-3. **热重载**：上传的图片立即可用，无需重启服务
-4. **并发处理**：利用 Go 的并发特性高效处理图片转换
-5. **可扩展性**：模块化设计，易于扩展和定制
-6. **响应式设计**：完美适配桌面和移动设备
-7. **暗黑模式支持**：自动适应系统主题，也可手动切换
+1. **安全性**：API 密钥验证机制，确保图片资源的安全访问
+2. **格式转换**：自动将上传的图片转换为 WebP 和 AVIF 格式，减少文件大小高达 30-50%
+3. **设备适配**：为不同设备提供最合适的图片方向，提升用户体验
+4. **热重载**：上传的图片立即可用，无需重启服务
+5. **并发处理**：利用 Go 的并发特性高效处理图片转换
+6. **可扩展性**：模块化设计，易于扩展和定制
+7. **响应式设计**：完美适配桌面和移动设备
+8. **暗黑模式支持**：自动适应系统主题，也可手动切换
 
 ## 📸 界面预览
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow1.png" alt="ImageFlow">
-    <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow2.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow2.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
@@ -73,7 +75,8 @@ go build -o imageflow
 {
   "server_addr": "0.0.0.0:8686",
   "image_base_path": "./static",
-  "avif_support": true
+  "avif_support": true,
+  "api_key": "your-api-key-here"
 }
 ```
 
@@ -93,14 +96,23 @@ go run main.go
 
 ## 📝 使用方法
 
+### API 密钥验证
+
+首次使用时，系统会要求您输入 API 密钥。您可以：
+
+1. 在配置文件中设置 API 密钥
+2. 通过 Web 界面输入 API 密钥
+3. API 密钥验证成功后会被保存，无需重复输入
+
 ### 上传图片
 
 访问 `http://localhost:8686/` 打开上传界面，您可以：
 
 1. 拖放图片到上传区域
 2. 点击选择图片按钮上传
-3. 系统会自动检测图片是横屏还是竖屏
-4. 上传成功后，图片会自动转换为 WebP 和 AVIF 格式
+3. 实时预览选择的图片
+4. 系统会自动检测图片是横屏还是竖屏
+5. 上传成功后，图片会自动转换为 WebP 和 AVIF 格式
 
 ### 获取随机图片
 
@@ -108,22 +120,25 @@ go run main.go
 
 ```
 GET http://localhost:8686/api/random
+Headers:
+  X-API-Key: your-api-key-here
 ```
 
 系统会根据请求头中的设备类型和浏览器支持情况，返回最合适的图片。
 
 ### API 参考
 
-| 端点 | 方法 | 描述 | 参数 |
-|------|------|------|------|
-| `/api/random` | GET | 获取随机图片 | `orientation`: 可选，指定 "landscape" 或 "portrait" |
-| `/api/images` | GET | 获取图片列表 | `limit`: 可选，限制返回数量 |
-| `/upload` | POST | 上传新图片 | 表单数据，字段名 "image" |
+| 端点 | 方法 | 描述 | 参数 | 认证 |
+|------|------|------|------|------|
+| `/api/random` | GET | 获取随机图片 | `orientation`: 可选，指定 "landscape" 或 "portrait" | 需要 API 密钥 |
+| `/api/images` | GET | 获取图片列表 | `limit`: 可选，限制返回数量 | 需要 API 密钥 |
+| `/upload` | POST | 上传新图片 | 表单数据，字段名 "image" | 需要 API 密钥 |
 
 ## 🌐 前端功能
 
 ImageFlow 提供了一个现代化的用户界面，具有以下特点：
 
+- **API 密钥管理**：方便的 API 密钥验证和管理界面
 - **响应式设计**：完美适配各种屏幕尺寸
 - **暗黑模式**：支持系统主题自动切换，也可手动切换
 - **拖放上传**：简单直观的文件上传体验
