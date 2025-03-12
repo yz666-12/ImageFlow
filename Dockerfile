@@ -34,32 +34,31 @@ WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
     libwebp-tools \
-    libavif-apps
+    libavif-apps \
+    wget
 
 # Create app user and set up directories with proper permissions
-RUN adduser -D -u 1000 appuser && \
-    mkdir -p /app/static/landscape/webp && \
-    mkdir -p /app/static/landscape/avif && \
-    mkdir -p /app/static/portrait/webp && \
-    mkdir -p /app/static/portrait/avif && \
-    chown -R appuser:appuser /app && \
-    chmod -R 777 /app/static
+RUN mkdir -p /app/static/images/original/landscape && \
+    mkdir -p /app/static/images/original/portrait && \
+    mkdir -p /app/static/images/landscape/webp && \
+    mkdir -p /app/static/images/landscape/avif && \
+    mkdir -p /app/static/images/portrait/webp && \
+    mkdir -p /app/static/images/portrait/avif 
 
 # Copy the binary and static files
 COPY --from=builder /app/imageflow /app/
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/config /app/config
 
-# Ensure proper permissions after copy
-RUN chown -R appuser:appuser /app && \
-    chmod -R 777 /app/static
-
-USER appuser
 
 # Set environment variables
 ENV API_KEY=""
+ENV STORAGE_TYPE="local"
+ENV LOCAL_STORAGE_PATH="/app/static/images"
 
 # Expose the port your application uses
-EXPOSE 8080
+EXPOSE 8686
 
-CMD ["./imageflow"] 
+CMD ["./imageflow"]
+
+

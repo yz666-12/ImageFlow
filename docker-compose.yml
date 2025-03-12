@@ -6,18 +6,26 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8686:8080"
+      - "8686:8686"
     environment:
       - API_KEY=${API_KEY:-default_api_key}
-      - SERVER_ADDR=0.0.0.0:8080
-      - IMAGE_BASE_PATH=/app/static
+      - SERVER_ADDR=0.0.0.0:8686
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - LOCAL_STORAGE_PATH=/app/static/images  
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_REGION=${S3_REGION:-}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - CUSTOM_DOMAIN=${CUSTOM_DOMAIN:-}
     volumes:
-      - ./static:/app/static
+      - ./static/images:/app/static/images
       - ./config:/app/config
-    user: "1000:1000"
+      - ./.env:/app/.env:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8686/health"]
       interval: 30s
       timeout: 10s
-      retries: 3 
+      retries: 3
+
