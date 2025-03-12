@@ -1,8 +1,9 @@
 # 忽略所有文件（递归）
-static/images/**/*.*
-
-# 保留所有空目录（核心技巧）
-!**/
+static/images/**
+# 保留所有目录（核心技巧）
+!static/images/**/
+# 特别保留 .gitkeep 文件（关键）
+!static/images/**/.gitkeep
 
 # 系统文件
 .DS_Store
