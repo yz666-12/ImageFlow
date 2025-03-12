@@ -44,8 +44,11 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 - Go 1.16 或更高版本
 - WebP 工具 (`cwebp`)
 - AVIF 工具 (`avifenc`)
+- Docker 和 Docker Compose (可选，用于容器化部署)
 
 ### 安装
+
+#### 方式一：直接安装
 
 1. 克隆仓库
 
@@ -67,7 +70,26 @@ go mod tidy
 go build -o imageflow
 ```
 
+#### 方式二：Docker 部署
+
+1. 克隆仓库并进入目录
+
+```bash
+git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
+cd ImageFlow
+```
+
+2. 使用 Docker Compose 启动服务
+
+```bash
+docker-compose up -d
+```
+
+服务将在 `http://localhost:8686` 启动。
+
 ### 配置
+
+#### 标准配置
 
 默认配置已经包含在代码中，但您可以通过创建 `config.json` 文件来自定义配置：
 
@@ -80,19 +102,24 @@ go build -o imageflow
 }
 ```
 
-### 运行
+#### Docker 环境变量配置
+
+当使用 Docker 部署时，可以通过环境变量进行配置：
+
+1. 创建 `.env` 文件：
 
 ```bash
-./imageflow
+API_KEY=your-api-key-here
 ```
 
-或者直接使用 Go 运行：
+2. 或者在 docker-compose.yml 中直接设置：
 
-```bash
-go run main.go
+```yaml
+environment:
+  - API_KEY=your-api-key-here
+  - SERVER_ADDR=0.0.0.0:8080
+  - IMAGE_BASE_PATH=/app/static
 ```
-
-服务将在 `http://localhost:8686` 启动。
 
 ## 📝 使用方法
 
@@ -149,7 +176,7 @@ ImageFlow 提供了一个现代化的用户界面，具有以下特点：
 
 ## 🛠️ 部署
 
-### 服务器部署
+### 方式一：直接部署
 
 1. 构建项目
 
@@ -159,7 +186,7 @@ go build -o imageflow
 
 2. 设置系统服务（以 systemd 为例）
 
-```
+```ini
 [Unit]
 Description=ImageFlow Service
 After=network.target
@@ -180,6 +207,41 @@ WantedBy=multi-user.target
 sudo systemctl enable imageflow
 sudo systemctl start imageflow
 ```
+
+### 方式二：Docker 部署
+
+1. 使用预配置的 Docker Compose 文件启动服务：
+
+```bash
+docker-compose up -d
+```
+
+2. 查看服务状态：
+
+```bash
+docker-compose ps
+```
+
+3. 查看服务日志：
+
+```bash
+docker-compose logs -f
+```
+
+4. 停止服务：
+
+```bash
+docker-compose down
+```
+
+#### Docker 部署注意事项
+
+- 服务默认运行在 8686 端口（主机）-> 8080 端口（容器内）
+- 图片文件通过 volumes 持久化存储在 `./static` 目录
+- 配置文件通过 volumes 挂载在 `./config` 目录
+- 容器内使用非 root 用户（UID 1000）运行服务
+- 自动包含 WebP 和 AVIF 转换工具
+- 支持健康检查
 
 ## 📁 项目结构
 
@@ -202,6 +264,8 @@ ImageFlow/
 ├── utils/          # 工具函数
 ├── main.go         # 主程序入口
 ├── Dockerfile      # Docker 构建文件
+├── docker-compose.yml # Docker Compose 配置文件
+├── .env            # 环境变量配置文件
 └── README.md       # 项目文档
 ```
 
