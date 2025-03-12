@@ -22,13 +22,8 @@ vendor/
 # 日志文件
 *.log
 
-# 环境变量文件
-.env
-.env.local
-.env.*.local
-
-# 保留示例环境变量文件
-!.env.example
+.env*         
+!.env.example  
 
 # 临时文件
 tmp/
