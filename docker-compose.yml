@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  imageflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8686:8080"
+    environment:
+      - API_KEY=${API_KEY:-default_api_key}
+      - SERVER_ADDR=0.0.0.0:8080
+      - IMAGE_BASE_PATH=/app/static
+    volumes:
+      - ./static:/app/static
+      - ./config:/app/config
+    user: "1000:1000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 

@@ -19,22 +19,20 @@ type Config struct {
 func Load() (*Config, error) {
 	// 默认配置
 	cfg := &Config{
-		ServerAddr:    "0.0.0.0:8686",
+		ServerAddr:    "0.0.0.0:8080", // 修改为 8080 以匹配 Dockerfile
 		ImageBasePath: "./static",
 		AvifSupport:   true,
 	}
 
-	// 加载 .env 文件
-	if err := godotenv.Load(); err != nil {
-		return nil, err
-	}
+	// 尝试加载 .env 文件，但不强制要求
+	_ = godotenv.Load()
 
 	// 从环境变量获取 API key
 	cfg.APIKey = os.Getenv("API_KEY")
 
 	// 如果配置文件存在，从文件加载其他配置
-	if _, err := os.Stat("config.json"); err == nil {
-		file, err := os.Open("config.json")
+	if _, err := os.Stat("config/config.json"); err == nil {
+		file, err := os.Open("config/config.json")
 		if err != nil {
 			return nil, err
 		}
