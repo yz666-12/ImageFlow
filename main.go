@@ -45,7 +45,8 @@ func main() {
 	configureMIMETypes()
 
 	// Create routes
-	http.HandleFunc("/upload", handlers.UploadHandler(cfg))
+	http.HandleFunc("/validate-api-key", handlers.ValidateAPIKey(cfg))
+	http.HandleFunc("/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
 
 	// 根据存储类型使用不同的随机图片处理器
 	if storageType == "s3" {

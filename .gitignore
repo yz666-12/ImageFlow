@@ -14,6 +14,7 @@ static/portrait/**/*
 
 # 编译生成的二进制文件
 imageflow
+bin/
 
 # IDE配置文件
 .idea/
@@ -24,3 +25,18 @@ vendor/
 
 # 日志文件
 *.log
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 保留示例环境变量文件
+!.env.example
+
+# 临时文件
+tmp/
+temp/
+
+# 测试覆盖率报告
+coverage.txt
