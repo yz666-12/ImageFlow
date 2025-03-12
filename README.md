@@ -1,7 +1,7 @@
 # ImageFlow - 现代图片服务系统
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/images/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>高效、智能的图片管理与分发系统</h3>
 </div>
 
@@ -33,8 +33,8 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 ## 📸 界面预览
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow1.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/images/imageflow2.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow1.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow2.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
