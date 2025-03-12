@@ -1,7 +1,7 @@
 # ImageFlow - 现代图片服务系统
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/images/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>高效、智能的图片管理与分发系统</h3>
 </div>
 
@@ -18,6 +18,7 @@ ImageFlow 是一个高效的图片服务系统，专为现代网站和应用程�
 - **异步处理**：图片转换在后台进行，不影响主服务
 - **高性能**：针对网络性能优化，减少加载时间
 - **易于部署**：简单的配置和部署流程
+
 
 ## 🚀 技术优势
 
