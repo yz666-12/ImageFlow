@@ -1,24 +1,8 @@
-# 忽略static目录下的landscape和portrait文件夹内的文件，但保留目录结构
-# 忽略所有landscape和portrait下的内容
-static/landscape/**
-static/portrait/**
-static/original/**
+# 忽略所有文件（递归）
+static/images/**/*.*
 
-# 白名单：保留avif/webp目录及其内容
-!static/landscape/avif/
-!static/landscape/webp/
-!static/original/webp/
-!static/original/avif/
-!static/portrait/avif/
-!static/portrait/webp/
-
-# 确保这些目录下的内容不被忽略
-!static/landscape/avif/**
-!static/landscape/webp/**
-!static/original/webp/
-!static/original/avif/
-!static/portrait/avif/**
-!static/portrait/webp/**
+# 保留所有空目录（核心技巧）
+!**/
 
 # 系统文件
 .DS_Store
