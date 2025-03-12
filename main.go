@@ -9,13 +9,33 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/handlers"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 加载配置
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Error loading .env file: %v", err)
+	}
+
+	// Initialize configuration
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// 只在使用S3存储时初始化S3客户端
+	storageType := os.Getenv("STORAGE_TYPE")
+	if storageType == "s3" {
+		if err := utils.InitS3Client(); err != nil {
+			log.Fatalf("Failed to initialize S3 client: %v", err)
+		}
+	}
+
+	// Initialize storage provider
+	if err := utils.InitStorage(); err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
 	// 确保图片目录存在
@@ -24,14 +44,28 @@ func main() {
 	// 设置MIME类型
 	configureMIMETypes()
 
-	// 设置路由
-	http.HandleFunc("/api/random", handlers.RandomImage(cfg))
-	http.HandleFunc("/validate-api-key", handlers.ValidateAPIKey(cfg))
-	http.HandleFunc("/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
+	// Create routes
+	http.HandleFunc("/upload", handlers.UploadHandler(cfg))
 
-	// 提供静态文件
+	// 根据存储类型使用不同的随机图片处理器
+	if storageType == "s3" {
+		http.HandleFunc("/api/random", handlers.RandomImageHandler(utils.S3Client))
+	} else {
+		http.HandleFunc("/api/random", handlers.LocalRandomImageHandler())
+		// 本地图片服务
+		localPath := os.Getenv("LOCAL_STORAGE_PATH")
+		if !filepath.IsAbs(localPath) {
+			localPath = filepath.Join(".", localPath)
+		}
+		http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(localPath))))
+	}
+
+	// 提供静态文件（包括图片、CSS、JS等）
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	http.Handle("/favicon.ico", fs)
+	http.Handle("/favicon-16.png", fs)
+	http.Handle("/favicon-32.png", fs)
 
 	// 提供上传页面
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -42,10 +76,10 @@ func main() {
 		http.NotFound(w, r)
 	})
 
-	// 启动服务器
-	log.Printf("Starting server on %s", cfg.ServerAddr)
-	if err := http.ListenAndServe(cfg.ServerAddr, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// Start server
+	log.Printf("Starting server on 0.0.0.0:8686 with %s storage", storageType)
+	if err := http.ListenAndServe("0.0.0.0:8686", nil); err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -65,6 +99,8 @@ func configureMIMETypes() {
 
 func ensureDirectories(cfg *config.Config) {
 	dirs := []string{
+		filepath.Join(cfg.ImageBasePath, "original", "landscape"),
+		filepath.Join(cfg.ImageBasePath, "original", "portrait"),
 		filepath.Join(cfg.ImageBasePath, "landscape", "webp"),
 		filepath.Join(cfg.ImageBasePath, "landscape", "avif"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "webp"),
@@ -73,7 +109,9 @@ func ensureDirectories(cfg *config.Config) {
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Fatalf("Failed to create directory %s: %v", dir, err)
+			log.Printf("Warning: Failed to create directory %s: %v", dir, err)
+		} else {
+			log.Printf("Created directory: %s", dir)
 		}
 	}
 }

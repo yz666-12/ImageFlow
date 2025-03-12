@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -19,9 +20,19 @@ type Config struct {
 func Load() (*Config, error) {
 	// 默认配置
 	cfg := &Config{
-		ServerAddr:    "0.0.0.0:8080", // 修改为 8080 以匹配 Dockerfile
-		ImageBasePath: "./static",
+		ServerAddr:    "0.0.0.0:8686",
+		ImageBasePath: os.Getenv("LOCAL_STORAGE_PATH"),
 		AvifSupport:   true,
+	}
+
+	// 如果没有设置 LOCAL_STORAGE_PATH，使用默认值
+	if cfg.ImageBasePath == "" {
+		cfg.ImageBasePath = "static/images"
+	}
+
+	// 确保路径是相对路径
+	if !filepath.IsAbs(cfg.ImageBasePath) {
+		cfg.ImageBasePath = filepath.Join(".", cfg.ImageBasePath)
 	}
 
 	// 尝试加载 .env 文件，但不强制要求

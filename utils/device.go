@@ -24,4 +24,4 @@ func DetectDevice(r *http.Request) DeviceType {
 		return Mobile
 	}
 	return Desktop
-} 
+}
