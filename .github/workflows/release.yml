@@ -1,0 +1,58 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            goarch: amd64
+            binary_suffix: x86
+          - arch: arm64
+            goarch: arm64
+            binary_suffix: arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Build binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -o imageflow-${{ matrix.binary_suffix }} main.go
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: imageflow-${{ matrix.binary_suffix }}
+          path: imageflow-${{ matrix.binary_suffix }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            imageflow-x86/imageflow-x86
+            imageflow-arm/imageflow-arm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
