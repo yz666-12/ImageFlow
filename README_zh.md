@@ -234,7 +234,7 @@ ImageFlow/
 
 ## 📞 联系方式
 
-Yuri NagaSaki - [@YuriNagaSaki](https://twitter.com/YuriNagaSaki)
+Blog - [猫猫博客](https://catcat.blog)
 
 项目链接：[https://github.com/Yuri-NagaSaki/ImageFlow](https://github.com/Yuri-NagaSaki/ImageFlow)
 
