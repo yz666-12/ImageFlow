@@ -236,7 +236,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-Yuri NagaSaki - [@YuriNagaSaki](https://twitter.com/YuriNagaSaki)
+Blog - [猫猫博客](https://catcat.blog)
 
 Project Link: [https://github.com/Yuri-NagaSaki/ImageFlow](https://github.com/Yuri-NagaSaki/ImageFlow)
 
