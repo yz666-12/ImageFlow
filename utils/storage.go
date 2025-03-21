@@ -118,7 +118,13 @@ func (s *S3Storage) Store(ctx context.Context, key string, data []byte) error {
 	}
 
 	// 生成公开访问URL
-	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/imageflow"), key)
+	customDomain := os.Getenv("CUSTOM_DOMAIN")
+	var url string
+	if customDomain != "" {
+		url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
+	} else {
+		url = fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/"), s.bucket, key)
+	}
 	log.Printf("Successfully stored object in S3: %s (URL: %s)", key, url)
 	return nil
 }

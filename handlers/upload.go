@@ -28,9 +28,10 @@ func getPublicURL(key string) string {
 	if customDomain != "" {
 		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
 	}
-	// Fallback to S3 endpoint
-	endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/imageflow")
-	return fmt.Sprintf("%s/%s", endpoint, key)
+	// Fallback to S3 endpoint with bucket name
+	endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
+	bucket := os.Getenv("S3_BUCKET")
+	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
 }
 
 func determineOrientation(img image.Config) string {
