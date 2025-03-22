@@ -51,6 +51,8 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow5.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow6.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow7.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow8.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow9.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
