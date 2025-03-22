@@ -50,6 +50,8 @@ ImageFlow is an efficient image service system designed for modern websites and 
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow3.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow4.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow5.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow6.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow7.png" alt="ImageFlow">
 </div>
 
 ## 🔧 Quick Start
