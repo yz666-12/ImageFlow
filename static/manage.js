@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const noImagesMessage = document.getElementById('no-images')
     const formatFilter = document.getElementById('format-filter')
     const orientationFilter = document.getElementById('orientation-filter')
+    const paginationContainer = document.getElementById('pagination-container')
+    const prevPageBtn = document.getElementById('prev-page')
+    const nextPageBtn = document.getElementById('next-page')
+    const pageIndicator = document.getElementById('page-indicator')
+    const totalImagesCount = document.getElementById('total-images-count')
     
     // 模态框元素
     const imageModal = document.getElementById('image-modal')
@@ -29,6 +34,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const deleteImageBtn = document.getElementById('delete-image')
     
     let currentImages = [] // 保存当前显示的图片数据
+    let currentPage = 1 // 当前页码
+    let totalPages = 1 // 总页数
+    let imagesPerPage = 12 // 每页图片数量
+    let totalImages = 0 // 图片总数
 
     // 检查API密钥并加载图片
     function init() {
@@ -222,10 +231,11 @@ document.addEventListener('DOMContentLoaded', function () {
     })
 
     // 加载图片
-    function loadImages() {
+    function loadImages(page = 1) {
         const format = formatFilter.value
         const orientation = orientationFilter.value
         const apiKey = localStorage.getItem('api_key')
+        const limit = imagesPerPage
 
         if (!apiKey) {
             showApiKeyOverlay()
@@ -236,9 +246,10 @@ document.addEventListener('DOMContentLoaded', function () {
         loadingIndicator.classList.remove('hidden')
         imageGrid.classList.add('hidden')
         noImagesMessage.classList.add('hidden')
+        paginationContainer.classList.add('hidden')
 
-        // 构建API URL
-        const apiUrl = `/api/images?format=${format}&orientation=${orientation}`
+        // 构建API URL，加入分页参数
+        const apiUrl = `/api/images?format=${format}&orientation=${orientation}&page=${page}&limit=${limit}`
 
         // 发送请求
         fetch(apiUrl, {
@@ -260,23 +271,67 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.success && data.images && data.images.length > 0) {
                 // 保存当前图片数据
                 currentImages = data.images
+                currentPage = data.page
+                totalPages = data.totalPages
+                totalImages = data.total
                 
                 // 显示图片网格
                 imageGrid.classList.remove('hidden')
                 
                 // 渲染图片网格
                 renderImageGrid(data.images)
+                
+                // 更新分页控件
+                updatePagination()
+                
+                // 显示总数量
+                if (totalImagesCount) {
+                    totalImagesCount.textContent = `共 ${totalImages} 张图片`
+                    totalImagesCount.classList.remove('hidden')
+                }
             } else {
                 // 显示无图片消息
                 noImagesMessage.classList.remove('hidden')
+                
+                // 隐藏分页控件
+                paginationContainer.classList.add('hidden')
+                
+                // 隐藏总数量
+                if (totalImagesCount) {
+                    totalImagesCount.classList.add('hidden')
+                }
             }
         })
         .catch(error => {
             console.error('Error loading images:', error)
             loadingIndicator.classList.add('hidden')
             noImagesMessage.classList.remove('hidden')
+            paginationContainer.classList.add('hidden')
+            if (totalImagesCount) {
+                totalImagesCount.classList.add('hidden')
+            }
             showStatus('获取图片列表失败', 'error')
         })
+    }
+    
+    // 更新分页控件
+    function updatePagination() {
+        if (totalPages <= 1) {
+            paginationContainer.classList.add('hidden')
+            return
+        }
+        
+        paginationContainer.classList.remove('hidden')
+        
+        // 更新页码显示
+        pageIndicator.textContent = `${currentPage} / ${totalPages}`
+        
+        // 更新按钮状态
+        prevPageBtn.disabled = currentPage <= 1
+        nextPageBtn.disabled = currentPage >= totalPages
+        
+        prevPageBtn.classList.toggle('opacity-50', currentPage <= 1)
+        nextPageBtn.classList.toggle('opacity-50', currentPage >= totalPages)
     }
 
     // 渲染图片网格
@@ -596,8 +651,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 监听筛选器变化事件
-    formatFilter.addEventListener('change', loadImages)
-    orientationFilter.addEventListener('change', loadImages)
+    formatFilter.addEventListener('change', () => loadImages(1)) // 重置到第一页
+    orientationFilter.addEventListener('change', () => loadImages(1)) // 重置到第一页
+    
+    // 分页按钮事件处理
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                loadImages(currentPage - 1)
+            }
+        })
+    }
+    
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                loadImages(currentPage + 1)
+            }
+        })
+    }
 
     // 初始化
     init()

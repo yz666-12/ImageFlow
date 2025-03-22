@@ -8,10 +8,12 @@ import (
 	_ "image/jpeg" // 支持 JPEG
 	_ "image/png"  // 支持 PNG
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
@@ -45,12 +47,15 @@ func determineOrientation(img image.Config) string {
 
 func UploadHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// 创建工作池来限制并发处理的图片数量
+		workerSemaphore := make(chan struct{}, cfg.WorkerThreads)
+		log.Printf("使用 %d 个并行工作线程进行图片处理", cfg.WorkerThreads)
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Parse multipart form
+		// Parse multipart form with default max upload size (32MB)
 		if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
 			http.Error(w, "Error parsing form", http.StatusBadRequest)
 			return
@@ -62,10 +67,31 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			http.Error(w, "No files uploaded", http.StatusBadRequest)
 			return
 		}
+		
+		// 检查上传的图片数量是否超过最大限制
+		if len(files) > cfg.MaxUploadCount {
+			http.Error(w, fmt.Sprintf("Too many files uploaded. Maximum allowed is %d files", cfg.MaxUploadCount), http.StatusBadRequest)
+			return
+		}
+		
+		// 创建结果数组和等待组
+		results := make([]map[string]interface{}, 0, len(files))
+		resultsMutex := sync.Mutex{}
+		var wgFiles sync.WaitGroup
 
-		results := make([]map[string]interface{}, 0)
+		// 已在切面上方创建结果数组
 
 		for _, fileHeader := range files {
+			// 为每个文件添加到等待组
+			wgFiles.Add(1)
+			
+			// 启动goroutine处理文件
+			go func(fileHeader *multipart.FileHeader) {
+				defer wgFiles.Done()
+				
+				// 获取工作线程槽位
+				workerSemaphore <- struct{}{}
+				defer func() { <-workerSemaphore }()
 			file, err := fileHeader.Open()
 			if err != nil {
 				log.Printf("Error opening file: %v", err)
@@ -74,7 +100,15 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					"status":   "error",
 					"message":  fmt.Sprintf("Error opening file: %v", err),
 				})
-				continue
+				// 向结果数组中添加失败结果
+					resultsMutex.Lock()
+					results = append(results, map[string]interface{}{
+						"filename": fileHeader.Filename,
+						"status":   "error",
+						"message":  fmt.Sprintf("Error opening file: %v", err),
+					})
+					resultsMutex.Unlock()
+					return
 			}
 			defer file.Close()
 
@@ -87,7 +121,15 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					"status":   "error",
 					"message":  fmt.Sprintf("Error reading image configuration: %v", err),
 				})
-				continue
+				// 向结果数组中添加失败结果
+					resultsMutex.Lock()
+					results = append(results, map[string]interface{}{
+						"filename": fileHeader.Filename,
+						"status":   "error",
+						"message":  fmt.Sprintf("Error opening file: %v", err),
+					})
+					resultsMutex.Unlock()
+					return
 			}
 			orientation := determineOrientation(img)
 
@@ -99,7 +141,15 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					"status":   "error",
 					"message":  fmt.Sprintf("Error resetting file pointer: %v", err),
 				})
-				continue
+				// 向结果数组中添加失败结果
+					resultsMutex.Lock()
+					results = append(results, map[string]interface{}{
+						"filename": fileHeader.Filename,
+						"status":   "error",
+						"message":  fmt.Sprintf("Error opening file: %v", err),
+					})
+					resultsMutex.Unlock()
+					return
 			}
 
 			// Read file content
@@ -111,7 +161,15 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					"status":   "error",
 					"message":  fmt.Sprintf("Error reading file: %v", err),
 				})
-				continue
+				// 向结果数组中添加失败结果
+					resultsMutex.Lock()
+					results = append(results, map[string]interface{}{
+						"filename": fileHeader.Filename,
+						"status":   "error",
+						"message":  fmt.Sprintf("Error opening file: %v", err),
+					})
+					resultsMutex.Unlock()
+					return
 			}
 
 			// Generate filename
@@ -127,54 +185,111 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					"status":   "error",
 					"message":  fmt.Sprintf("Error storing original file: %v", err),
 				})
-				continue
+				// 向结果数组中添加失败结果
+					resultsMutex.Lock()
+					results = append(results, map[string]interface{}{
+						"filename": fileHeader.Filename,
+						"status":   "error",
+						"message":  fmt.Sprintf("Error opening file: %v", err),
+					})
+					resultsMutex.Unlock()
+					return
 			}
 			log.Printf("Original image stored: %s", originalKey)
 
-			// Convert and store WebP
-			webpData, err := utils.ConvertToWebP(data)
-			if err != nil {
-				log.Printf("WebP conversion error: %v", err)
-			} else {
+			// 并行处理图片转换
+			var wg sync.WaitGroup
+			var webpURL, avifURL string
+			
+			// 创建通道用于存储转换结果
+			webpResultCh := make(chan []byte, 1)
+			avifResultCh := make(chan []byte, 1)
+			
+			// WebP 转换
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				webpData, err := utils.ConvertToWebP(data)
+				if err != nil {
+					log.Printf("WebP conversion error: %v", err)
+					webpResultCh <- nil
+					return
+				}
+				webpResultCh <- webpData
+			}()
+			
+			// AVIF 转换
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				avifData, err := utils.ConvertToAVIF(data)
+				if err != nil {
+					log.Printf("AVIF conversion error: %v", err)
+					avifResultCh <- nil
+					return
+				}
+				avifResultCh <- avifData
+			}()
+			
+			// 等待所有转换完成
+			wg.Wait()
+			
+			// 处理 WebP 结果
+			webpData := <-webpResultCh
+			if webpData != nil {
 				webpKey := filepath.Join(orientation, "webp", filename+".webp")
 				if err := utils.Storage.Store(r.Context(), webpKey, webpData); err != nil {
 					log.Printf("Error storing WebP image: %v", err)
 				} else {
 					log.Printf("WebP image stored: %s", webpKey)
+					webpURL = getPublicURL(webpKey)
 				}
 			}
-
-			// Convert and store AVIF
-			avifData, err := utils.ConvertToAVIF(data)
-			if err != nil {
-				log.Printf("AVIF conversion error: %v", err)
-			} else {
+			
+			// 处理 AVIF 结果
+			avifData := <-avifResultCh
+			if avifData != nil {
 				avifKey := filepath.Join(orientation, "avif", filename+".avif")
 				if err := utils.Storage.Store(r.Context(), avifKey, avifData); err != nil {
 					log.Printf("Error storing AVIF image: %v", err)
 				} else {
 					log.Printf("AVIF image stored: %s", avifKey)
+					avifURL = getPublicURL(avifKey)
 				}
 			}
 
-			// Get URLs for response
+			// Get URL for original image
 			originalURL := getPublicURL(originalKey)
-			webpURL := getPublicURL(filepath.Join(orientation, "webp", filename+".webp"))
-			avifURL := getPublicURL(filepath.Join(orientation, "avif", filename+".avif"))
+			
+			// WebP and AVIF URLs were set during the conversion process
+			// If they weren't set (due to conversion failure), set default values
+			if webpURL == "" {
+				webpURL = getPublicURL(filepath.Join(orientation, "webp", filename+".webp"))
+			}
+			if avifURL == "" {
+				avifURL = getPublicURL(filepath.Join(orientation, "avif", filename+".avif"))
+			}
 
-			results = append(results, map[string]interface{}{
-				"filename":    fileHeader.Filename,
-				"status":      "success",
-				"message":     "File uploaded and converted successfully",
-				"orientation": orientation,
-				"urls": map[string]string{
-					"original": originalURL,
-					"webp":     webpURL,
-					"avif":     avifURL,
-				},
-			})
+			// 为结果数组添加成功结果
+				resultsMutex.Lock()
+				results = append(results, map[string]interface{}{
+					"filename":    fileHeader.Filename,
+					"status":      "success",
+					"message":     "File uploaded and converted successfully",
+					"orientation": orientation,
+					"urls": map[string]string{
+						"original": originalURL,
+						"webp":     webpURL,
+						"avif":     avifURL,
+					},
+				})
+				resultsMutex.Unlock()
+			}(fileHeader) // 传递文件头到goroutine
 		}
-
+		
+		// 等待所有文件处理完成
+		wgFiles.Wait()
+		
 		// Return JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

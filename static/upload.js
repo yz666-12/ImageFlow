@@ -319,13 +319,51 @@ document.addEventListener('DOMContentLoaded', function () {
 		handleFiles(dt.files)
 	}
 
+	// 获取最大上传数量变量
+	let maxUploadCount = 10; // 默认上传限制
+	
+	// 从服务器获取配置信息的函数
+	function fetchServerConfig() {
+		// 使用 API key 进行验证
+		const apiKey = localStorage.getItem('api_key')
+		if (!apiKey) return;
+		
+		// 发送请求获取服务器配置
+		fetch('/api/config', {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+			},
+		})
+		.then(response => {
+			if (!response.ok) {
+				throw new Error('Failed to fetch config');
+			}
+			return response.json();
+		})
+		.then(data => {
+			console.log('Server config:', data);
+			// 更新最大上传数量
+			if (data.maxUploadCount) {
+				maxUploadCount = data.maxUploadCount;
+				console.log(`使用服务器配置的最大上传数量: ${maxUploadCount}`);
+			}
+		})
+		.catch(error => {
+			console.error('Error fetching server config:', error);
+		});
+	}
+	
+	// 尝试获取服务器配置
+	fetchServerConfig();
+	
 	function handleFiles(fileList) {
 		const validFiles = []
-		const maxFiles = 10 // 最大允许上传10个文件
 
 		// 检查文件数量
-		if (fileList.length > maxFiles) {
-			showStatus(`一次最多只能上传 ${maxFiles} 个文件`, 'error')
+		if (fileList.length > maxUploadCount) {
+			showStatus(`一次最多只能上传 ${maxUploadCount} 个文件`, 'error')
 			return
 		}
 

@@ -10,6 +10,11 @@ import (
 
 // ConvertToWebP converts image data to WebP format
 func ConvertToWebP(data []byte) ([]byte, error) {
+	// Get quality from environment variable or use default
+	quality := "80"
+	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
+		quality = q
+	}
 	log.Printf("Starting WebP conversion, input size: %d bytes", len(data))
 
 	// Create temporary input file
@@ -38,7 +43,7 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	defer tempOutput.Close()
 
 	// Convert to WebP
-	cmd := exec.Command("cwebp", "-q", "80", tempInput.Name(), "-o", tempOutput.Name())
+	cmd := exec.Command("cwebp", "-q", quality, tempInput.Name(), "-o", tempOutput.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("WebP conversion failed: %v\nOutput: %s", err, string(output))
@@ -58,6 +63,11 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 
 // ConvertToAVIF converts image data to AVIF format
 func ConvertToAVIF(data []byte) ([]byte, error) {
+	// Get quality from environment variable or use default
+	quality := "80"
+	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
+		quality = q
+	}
 	log.Printf("Starting AVIF conversion, input size: %d bytes", len(data))
 
 	// Create temporary input file
@@ -86,7 +96,7 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	defer tempOutput.Close()
 
 	// Convert to AVIF
-	cmd := exec.Command("avifenc", "-q", "80", tempInput.Name(), tempOutput.Name())
+	cmd := exec.Command("avifenc", "-q", quality, tempInput.Name(), tempOutput.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("AVIF conversion failed: %v\nOutput: %s", err, string(output))

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
@@ -26,6 +29,16 @@ type ImageInfo struct {
 	Size        int64  `json:"size"`        // File size in bytes
 	Path        string `json:"path"`        // Path relative to storage root
 	StorageType string `json:"storageType"` // "local" or "s3"
+}
+
+// PaginatedResponse represents a paginated response with images
+type PaginatedResponse struct {
+	Success    bool        `json:"success"`    // Whether the request was successful
+	Images     []ImageInfo `json:"images"`     // Images for current page
+	Page       int         `json:"page"`       // Current page number
+	Limit      int         `json:"limit"`      // Number of items per page
+	TotalPages int         `json:"totalPages"` // Total number of pages
+	Total      int         `json:"total"`      // Total number of images
 }
 
 // ListImagesHandler returns a handler for listing images
@@ -56,7 +69,11 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		// Process query parameters
 		orientation := r.URL.Query().Get("orientation")
 		format := r.URL.Query().Get("format")
-
+		
+		// Parse pagination parameters
+		pageStr := r.URL.Query().Get("page")
+		limitStr := r.URL.Query().Get("limit")
+		
 		// Default values
 		if orientation == "" {
 			orientation = "all" // all, landscape, portrait
@@ -64,14 +81,34 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		if format == "" {
 			format = "original" // original, webp, avif
 		}
+		
+		// Set default pagination values
+		page := 1
+		limit := 12 // Default items per page
+		
+		// Parse page number
+		if pageStr != "" {
+			pageVal, err := strconv.Atoi(pageStr)
+			if err == nil && pageVal > 0 {
+				page = pageVal
+			}
+		}
+		
+		// Parse limit
+		if limitStr != "" {
+			limitVal, err := strconv.Atoi(limitStr)
+			if err == nil && limitVal > 0 && limitVal <= 50 { // Cap at 50 items per page
+				limit = limitVal
+			}
+		}
 
-		var images []ImageInfo
+		var allImages []ImageInfo
 		var err error
 
 		if storageType == "s3" {
-			images, err = listS3Images(orientation, format)
+			allImages, err = listS3Images(orientation, format)
 		} else {
-			images, err = listLocalImages(cfg.ImageBasePath, orientation, format)
+			allImages, err = listLocalImages(cfg.ImageBasePath, orientation, format)
 		}
 
 		if err != nil {
@@ -79,16 +116,53 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 			http.Error(w, "获取图片列表失败", http.StatusInternalServerError)
 			return
 		}
+		
+		// Sort images by filename in descending order (newest first)
+		sort.Slice(allImages, func(i, j int) bool {
+			return allImages[i].FileName > allImages[j].FileName
+		})
+		
+		// Calculate pagination values
+		total := len(allImages)
+		totalPages := int(math.Ceil(float64(total) / float64(limit)))
+		
+		// Ensure page is within valid range
+		if page > totalPages && totalPages > 0 {
+			page = totalPages
+		}
+		
+		// Calculate start and end indices for the current page
+		start := (page - 1) * limit
+		end := start + limit
+		
+		// Ensure end index is within bounds
+		if end > total {
+			end = total
+		}
+		
+		// Extract the subset of images for the current page
+		var pagedImages []ImageInfo
+		if start < total {
+			pagedImages = allImages[start:end]
+		} else {
+			pagedImages = []ImageInfo{} // Empty slice for out of range pages
+		}
 
 		// Set response headers
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		// Encode and send the response
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": true,
-			"images":  images,
-		}); err != nil {
+		// Encode and send the paginated response
+		response := PaginatedResponse{
+			Success:    true,
+			Images:     pagedImages,
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+			Total:      total,
+		}
+		
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Printf("Error encoding JSON response: %v", err)
 		}
 	}

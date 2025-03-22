@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -19,8 +20,36 @@ var (
 	workers    = flag.Int("workers", 4, "并行工作线程数")
 )
 
+// 从环境变量读取配置值
+func getEnvOrDefault(key string, defaultVal int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+
+	intVal, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
+
+	return intVal
+}
+
 func main() {
 	flag.Parse()
+
+	// 检查环境变量中是否有质量和线程数的设置
+	envQuality := getEnvOrDefault("IMAGE_QUALITY", -1)
+	if envQuality > 0 {
+		*quality = envQuality
+		fmt.Printf("使用环境变量设置的质量: %d\n", *quality)
+	}
+
+	envWorkers := getEnvOrDefault("WORKER_THREADS", -1)
+	if envWorkers > 0 {
+		*workers = envWorkers
+		fmt.Printf("使用环境变量设置的线程数: %d\n", *workers)
+	}
 
 	if *sourcePath == "" || *targetPath == "" {
 		log.Fatal("必须指定源目录和目标目录")
