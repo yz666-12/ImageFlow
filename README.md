@@ -1,10 +1,16 @@
 # ImageFlow - Modern Image Service System
 
+<div align="center">
+
 [中文文档](README_zh.md)
+|
+[部署说明](https://catcat.blog/imageflow-install.html)
+</div>
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>Efficient and Intelligent Image Management and Distribution System</h3>
+  
 </div>
 
 ImageFlow is an efficient image service system designed for modern websites and applications. It automatically provides the most suitable images based on device type and supports modern image formats like WebP and AVIF, significantly improving website performance and user experience.
