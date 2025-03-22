@@ -1,6 +1,13 @@
 # ImageFlow - 现代图像服务系统
 
 <div align="center">
+
+[中文文档](README_zh.md)
+|
+[部署说明](https://catcat.blog/imageflow-install.html)
+</div>
+
+<div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>高效智能的图像管理和分发系统</h3>
 </div>
