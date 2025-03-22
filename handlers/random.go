@@ -102,6 +102,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 		rand.Seed(time.Now().UnixNano())
 		randomIndex := rand.Intn(len(output.Contents))
 		originalKey := *output.Contents[randomIndex].Key
+		log.Printf("Selected random image: %s", originalKey)
 
 		// Extract filename without extension
 		filename := strings.TrimSuffix(filepath.Base(originalKey), filepath.Ext(originalKey))
@@ -119,6 +120,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 		default:
 			imageKey = originalKey
 		}
+		log.Printf("Serving image format: %s, path: %s", bestFormat, imageKey)
 
 		// Get the image from S3
 		data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
@@ -198,6 +200,7 @@ func LocalRandomImageHandler() http.HandlerFunc {
 		// 随机选择一个图片
 		rand.Seed(time.Now().UnixNano())
 		randomImage := imageFiles[rand.Intn(len(imageFiles))]
+		log.Printf("Selected random image: %s", randomImage)
 
 		// 获取文件名（不含扩展名）
 		filename := strings.TrimSuffix(randomImage, filepath.Ext(randomImage))
@@ -215,6 +218,7 @@ func LocalRandomImageHandler() http.HandlerFunc {
 		default:
 			imagePath = filepath.Join(localPath, "original", orientation, randomImage)
 		}
+		log.Printf("Serving image format: %s, path: %s", bestFormat, imagePath)
 
 		// 读取图片文件
 		imageData, err := os.ReadFile(imagePath)
