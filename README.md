@@ -16,6 +16,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - **Modern Format Support**: Automatically detects browser compatibility and serves WebP or AVIF format images
 - **Simple API**: Get random images through simple API calls
 - **User-Friendly Upload Interface**: Drag-and-drop upload interface with dark mode support and real-time preview
+- **Image Management**: View, filter, and delete images with an intuitive management interface
 - **Automatic Image Processing**: Automatically detects image orientation and converts to multiple formats after upload
 - **Asynchronous Processing**: Image conversion happens in the background without affecting the main service
 - **High Performance**: Optimized for network performance to reduce loading time
@@ -24,21 +25,25 @@ ImageFlow is an efficient image service system designed for modern websites and 
 
 ## 🚀 Technical Advantages
 
-1. **Security**: API key verification mechanism ensures secure access to image upload functionality
+1. **Security**: API key verification mechanism ensures secure access to image upload and management functionality
 2. **Format Conversion**: Automatically converts uploaded images to WebP and AVIF formats, reducing file size by 30-50%
 3. **Device Adaptation**: Provides the most suitable image orientation for different devices
 4. **Hot Reload**: Uploaded images are immediately available without service restart
 5. **Concurrent Processing**: Efficiently handles image conversion using Go's concurrency features
-6. **Scalability**: Modular design for easy extension and customization
-7. **Responsive Design**: Perfect adaptation for desktop and mobile devices
-8. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
-9. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
+6. **Consistent Management**: When deleting an image, all related formats (original, WebP, AVIF) are removed simultaneously
+7. **Scalability**: Modular design for easy extension and customization
+8. **Responsive Design**: Perfect adaptation for desktop and mobile devices
+9. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
+10. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
 
 ## 📸 Interface Preview
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow1.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow2.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow3.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow4.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow5.png" alt="ImageFlow">
 </div>
 
 ## 🔧 Quick Start
@@ -174,6 +179,16 @@ Access the upload interface at `http://localhost:8686/`. You can:
 4. System automatically detects if images are landscape or portrait
 5. After upload, images are automatically converted to WebP and AVIF formats
 
+### Managing Images
+
+Access the management interface at `http://localhost:8686/manage.html`. You can:
+
+1. View all uploaded images with filtering options by format and orientation
+2. Click on any image to view detailed information
+3. Copy the direct URL to the image for easy sharing
+4. Delete images when no longer needed (requires API key authentication)
+5. When an image is deleted, all associated formats (original, WebP, AVIF) are removed simultaneously
+
 ### Getting Random Images
 
 Get random images through the API (no API key required):
@@ -190,6 +205,7 @@ The system returns the most suitable image based on the device type and browser 
 |----------|---------|-------------|------------|-------------|
 | `/api/random` | GET | Get a random image | `orientation`: Optional, specify "landscape" or "portrait" | Not required |
 | `/upload` | POST | Upload new images | Form data, field name "images[]" | API key required |
+| `/api/delete-image` | POST | Delete an image and all its formats | JSON with `id` and `storageType` | API key required |
 | `/validate-api-key` | POST | Validate API key | API key in request header | Not required |
 
 ## 📁 Project Structure
@@ -198,6 +214,7 @@ The system returns the most suitable image based on the device type and browser 
 ImageFlow/
 ├── config/         # Configuration related code
 ├── handlers/       # HTTP handlers
+│   ├── delete.go    # Image deletion handler
 ├── scripts/        # Utility scripts
 ├── static/         # Static files and image storage
 │   ├── favicon.ico # Favicon
@@ -217,6 +234,8 @@ ImageFlow/
 │   │   └── original/  # Original uploaded images
 │   ├── index.html # Homepage
 │   ├── styles.css # Stylesheet
+│   ├── manage.html # Image management interface
+│   ├── manage.js   # Image management functionality script
 │   └── upload.js  # Upload functionality script
 ├── utils/         # Utility functions
 ├── main.go        # Main program entry

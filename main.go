@@ -47,6 +47,8 @@ func main() {
 	// Create routes
 	http.HandleFunc("/validate-api-key", handlers.ValidateAPIKey(cfg))
 	http.HandleFunc("/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
+	http.HandleFunc("/api/images", handlers.RequireAPIKey(cfg, handlers.ListImagesHandler(cfg)))
+	http.HandleFunc("/api/delete-image", handlers.RequireAPIKey(cfg, handlers.DeleteImageHandler(cfg)))
 
 	// 根据存储类型使用不同的随机图片处理器
 	if storageType == "s3" {
@@ -68,10 +70,13 @@ func main() {
 	http.Handle("/favicon-16.png", fs)
 	http.Handle("/favicon-32.png", fs)
 
-	// 提供上传页面
+	// 提供上传页面与管理页面
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.ServeFile(w, r, "static/index.html")
+			return
+		} else if r.URL.Path == "/manage" {
+			http.ServeFile(w, r, "static/manage.html")
 			return
 		}
 		http.NotFound(w, r)

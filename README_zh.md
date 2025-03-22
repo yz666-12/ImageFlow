@@ -14,6 +14,7 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 - **现代格式支持**：自动检测浏览器兼容性并提供 WebP 或 AVIF 格式图片
 - **简单的 API**：通过简单的 API 调用获取随机图片
 - **用户友好的上传界面**：支持拖拽上传，具有暗黑模式和实时预览功能
+- **图片管理功能**：通过直观的管理界面查看、筛选和删除图片
 - **自动图像处理**：上传后自动检测图像方向并转换为多种格式
 - **异步处理**：图像转换在后台进行，不影响主服务
 - **高性能**：优化的网络性能以减少加载时间
@@ -22,21 +23,25 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 
 ## 🚀 技术优势
 
-1. **安全性**：API 密钥验证机制确保图片上传功能的安全访问
+1. **安全性**：API 密钥验证机制确保图片上传和管理功能的安全访问
 2. **格式转换**：自动将上传的图片转换为 WebP 和 AVIF 格式，减少 30-50% 的文件大小
 3. **设备适配**：为不同设备提供最合适的图片方向
 4. **热重载**：上传的图片无需重启服务即可立即可用
 5. **并发处理**：使用 Go 的并发特性高效处理图像转换
-6. **可扩展性**：模块化设计便于扩展和定制
-7. **响应式设计**：完美适配桌面端和移动端设备
-8. **暗黑模式支持**：自动适应系统主题，支持手动切换
-9. **灵活存储**：支持本地和 S3 兼容存储，通过 .env 文件轻松配置
+6. **一致性管理**：删除图片时，所有相关格式（原始、WebP、AVIF）会同时被移除
+7. **可扩展性**：模块化设计便于扩展和定制
+8. **响应式设计**：完美适配桌面端和移动端设备
+9. **暗黑模式支持**：自动适应系统主题，支持手动切换
+10. **灵活存储**：支持本地和 S3 兼容存储，通过 .env 文件轻松配置
 
 ## 📸 界面预览
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow1.png" alt="ImageFlow">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow2.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow3.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow4.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow5.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
@@ -172,6 +177,16 @@ CUSTOM_DOMAIN=
 4. 系统自动检测图片是横向还是纵向
 5. 上传后，图片会自动转换为 WebP 和 AVIF 格式
 
+### 管理图片
+
+访问 `http://localhost:8686/manage.html` 的管理界面。您可以：
+
+1. 查看所有已上传的图片，并可按格式和方向进行筛选
+2. 点击任意图片查看详细信息
+3. 复制图片的直接URL以方便分享
+4. 删除不再需要的图片（需要API密钥认证）
+5. 当删除图片时，所有相关格式（原始、WebP、AVIF）将同时被移除
+
 ### 获取随机图片
 
 通过 API 获取随机图片（无需 API 密钥）：
@@ -188,6 +203,7 @@ GET http://localhost:8686/api/random
 |----------|---------|-------------|------------|-------------|
 | `/api/random` | GET | 获取随机图片 | `orientation`：可选，指定 "landscape" 或 "portrait" | 不需要 |
 | `/upload` | POST | 上传新图片 | Form 数据，字段名 "images[]" | 需要 API 密钥 |
+| `/api/delete-image` | POST | 删除图片及其所有格式 | JSON 数据，包含 `id` 和 `storageType` | 需要 API 密钥 |
 | `/validate-api-key` | POST | 验证 API 密钥 | 请求头中的 API 密钥 | 不需要 |
 
 ## 📁 项目结构
@@ -196,6 +212,7 @@ GET http://localhost:8686/api/random
 ImageFlow/
 ├── config/         # 配置相关代码
 ├── handlers/       # HTTP 处理器
+│   ├── delete.go    # 图片删除处理器
 ├── scripts/        # 实用脚本
 ├── static/         # 静态文件和图片存储
 │   ├── favicon.ico # 网站图标
@@ -215,6 +232,8 @@ ImageFlow/
 │   │   └── original/  # 原始上传图片
 │   ├── index.html # 主页
 │   ├── styles.css # 样式表
+│   ├── manage.html # 图片管理界面
+│   ├── manage.js   # 图片管理功能脚本
 │   └── upload.js  # 上传功能脚本
 ├── utils/         # 实用函数
 ├── main.go        # 程序入口

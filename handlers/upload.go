@@ -35,7 +35,9 @@ func getPublicURL(key string) string {
 }
 
 func determineOrientation(img image.Config) string {
-	if img.Width >= img.Height {
+	// 只有当宽度严格大于高度时才判断为横屏
+	// 正方形和竖型图片都归类为竖屏
+	if img.Width > img.Height {
 		return "landscape"
 	}
 	return "portrait"
