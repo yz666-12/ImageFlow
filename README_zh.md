@@ -8,7 +8,7 @@
 </div>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/favicon/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>高效智能的图像管理和分发系统</h3>
 </div>
 
@@ -44,15 +44,15 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 ## 📸 界面预览
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow1.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow2.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow3.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow4.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow5.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow6.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow7.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow8.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/static/imageflow9.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow1.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow2.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow3.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow4.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow5.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow6.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow7.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow8.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow9.png" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
