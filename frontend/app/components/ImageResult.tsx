@@ -51,15 +51,24 @@ export default function ImageResult({ result, index }: ImageResultProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: index * 0.05 }}
-        className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 shadow-sm"
+        className="rounded-xl overflow-hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 shadow-sm h-full"
       >
-        <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="font-medium">{result.filename}</p>
-            <p className="text-sm">{result.message}</p>
+        <div className="h-full flex flex-col">
+          <div className="relative aspect-square w-full flex-shrink-0 bg-slate-50 dark:bg-slate-900 overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-red-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="absolute top-2 right-2">
+              <span className="text-xs px-2 py-1 bg-red-500/90 text-white rounded-full">
+                失败
+              </span>
+            </div>
+          </div>
+          <div className="p-4 flex-grow">
+            <p className="font-medium text-red-600 dark:text-red-400 truncate">{result.filename}</p>
+            <p className="text-sm text-red-500 dark:text-red-300 mt-1">{result.message}</p>
           </div>
         </div>
       </motion.div>
