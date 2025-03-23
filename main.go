@@ -66,21 +66,45 @@ func main() {
 
 	// 提供静态文件（包括图片、CSS、JS等）
 	fs := http.FileServer(http.Dir("static"))
+
+	// Next.js 静态资源
+	http.Handle("/_next/", http.StripPrefix("/_next/", http.FileServer(http.Dir("static/_next"))))
+
+	// 静态资源
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	http.Handle("/favicon.ico", fs)
-	http.Handle("/favicon-16.png", fs)
-	http.Handle("/favicon-32.png", fs)
+
+	// 图标文件
+	faviconServer := http.FileServer(http.Dir("favicon"))
+	http.Handle("/favicon-16.png", faviconServer)
+	http.Handle("/favicon-32.png", faviconServer)
+	http.Handle("/favicon.ico", faviconServer)
+
+	http.HandleFunc("/index.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/index.txt")
+	})
+	http.HandleFunc("/manage.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/manage.txt")
+	})
 
 	// 提供上传页面与管理页面
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
+		switch r.URL.Path {
+		case "/":
 			http.ServeFile(w, r, "static/index.html")
-			return
-		} else if r.URL.Path == "/manage" {
+		case "/manage":
 			http.ServeFile(w, r, "static/manage.html")
-			return
+		default:
+			filePath := filepath.Join("static", r.URL.Path)
+			if !filepath.IsAbs(filePath) {
+				http.NotFound(w, r)
+				return
+			}
+			if _, err := os.Stat(filePath); err == nil {
+				http.ServeFile(w, r, filePath)
+			} else {
+				http.NotFound(w, r)
+			}
 		}
-		http.NotFound(w, r)
 	})
 
 	// Start server
