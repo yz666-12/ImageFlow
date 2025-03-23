@@ -198,8 +198,8 @@ func LocalRandomImageHandler() http.HandlerFunc {
 		}
 
 		// 随机选择一个图片
-		rand.Seed(time.Now().UnixNano())
-		randomImage := imageFiles[rand.Intn(len(imageFiles))]
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		randomImage := imageFiles[rng.Intn(len(imageFiles))]
 		log.Printf("Selected random image: %s", randomImage)
 
 		// 获取文件名（不含扩展名）

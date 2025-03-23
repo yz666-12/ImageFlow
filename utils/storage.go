@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -66,7 +66,7 @@ func (ls *LocalStorage) Store(ctx context.Context, key string, data []byte) erro
 }
 
 func (ls *LocalStorage) Get(ctx context.Context, key string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(ls.BasePath, key))
+	return os.ReadFile(filepath.Join(ls.BasePath, key))
 }
 
 func (ls *LocalStorage) Delete(ctx context.Context, key string) error {
@@ -139,7 +139,7 @@ func (s *S3Storage) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	defer result.Body.Close()
 
-	return ioutil.ReadAll(result.Body)
+	return io.ReadAll(result.Body)
 }
 
 func (s *S3Storage) Delete(ctx context.Context, key string) error {

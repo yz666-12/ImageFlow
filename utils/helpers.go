@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 )
 
 var ErrInvalidOffset = errors.New("invalid offset")
@@ -15,7 +14,7 @@ func String(v string) *string {
 
 // ReadSeeker converts an io.Reader to an io.ReadSeeker by reading all content into memory
 func ReadSeeker(r io.Reader) (io.ReadSeeker, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

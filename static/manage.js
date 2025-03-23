@@ -666,9 +666,40 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 3000)
     }
 
+    // 图片加载优化
+    let page = 1;
+    const pageSize = 20;
+    let loading = false;
+    let hasMore = true;
+
+    // 创建Intersection Observer来实现无限滚动
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !loading && hasMore) {
+                loadImages();
+            }
+        });
+    }, {
+        rootMargin: '100px'
+    });
+
     // 监听筛选器变化事件
-    formatFilter.addEventListener('change', () => loadImages(1)) // 重置到第一页
-    orientationFilter.addEventListener('change', () => loadImages(1)) // 重置到第一页
+    formatFilter.addEventListener('change', () => {
+        page = 1;
+        hasMore = true;
+        loadImages();
+    });
+
+    orientationFilter.addEventListener('change', () => {
+        page = 1;
+        hasMore = true;
+        loadImages();
+    });
+
+    // 初始化时观察sentinel元素
+    if (document.getElementById('sentinel')) {
+        observer.observe(document.getElementById('sentinel'));
+    }
     
     // 分页按钮事件处理
     if (prevPageBtn) {

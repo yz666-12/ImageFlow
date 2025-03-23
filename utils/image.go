@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"image"
-	_ "image/gif"  // For GIF support
-	_ "image/jpeg" // For JPEG support
-	_ "image/png"  // For PNG support
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -18,36 +18,34 @@ import (
 
 // ImageFormatInfo contains information about an image's format
 type ImageFormatInfo struct {
-	Format     string // Format name (e.g., "jpeg", "png", "gif")
-	Extension  string // File extension (e.g., ".jpg", ".png", ".gif")
-	MimeType   string // MIME type (e.g., "image/jpeg", "image/png", "image/gif")
+	Format    string // Format name (e.g., "jpeg", "png", "gif")
+	Extension string // File extension (e.g., ".jpg", ".png", ".gif")
+	MimeType  string // MIME type (e.g., "image/jpeg", "image/png", "image/gif")
 }
 
-func init() {
-	// 初始化随机数生成器
-	rand.Seed(time.Now().UnixNano())
-}
+// Global random source
+var globalRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // DetectImageFormat detects the format of an image from its data
 func DetectImageFormat(data []byte) (ImageFormatInfo, error) {
 	// Create a reader from the data
 	r := bytes.NewReader(data)
-	
+
 	// Detect the image format
 	_, format, err := image.DecodeConfig(r)
 	if err != nil {
 		return ImageFormatInfo{}, err
 	}
-	
+
 	// Rewind the reader for future use
 	_, err = r.Seek(0, io.SeekStart)
 	if err != nil {
 		return ImageFormatInfo{}, err
 	}
-	
+
 	// Convert format to lowercase
 	format = strings.ToLower(format)
-	
+
 	// Map format to extension and MIME type
 	switch format {
 	case "jpeg":
@@ -78,7 +76,6 @@ func DetectImageFormat(data []byte) (ImageFormatInfo, error) {
 	}
 }
 
-// GetRandomImage 获取随机图片路径
 func GetRandomImage(basePath string, deviceType DeviceType, avifSupport bool) (string, error) {
 	// 根据设备类型选择图片方向
 	orientation := "landscape"
@@ -117,7 +114,7 @@ func GetRandomImage(basePath string, deviceType DeviceType, avifSupport bool) (s
 	}
 
 	// 随机选择一张图片
-	randomIndex := rand.Intn(len(imageFiles))
+	randomIndex := globalRand.Intn(len(imageFiles))
 	selectedImage := imageFiles[randomIndex]
 
 	return filepath.Join(dirPath, selectedImage.Name()), nil

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -27,7 +26,7 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	log.Printf("Detected image format: %s", imgFormat.Format)
 
 	// Create temporary input file with appropriate extension
-	tempInput, err := ioutil.TempFile("", fmt.Sprintf("input-*%s", imgFormat.Extension))
+	tempInput, err := os.CreateTemp("", fmt.Sprintf("input-*%s", imgFormat.Extension))
 	if err != nil {
 		log.Printf("Failed to create temp input file: %v", err)
 		return nil, fmt.Errorf("failed to create temp input file: %v", err)
@@ -43,7 +42,7 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	tempInput.Close()
 
 	// Create temporary output file
-	tempOutput, err := ioutil.TempFile("", "output-*.webp")
+	tempOutput, err := os.CreateTemp("", "output-*.webp")
 	if err != nil {
 		log.Printf("Failed to create temp output file: %v", err)
 		return nil, fmt.Errorf("failed to create temp output file: %v", err)
@@ -69,7 +68,7 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	}
 
 	// Read the output file
-	result, err := ioutil.ReadFile(tempOutput.Name())
+	result, err := os.ReadFile(tempOutput.Name())
 	if err != nil {
 		log.Printf("Failed to read WebP output file: %v", err)
 		return nil, err
@@ -98,7 +97,7 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	log.Printf("Detected image format for AVIF conversion: %s", imgFormat.Format)
 
 	// Create temporary input file with appropriate extension
-	tempInput, err := ioutil.TempFile("", fmt.Sprintf("input-*%s", imgFormat.Extension))
+	tempInput, err := os.CreateTemp("", fmt.Sprintf("input-*%s", imgFormat.Extension))
 	if err != nil {
 		log.Printf("Failed to create temp input file: %v", err)
 		return nil, fmt.Errorf("failed to create temp input file: %v", err)
@@ -114,7 +113,7 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	tempInput.Close()
 
 	// Create temporary output file
-	tempOutput, err := ioutil.TempFile("", "output-*.avif")
+	tempOutput, err := os.CreateTemp("", "output-*.avif")
 	if err != nil {
 		log.Printf("Failed to create temp output file: %v", err)
 		return nil, fmt.Errorf("failed to create temp output file: %v", err)
@@ -127,7 +126,7 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	if imgFormat.Format == "gif" {
 		// For GIF files, we need to extract the first frame for AVIF
 		// Extract first frame to a temporary PNG file
-		tempPng, err := ioutil.TempFile("", "gifframe-*.png")
+		tempPng, err := os.CreateTemp("", "gifframe-*.png")
 		if err != nil {
 			log.Printf("Failed to create temp PNG file: %v", err)
 			return nil, fmt.Errorf("failed to create temp PNG file: %v", err)
@@ -157,7 +156,7 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	}
 
 	// Read the output file
-	result, err := ioutil.ReadFile(tempOutput.Name())
+	result, err := os.ReadFile(tempOutput.Name())
 	if err != nil {
 		log.Printf("Failed to read AVIF output file: %v", err)
 		return nil, err
