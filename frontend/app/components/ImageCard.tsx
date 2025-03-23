@@ -49,7 +49,16 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
   
   // 根据方向确定高度类
   const getHeightClass = (orientation: string) => {
-    return "h-56"; // 统一所有卡片高度
+    switch (orientation.toLowerCase()) {
+      case 'portrait':
+        return "h-96"; // 纵向图片使用更高的容器
+      case 'landscape':
+        return "h-56"; // 横向图片使用标准高度
+      case 'square':
+        return "h-64"; // 方形图片使用中等高度
+      default:
+        return "h-56"; // 默认高度
+    }
   };
 
   // 复制URL到剪贴板
@@ -73,7 +82,7 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col"
+      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col w-full"
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -83,7 +92,7 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
           src={image.url}
           alt={image.filename}
           fill
-          className="object-cover group-hover:scale-110 transition-transform duration-500"
+          className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
         

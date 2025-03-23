@@ -23,6 +23,7 @@ export default function Manage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalImages, setTotalImages] = useState(0);
   const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "all" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     // 检查API Key
@@ -231,14 +232,16 @@ export default function Manage() {
         <>
           {images.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-max">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {images.map((image) => (
-                  <div key={image.id}>
-                    <ImageCard
-                      image={image}
-                      onClick={() => setSelectedImage(image)}
-                    />
-                  </div>
+                  <ImageCard
+                    key={image.id}
+                    image={image}
+                    onClick={() => {
+                      setSelectedImage(image);
+                      setIsModalOpen(true);
+                    }}
+                  />
                 ))}
               </div>
 
@@ -277,8 +280,11 @@ export default function Manage() {
 
       <ImageModal
         image={selectedImage}
-        isOpen={!!selectedImage}
-        onClose={() => setSelectedImage(null)}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setSelectedImage(null);
+          setIsModalOpen(false);
+        }}
         onDelete={handleDelete}
       />
 
