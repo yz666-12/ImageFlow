@@ -247,7 +247,7 @@ export default function Manage() {
 
               <div className="mt-10 flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  共 {totalImages} 张图片
+                  共 <span className="font-medium text-gray-700 dark:text-gray-300">{totalImages}</span> 张图片
                 </span>
                 <Pagination
                   currentPage={currentPage}
