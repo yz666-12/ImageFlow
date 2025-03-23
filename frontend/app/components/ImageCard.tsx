@@ -46,6 +46,11 @@ const getOrientationLabel = (orientation: string): string => {
 export default function ImageCard({ image, onClick }: { image: ImageFile; onClick: () => void }) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [isHovered, setIsHovered] = useState(false);
+  
+  // 根据方向确定高度类
+  const getHeightClass = (orientation: string) => {
+    return "h-56"; // 统一所有卡片高度
+  };
 
   // 复制URL到剪贴板
   const copyToClipboard = async (e: React.MouseEvent) => {
@@ -68,12 +73,12 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300"
+      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col"
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative h-48 overflow-hidden bg-gray-100 dark:bg-gray-900">
+      <div className={`relative ${getHeightClass(image.orientation)} overflow-hidden bg-gray-100 dark:bg-gray-900`}>
         <Image
           src={image.url}
           alt={image.filename}
@@ -118,7 +123,7 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-4 flex-grow">
         <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{image.filename}</div>
         <div className="flex justify-between items-center mt-2">
           <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(image.size)}</span>
