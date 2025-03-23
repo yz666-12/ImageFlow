@@ -22,7 +22,7 @@ import (
 // ImageInfo represents information about an image
 type ImageInfo struct {
 	ID          string `json:"id"`          // Filename without extension
-	FileName    string `json:"fileName"`    // Full filename with extension
+	FileName    string `json:"filename"`    // Full filename with extension
 	URL         string `json:"url"`         // URL to access the image
 	Orientation string `json:"orientation"` // landscape or portrait
 	Format      string `json:"format"`      // original, webp, avif
