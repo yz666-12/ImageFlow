@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
 interface UploadSectionProps {
@@ -11,6 +11,19 @@ interface UploadSectionProps {
 export default function UploadSection({ onUpload, isUploading }: UploadSectionProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<{id: string, url: string, file: File}[]>([])
+  const [wasUploading, setWasUploading] = useState(false)
+  
+  // 监听上传状态变化，当上传完成时清空选择的文件
+  useEffect(() => {
+    // 检测从"正在上传"变为"上传完成"的状态变化
+    if (wasUploading && !isUploading) {
+      // 上传已完成，清空文件列表
+      setSelectedFiles([])
+      setPreviewUrls([])
+    }
+    // 更新前一个上传状态
+    setWasUploading(isUploading)
+  }, [isUploading, wasUploading])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
