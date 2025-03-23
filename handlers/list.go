@@ -22,7 +22,7 @@ import (
 // ImageInfo represents information about an image
 type ImageInfo struct {
 	ID          string `json:"id"`          // Filename without extension
-	FileName    string `json:"filename"`    // Full filename with extension
+	FileName    string `json:"fileName"`    // Full filename with extension
 	URL         string `json:"url"`         // URL to access the image
 	Orientation string `json:"orientation"` // landscape or portrait
 	Format      string `json:"format"`      // original, webp, avif
@@ -76,10 +76,10 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Default values
 		if orientation == "" {
-			orientation = "landscape" // landscape, portrait
+			orientation = "all" // all, landscape, portrait
 		}
 		if format == "" {
-			format = "original" // original, webp, avif, gif
+			format = "original" // original, webp, avif
 		}
 
 		// Set default pagination values
@@ -185,24 +185,34 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 	var orientations []string
 	var formats []string
 
-	// Set orientation
-	orientations = []string{orientation}
+	// Determine which orientations to list
+	if orientation == "all" {
+		orientations = []string{"landscape", "portrait"}
+	} else {
+		orientations = []string{orientation}
+	}
 
-	// Set format
-	formats = []string{format}
+	// Determine which formats to list
+	if format == "all" {
+		formats = []string{"original", "webp", "avif"}
+	} else {
+		formats = []string{format}
+	}
 
 	for _, orientVal := range orientations {
 		for _, formatVal := range formats {
 			var dirPath string
 			var extension string
+			var extensions []string
 
 			// Construct the path based on format
 			if formatVal == "original" {
 				dirPath = filepath.Join(basePath, "original", orientVal)
-				extension = ""
+				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
 			} else {
 				dirPath = filepath.Join(basePath, orientVal, formatVal)
 				extension = "." + formatVal
+				extensions = []string{extension}
 			}
 
 			// List files in the directory
@@ -220,60 +230,68 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 				}
 
 				fileName := file.Name()
-				if (formatVal == "original" && (strings.HasSuffix(strings.ToLower(fileName), ".jpg") ||
-					strings.HasSuffix(strings.ToLower(fileName), ".jpeg") ||
-					strings.HasSuffix(strings.ToLower(fileName), ".jpg") ||
-					strings.HasSuffix(strings.ToLower(fileName), ".png"))) ||
-					(formatVal != "original" && strings.HasSuffix(strings.ToLower(fileName), extension)) {
-					fileInfo, err := file.Info()
-					if err != nil {
-						log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
-						continue
+
+				validExtension := false
+				for _, ext := range extensions {
+					if strings.HasSuffix(strings.ToLower(fileName), ext) {
+						validExtension = true
+						break
 					}
-
-					// Construct image URL
-					var firstPart, thirdPart string
-					if formatVal == "original" {
-						firstPart = "original"
-						thirdPart = ""
-					} else {
-						firstPart = ""
-						thirdPart = formatVal
-					}
-					relPath := filepath.Join(firstPart, orientVal, thirdPart, fileName)
-
-					var url string
-					storageType := os.Getenv("STORAGE_TYPE")
-					if storageType == "local" {
-						url = fmt.Sprintf("/images/%s", relPath)
-					} else {
-						// For S3 storage
-						customDomain := os.Getenv("CUSTOM_DOMAIN")
-						if customDomain != "" {
-							url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
-						} else {
-							// Fallback to S3 endpoint with bucket name
-							endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-							bucket := os.Getenv("S3_BUCKET")
-							url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
-						}
-					}
-
-					// Extract ID (filename without extension)
-					id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-					// Add image info to the result
-					images = append(images, ImageInfo{
-						ID:          id,
-						FileName:    fileName,
-						URL:         url,
-						Orientation: orientVal,
-						Format:      formatVal,
-						Size:        fileInfo.Size(),
-						Path:        relPath,
-						StorageType: "local",
-					})
 				}
+
+				if !validExtension {
+					continue
+				}
+				// Get file info for size
+				fileInfo, err := file.Info()
+				if err != nil {
+					log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
+					continue
+				}
+
+				// Construct image URL
+				var firstPart, thirdPart string
+				if formatVal == "original" {
+					firstPart = "original"
+					thirdPart = ""
+				} else {
+					firstPart = ""
+					thirdPart = formatVal
+				}
+				relPath := filepath.Join(firstPart, orientVal, thirdPart, fileName)
+
+				// 构建URL，与上传功能保持一致
+				var url string
+				storageType := os.Getenv("STORAGE_TYPE")
+				if storageType == "local" {
+					url = fmt.Sprintf("/images/%s", relPath)
+				} else {
+					// For S3 storage
+					customDomain := os.Getenv("CUSTOM_DOMAIN")
+					if customDomain != "" {
+						url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
+					} else {
+						// Fallback to S3 endpoint with bucket name
+						endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
+						bucket := os.Getenv("S3_BUCKET")
+						url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
+					}
+				}
+
+				// Extract ID (filename without extension)
+				id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+				// Add image info to the result
+				images = append(images, ImageInfo{
+					ID:          id,
+					FileName:    fileName,
+					URL:         url,
+					Orientation: orientVal,
+					Format:      formatVal,
+					Size:        fileInfo.Size(),
+					Path:        relPath,
+					StorageType: "local",
+				})
 			}
 		}
 	}
@@ -420,24 +438,34 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 	var formats []string
 	bucket := os.Getenv("S3_BUCKET")
 
-	// Set orientation
-	orientations = []string{orientation}
+	// Determine which orientations to list
+	if orientation == "all" {
+		orientations = []string{"landscape", "portrait"}
+	} else {
+		orientations = []string{orientation}
+	}
 
-	// Set format
-	formats = []string{format}
+	// Determine which formats to list
+	if format == "all" {
+		formats = []string{"original", "webp", "avif"}
+	} else {
+		formats = []string{format}
+	}
 
 	for _, orientVal := range orientations {
 		for _, formatVal := range formats {
 			var prefix string
 			var extension string
+			var extensions []string
 
 			// Construct the prefix based on format
 			if formatVal == "original" {
 				prefix = "original/" + orientVal + "/"
-				extension = ""
+				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
 			} else {
 				prefix = orientVal + "/" + formatVal + "/"
 				extension = "." + formatVal
+				extensions = []string{extension}
 			}
 
 			// List objects with the prefix
@@ -458,11 +486,16 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 					key := *obj.Key
 					fileName := filepath.Base(key)
 
-					if (formatVal == "original" && !(strings.HasSuffix(strings.ToLower(fileName), ".jpg") ||
-						strings.HasSuffix(strings.ToLower(fileName), ".jpeg") ||
-						strings.HasSuffix(strings.ToLower(fileName), ".jpg") ||
-						strings.HasSuffix(strings.ToLower(fileName), ".png"))) ||
-						(formatVal != "original" && !strings.HasSuffix(strings.ToLower(fileName), extension)) {
+					// Skip if not an image with the right extension
+					validExtension := false
+					for _, ext := range extensions {
+						if strings.HasSuffix(strings.ToLower(fileName), ext) {
+							validExtension = true
+							break
+						}
+					}
+
+					if !validExtension {
 						continue
 					}
 
