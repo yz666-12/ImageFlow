@@ -26,9 +26,12 @@ export default function ImageResults({ results }: ImageResultsProps) {
       animate={{ opacity: 1, y: 0 }}
       className="mb-8"
     >
-      {results.map((result, index) => (
-        <ImageResult key={index} result={result} index={index} />
-      ))}
+      <h2 className="text-xl font-semibold mb-4">已上传的图片</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {results.map((result, index) => (
+          <ImageResult key={index} result={result} index={index} />
+        ))}
+      </div>
     </motion.div>
   )
 } 
