@@ -29,6 +29,8 @@ export interface ImageFile {
   size: number;
   path: string;
   storageType: string;
+  width?: number;
+  height?: number;
 }
 
 export interface ImageListResponse {
@@ -72,8 +74,25 @@ export interface ImageFiltersProps {
   onFilterChange: (format: string, orientation: string) => void;
 }
 
-// 状态类型
+// 上传结果类型定义
+export interface UploadResult {
+  filename: string;
+  status: 'success' | 'error';
+  message: string;
+  format?: string;
+  urls?: {
+    original: string;
+    webp: string;
+    avif: string;
+  };
+}
+
+export interface UploadResponse {
+  results: UploadResult[];
+}
+
+// 状态消息类型
 export interface StatusMessage {
-  type: "success" | "error";
+  type: 'success' | 'error' | 'warning';
   message: string;
 } 
