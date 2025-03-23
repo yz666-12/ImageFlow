@@ -17,8 +17,17 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	}
 	log.Printf("Starting WebP conversion, input size: %d bytes", len(data))
 
-	// Create temporary input file
-	tempInput, err := ioutil.TempFile("", "input-*.jpg")
+	// Detect the image format
+	imgFormat, err := DetectImageFormat(data)
+	if err != nil {
+		log.Printf("Failed to detect image format: %v", err)
+		return nil, fmt.Errorf("failed to detect image format: %v", err)
+	}
+	
+	log.Printf("Detected image format: %s", imgFormat.Format)
+
+	// Create temporary input file with appropriate extension
+	tempInput, err := ioutil.TempFile("", fmt.Sprintf("input-*%s", imgFormat.Extension))
 	if err != nil {
 		log.Printf("Failed to create temp input file: %v", err)
 		return nil, fmt.Errorf("failed to create temp input file: %v", err)
@@ -42,8 +51,17 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	defer os.Remove(tempOutput.Name())
 	defer tempOutput.Close()
 
-	// Convert to WebP
-	cmd := exec.Command("cwebp", "-q", quality, tempInput.Name(), "-o", tempOutput.Name())
+	// Convert to WebP with appropriate flags based on format
+	var cmd *exec.Cmd
+	if imgFormat.Format == "gif" {
+		// Special handling for GIF files (including animated GIFs)
+		log.Printf("Using special handling for GIF format")
+		cmd = exec.Command("gif2webp", "-q", quality, "-lossy", tempInput.Name(), "-o", tempOutput.Name())
+	} else {
+		// Standard conversion for other formats (JPEG, PNG)
+		cmd = exec.Command("cwebp", "-q", quality, tempInput.Name(), "-o", tempOutput.Name())
+	}
+	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("WebP conversion failed: %v\nOutput: %s", err, string(output))
@@ -70,8 +88,17 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	}
 	log.Printf("Starting AVIF conversion, input size: %d bytes", len(data))
 
-	// Create temporary input file
-	tempInput, err := ioutil.TempFile("", "input-*.jpg")
+	// Detect the image format
+	imgFormat, err := DetectImageFormat(data)
+	if err != nil {
+		log.Printf("Failed to detect image format: %v", err)
+		return nil, fmt.Errorf("failed to detect image format: %v", err)
+	}
+	
+	log.Printf("Detected image format for AVIF conversion: %s", imgFormat.Format)
+
+	// Create temporary input file with appropriate extension
+	tempInput, err := ioutil.TempFile("", fmt.Sprintf("input-*%s", imgFormat.Extension))
 	if err != nil {
 		log.Printf("Failed to create temp input file: %v", err)
 		return nil, fmt.Errorf("failed to create temp input file: %v", err)
@@ -95,8 +122,34 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	defer os.Remove(tempOutput.Name())
 	defer tempOutput.Close()
 
-	// Convert to AVIF
-	cmd := exec.Command("avifenc", "-q", quality, tempInput.Name(), tempOutput.Name())
+	// Convert to AVIF with appropriate handling based on format
+	var cmd *exec.Cmd
+	if imgFormat.Format == "gif" {
+		// For GIF files, we need to extract the first frame for AVIF
+		// Extract first frame to a temporary PNG file
+		tempPng, err := ioutil.TempFile("", "gifframe-*.png")
+		if err != nil {
+			log.Printf("Failed to create temp PNG file: %v", err)
+			return nil, fmt.Errorf("failed to create temp PNG file: %v", err)
+		}
+		defer os.Remove(tempPng.Name())
+		defer tempPng.Close()
+		
+		// Extract first frame using convert (ImageMagick)
+		convertCmd := exec.Command("convert", tempInput.Name()+"[0]", tempPng.Name())
+		convertOutput, err := convertCmd.CombinedOutput()
+		if err != nil {
+			log.Printf("GIF frame extraction failed: %v\nOutput: %s", err, string(convertOutput))
+			return nil, fmt.Errorf("gif frame extraction failed: %v", err)
+		}
+		
+		// Now convert the PNG to AVIF
+		cmd = exec.Command("avifenc", "-q", quality, tempPng.Name(), tempOutput.Name())
+	} else {
+		// Standard conversion for other formats
+		cmd = exec.Command("avifenc", "-q", quality, tempInput.Name(), tempOutput.Name())
+	}
+	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("AVIF conversion failed: %v\nOutput: %s", err, string(output))

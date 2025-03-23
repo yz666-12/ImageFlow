@@ -1,31 +1,26 @@
-# 强制忽略所有文件（精确匹配）
 static/images/**/*
-# 保留所有空目录结构
 !static/images/**/
-# 仅保留.gitkeep文件
 !static/images/**/.gitkeep
 
-# 系统文件
+
 .DS_Store
 **/.DS_Store
 
+nextjs-frontend/
 
-# IDE配置文件
 .idea/
 .vscode/
 
-# 依赖目录
 vendor/
 
-# 日志文件
+
 *.log
 
 .env*         
 !.env.example  
 
-# 临时文件
 tmp/
 temp/
 
-# 测试覆盖率报告
+
 coverage.txt

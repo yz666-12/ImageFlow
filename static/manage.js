@@ -230,10 +230,26 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })
 
+    // 处理格式选择变化
+    formatFilter.addEventListener('change', function() {
+        // 当选择GIF格式时，自动将方向设置为“所有方向”并禁用方向选择
+        if (this.value === 'gif') {
+            orientationFilter.value = 'all'
+            orientationFilter.disabled = true
+            orientationFilter.classList.add('opacity-50', 'cursor-not-allowed')
+        } else {
+            orientationFilter.disabled = false
+            orientationFilter.classList.remove('opacity-50', 'cursor-not-allowed')
+        }
+        
+        // 重新加载图片
+        loadImages(1) // 返回第一页
+    })
+    
     // 加载图片
     function loadImages(page = 1) {
         const format = formatFilter.value
-        const orientation = orientationFilter.value
+        const orientation = format === 'gif' ? 'all' : orientationFilter.value
         const apiKey = localStorage.getItem('api_key')
         const limit = imagesPerPage
 

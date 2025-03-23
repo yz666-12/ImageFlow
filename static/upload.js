@@ -370,9 +370,9 @@ document.addEventListener('DOMContentLoaded', function () {
 		// 将 FileList 转换为数组并验证每个文件
 		Array.from(fileList).forEach((file) => {
 			// 检查文件类型
-			const validTypes = ['image/jpeg', 'image/png', 'image/jpg']
+			const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif']
 			if (!validTypes.includes(file.type)) {
-				showStatus(`文件 ${file.name} 格式不支持，只支持 JPG 和 PNG`, 'error')
+				showStatus(`文件 ${file.name} 格式不支持，只支持 JPG、PNG 和 GIF`, 'error')
 				return
 			}
 
@@ -594,6 +594,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		
 		// 处理URL路径，确保它们是完整的URL
 		const getFullUrl = (path) => {
+			// Check if path is undefined or null
+			if (!path) {
+				console.warn('Empty path provided to getFullUrl');
+				return '';
+			}
+			
 			// 如果路径已经是完整URL（开头为http://或https://），直接返回
 			if (path.startsWith('http://') || path.startsWith('https://')) {
 				return path;
@@ -664,7 +670,16 @@ document.addEventListener('DOMContentLoaded', function () {
 				const formattedFilename = `${year}${month}${day}_${hours}${minutes}${seconds}_${randomNum}`;
 				
 				// 确保图片URL是完整的
-				const imageUrl = getFullUrl(result.urls.webp);
+				// Check for format - if it's a GIF, use the original URL, otherwise use webp
+				let imageUrl;
+				if (result.format === 'gif') {
+					// For GIF files, use the original URL from the urls.original property
+					imageUrl = getFullUrl(result.urls.original);
+				} else {
+					// For other formats, use the WebP URL if available
+					imageUrl = result.urls && result.urls.webp ? getFullUrl(result.urls.webp) : getFullUrl(result.urls.original);
+				}
+				
 				imagePreview.innerHTML = `
 					<div class="relative rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-600 shadow-md" style="height: 100%;">
 						<img src="${imageUrl}" class="object-cover w-full h-full" alt="Image">
@@ -677,11 +692,29 @@ document.addEventListener('DOMContentLoaded', function () {
 				
 
 				
-				// 创建链接项
-				const formats = [
+				// 创建链接项 - handle gif format differently
+				// 获取文件名，用于Markdown链接的alt文本
+				const fileName = result.filename || formattedFilename;
+				
+				// 为Markdown链接准备不同格式的URL
+				let mdImageUrl;
+				if (result.format === 'gif') {
+					mdImageUrl = getFullUrl(result.urls.original);
+				} else {
+					mdImageUrl = result.urls && result.urls.webp ? getFullUrl(result.urls.webp) : getFullUrl(result.urls.original);
+				}
+				
+				// 创建Markdown格式的链接
+				const markdownLink = `![${fileName}](${mdImageUrl})`;
+				
+				const formats = result.format === 'gif' ? [
+					{ name: 'GIF 原始图片', url: getFullUrl(result.urls.original), color: 'bg-blue-100 dark:bg-blue-800', textColor: 'text-blue-600 dark:text-blue-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21q-.825 0-1.413-.588T3 19V5q0-.825.588-1.413T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.588 1.413T19 21H5Zm0-2h14V5H5v14Zm1-2h12l-3.75-5l-3 4L9 13l-3 4ZM5 5v14V5Z"/></svg>` },
+					{ name: 'Markdown 格式', url: markdownLink, color: 'bg-amber-100 dark:bg-amber-800', textColor: 'text-amber-600 dark:text-amber-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41M6.81 15.19v-3.66l1.92 2.35l1.92-2.35v3.66h1.93V8.81h-1.93l-1.92 2.35l-1.92-2.35H4.89v6.38h1.92M19.69 12h-1.92V8.81h-1.92V12h-1.93l2.89 3.28L19.69 12Z"/></svg>` }
+				] : [
 					{ name: '原始图片', url: getFullUrl(result.urls.original), color: 'bg-blue-100 dark:bg-blue-800', textColor: 'text-blue-600 dark:text-blue-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21q-.825 0-1.413-.588T3 19V5q0-.825.588-1.413T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.588 1.413T19 21H5Zm0-2h14V5H5v14Zm1-2h12l-3.75-5l-3 4L9 13l-3 4ZM5 5v14V5Z"/></svg>` },
 					{ name: 'WebP 格式', url: getFullUrl(result.urls.webp), color: 'bg-purple-100 dark:bg-purple-800', textColor: 'text-purple-600 dark:text-purple-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6m-1 1.5L18.5 9H13V3.5M8 11h8v2H8v-2m0 4h8v2H8v-2Z"/></svg>` },
-					{ name: 'AVIF 格式', url: getFullUrl(result.urls.avif), color: 'bg-green-100 dark:bg-green-800', textColor: 'text-green-600 dark:text-green-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9h5.5L13 3.5V9M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2m5 11h2v2h-2v-2m6 0h2v2h-2v-2m-3 0h2v2h-2v-2Z"/></svg>` }
+					{ name: 'AVIF 格式', url: getFullUrl(result.urls.avif), color: 'bg-green-100 dark:bg-green-800', textColor: 'text-green-600 dark:text-green-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9h5.5L13 3.5V9M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2m5 11h2v2h-2v-2m6 0h2v2h-2v-2m-3 0h2v2h-2v-2Z"/></svg>` },
+					{ name: 'Markdown 格式', url: markdownLink, color: 'bg-amber-100 dark:bg-amber-800', textColor: 'text-amber-600 dark:text-amber-300', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41M6.81 15.19v-3.66l1.92 2.35l1.92-2.35v3.66h1.93V8.81h-1.93l-1.92 2.35l-1.92-2.35H4.89v6.38h1.92M19.69 12h-1.92V8.81h-1.92V12h-1.93l2.89 3.28L19.69 12Z"/></svg>` }
 				];
 				
 				formats.forEach(format => {

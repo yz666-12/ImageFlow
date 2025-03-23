@@ -116,6 +116,28 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		}
 	}
 
+	// 查找并删除GIF文件 (存储在单独的gif目录下，没有方向分类)
+	gifPath := filepath.Join(basePath, "gif")
+	gifFiles, err := filepath.Glob(filepath.Join(gifPath, id+".*"))
+	if err != nil {
+		log.Printf("Error finding GIF files for %s in %s: %v", id, gifPath, err)
+		errorCount++
+		lastError = err
+	} else {
+		// 删除找到的每个GIF文件
+		for _, file := range gifFiles {
+			err := os.Remove(file)
+			if err != nil {
+				log.Printf("Error deleting GIF file %s: %v", file, err)
+				errorCount++
+				lastError = err
+			} else {
+				log.Printf("Successfully deleted GIF file: %s", file)
+				deletedCount++
+			}
+		}
+	}
+
 	// 判断操作结果
 	if errorCount > 0 {
 		return false, fmt.Sprintf("删除部分失败，成功删除 %d 个文件，失败 %d 个: %v", deletedCount, errorCount, lastError)
@@ -186,6 +208,35 @@ func deleteS3Images(id string) (bool, string) {
 						deletedPathsForLogging = append(deletedPathsForLogging, key)
 					}
 				}
+			}
+		}
+	}
+
+	// 查找GIF文件 (存储在gif目录下，没有方向分类)
+	gifPrefix := fmt.Sprintf("gif/%s", id)
+
+	// 列出匹配前缀的GIF对象
+	gifPaginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(gifPrefix),
+	})
+
+	for gifPaginator.HasMorePages() {
+		output, err := gifPaginator.NextPage(ctx)
+		if err != nil {
+			log.Printf("Error listing S3 GIF objects with prefix %s: %v", gifPrefix, err)
+			continue
+		}
+
+		for _, obj := range output.Contents {
+			key := *obj.Key
+			// 检查文件名是否以ID开头
+			baseName := filepath.Base(key)
+			if strings.HasPrefix(baseName, id+".") {
+				objectsToDelete = append(objectsToDelete, types.ObjectIdentifier{
+					Key: aws.String(key),
+				})
+				deletedPathsForLogging = append(deletedPathsForLogging, key)
 			}
 		}
 	}

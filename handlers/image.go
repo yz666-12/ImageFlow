@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	
+
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 )
@@ -14,20 +14,20 @@ func RandomImage(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 检测设备类型
 		deviceType := utils.DetectDevice(r)
-		
+
 		// 检测浏览器是否支持AVIF
 		avifSupport := cfg.AvifSupport
 		if accept := r.Header.Get("Accept"); !strings.Contains(accept, "image/avif") {
 			avifSupport = false
 		}
-		
+
 		// 获取随机图片
 		imagePath, err := utils.GetRandomImage(cfg.ImageBasePath, deviceType, avifSupport)
 		if err != nil {
 			http.Error(w, "Failed to get random image", http.StatusInternalServerError)
 			return
 		}
-		
+
 		// 设置适当的Content-Type
 		ext := filepath.Ext(imagePath)
 		switch ext {
@@ -38,8 +38,6 @@ func RandomImage(cfg *config.Config) http.HandlerFunc {
 		default:
 			w.Header().Set("Content-Type", "image/jpeg")
 		}
-		
-		// 提供图片文件
 		http.ServeFile(w, r, imagePath)
 	}
-} 
+}

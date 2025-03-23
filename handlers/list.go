@@ -105,10 +105,21 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		var allImages []ImageInfo
 		var err error
 
-		if storageType == "s3" {
-			allImages, err = listS3Images(orientation, format)
+		// Handle special case for GIF format
+		if format == "gif" {
+			// For GIF files, orientation doesn't matter
+			if storageType == "s3" {
+				allImages, err = listS3GIFImages()
+			} else {
+				allImages, err = listGIFImages(cfg.ImageBasePath)
+			}
 		} else {
-			allImages, err = listLocalImages(cfg.ImageBasePath, orientation, format)
+			// Handle regular image formats
+			if storageType == "s3" {
+				allImages, err = listS3Images(orientation, format)
+			} else {
+				allImages, err = listLocalImages(cfg.ImageBasePath, orientation, format)
+			}
 		}
 
 		if err != nil {
@@ -276,8 +287,144 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 	return images, nil
 }
 
+
+
+// listS3GIFImages returns a list of GIF images from the special gif directory in S3
+func listS3GIFImages() ([]ImageInfo, error) {
+	var images []ImageInfo
+	bucket := os.Getenv("S3_BUCKET")
+	prefix := "gif/"
+
+	// List objects with the gif/ prefix
+	paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	})
+
+	// Process each page of results
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("error listing S3 objects: %v", err)
+		}
+
+		for _, obj := range page.Contents {
+			key := *obj.Key
+			fileName := filepath.Base(key)
+
+			// Skip objects that are not .gif files
+			if !strings.HasSuffix(strings.ToLower(fileName), ".gif") {
+				continue
+			}
+
+			// Construct URL
+			var url string
+			customDomain := os.Getenv("CUSTOM_DOMAIN")
+			if customDomain != "" {
+				url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
+			} else {
+				endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
+				url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
+			}
+
+			// Extract ID (filename without extension)
+			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+			// Add to results
+			images = append(images, ImageInfo{
+				ID:          id,
+				FileName:    fileName,
+				URL:         url,
+				Orientation: "gif",
+				Format:      "gif",
+				Size:        *obj.Size,
+				Path:        key,
+				StorageType: "s3",
+			})
+		}
+	}
+
+	return images, nil
+}
+
+// listGIFImages returns a list of GIF images from the special gif directory
+func listGIFImages(basePath string) ([]ImageInfo, error) {
+	var images []ImageInfo
+	
+	// Path for GIF files
+	dirPath := filepath.Join(basePath, "gif")
+	
+	// List files in the directory
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		// Return empty list if directory doesn't exist
+		log.Printf("Warning: Could not read GIF directory %s: %v", dirPath, err)
+		return images, nil
+	}
+
+	// Filter and collect GIF files
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		fileName := file.Name()
+		if strings.HasSuffix(strings.ToLower(fileName), ".gif") {
+			// Get file info for size
+			fileInfo, err := file.Info()
+			if err != nil {
+				log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
+				continue
+			}
+
+			// Construct image URL and path
+			relPath := filepath.Join("gif", fileName)
+			url := ""
+			storageType := os.Getenv("STORAGE_TYPE")
+			if storageType == "local" {
+				url = fmt.Sprintf("/images/%s", relPath)
+			} else {
+				// For S3 storage
+				customDomain := os.Getenv("CUSTOM_DOMAIN")
+				if customDomain != "" {
+					url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
+				} else {
+					// Fallback to S3 endpoint with bucket name
+					endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
+					bucket := os.Getenv("S3_BUCKET")
+					url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
+				}
+			}
+
+			// Extract ID (filename without extension)
+			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+			// Add image info to the result
+			images = append(images, ImageInfo{
+				ID:          id,
+				FileName:    fileName,
+				URL:         url,
+				Orientation: "gif", // Use "gif" as orientation to mark it as special
+				Format:      "gif",
+				Size:        fileInfo.Size(),
+				Path:        relPath,
+				StorageType: "local",
+			})
+		}
+	}
+
+	return images, nil
+}
+
+
+
 // listS3Images returns a list of images from S3 storage
 func listS3Images(orientation, format string) ([]ImageInfo, error) {
+	// For S3, we don't use basePath, but we need to handle GIF format separately
+	if format == "gif" {
+		// Fetch GIF images from S3 with gif/ prefix
+		return listS3GIFImages()
+	}
 	var images []ImageInfo
 	var orientations []string
 	var formats []string
@@ -358,3 +505,5 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 
 	return images, nil
 }
+
+
