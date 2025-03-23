@@ -1,136 +1,139 @@
+"use client";
+
 import Image from 'next/image'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { copyToClipboard } from '../utils/clipboard'
-import { ImageCardProps } from '../types'
+import { ImageFile } from '../types'
 
-const getFormatLabel = (format: string) => {
-  switch (format) {
-    case 'original':
-      return '原始'
-    case 'webp':
-      return 'WebP'
-    case 'avif':
-      return 'AVIF'
-    case 'gif':
-      return 'GIF'
-    default:
-      return format
-  }
-}
+// 获取正确的绝对URL
+const getAbsoluteUrl = (path: string) => {
+  // 移除开头的斜杠以防止路径重复
+  const relativePath = path.startsWith("/") ? path.substring(1) : path;
+  // 构建完整的URL
+  return `${window.location.origin}/${relativePath}`;
+};
 
-const getOrientationLabel = (orientation: string) => {
-  switch (orientation) {
-    case 'landscape':
-      return '横向'
-    case 'portrait':
-      return '纵向'
-    case 'gif':
-      return 'GIF'
-    default:
-      return orientation
-  }
-}
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + " B";
+  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+  else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+};
 
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+// 获取格式标签
+const getFormatLabel = (format: string): string => {
+  const formatMap: { [key: string]: string } = {
+    png: "PNG",
+    jpg: "JPG",
+    jpeg: "JPEG",
+    webp: "WebP",
+    gif: "GIF",
+  };
+  return formatMap[format.toLowerCase()] || format.toUpperCase();
+};
 
-export default function ImageCard({ image, onClick }: ImageCardProps) {
-  const [isCopied, setIsCopied] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
-  const aspectRatioClass = image.orientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'
-  
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const success = await copyToClipboard(image.url)
-    if (success) {
-      setIsCopied(true)
-      setTimeout(() => setIsCopied(false), 2000)
+// 获取方向标签
+const getOrientationLabel = (orientation: string): string => {
+  const orientationMap: { [key: string]: string } = {
+    landscape: "横向",
+    portrait: "纵向",
+    square: "方形",
+  };
+  return orientationMap[orientation.toLowerCase()] || orientation;
+};
+
+export default function ImageCard({ image, onClick }: { image: ImageFile; onClick: () => void }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [isHovered, setIsHovered] = useState(false);
+
+  // 复制URL到剪贴板
+  const copyToClipboard = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const absoluteUrl = getAbsoluteUrl(image.url);
+      await navigator.clipboard.writeText(absoluteUrl);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("复制失败:", err);
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
     }
-  }
-  
+  };
+
   return (
-    <motion.div 
-      className="bg-gray-50 dark:bg-gray-700 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all transform cursor-pointer"
-      onClick={onClick}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      whileHover={{ y: -4 }}
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      whileHover={{ y: -8, transition: { duration: 0.2 } }}
+      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`relative ${aspectRatioClass} bg-gray-200 dark:bg-gray-600 overflow-hidden flex items-center justify-center`}>
-        <motion.div
-          className="w-full h-full"
-          animate={{
-            scale: isHovered ? 1.05 : 1,
-          }}
-          transition={{ duration: 0.3 }}
-        >
-          <Image
-            src={image.url}
-            alt={image.filename}
-            fill
-            className="object-cover"
-          />
-        </motion.div>
-        <motion.div 
-          className="absolute top-2 right-2 flex gap-1"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <span className="px-2 py-1 bg-indigo-500 bg-opacity-80 text-white text-xs rounded-md">
-            {getFormatLabel(image.format)}
-          </span>
-          <span className="px-2 py-1 bg-purple-500 bg-opacity-80 text-white text-xs rounded-md">
-            {getOrientationLabel(image.orientation)}
-          </span>
-        </motion.div>
+      <div className="relative h-48 overflow-hidden bg-gray-100 dark:bg-gray-900">
+        <Image
+          src={image.url}
+          alt={image.filename}
+          fill
+          className="object-cover group-hover:scale-110 transition-transform duration-500"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
         
-        <motion.button
-          onClick={handleCopy}
-          className="absolute bottom-2 right-2 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          {isCopied ? (
-            <motion.svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-5 w-5 text-green-500"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </motion.svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-            </svg>
-          )}
-        </motion.button>
+        <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white">
+          <div className="flex space-x-1">
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-500/70 backdrop-blur-sm">
+              {getFormatLabel(image.format)}
+            </span>
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70 backdrop-blur-sm">
+              {getOrientationLabel(image.orientation)}
+            </span>
+          </div>
+          
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isHovered ? 1 : 0 }}
+            onClick={copyToClipboard}
+            className="p-1.5 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            title="复制URL"
+          >
+            {copyStatus === "idle" && (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
+            {copyStatus === "copied" && (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+            {copyStatus === "error" && (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+          </motion.button>
+        </div>
       </div>
-      <motion.div 
-        className="p-3"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="truncate text-gray-800 dark:text-gray-200 font-medium">
-          {image.filename}
+
+      <div className="p-4">
+        <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{image.filename}</div>
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(image.size)}</span>
+          {(image as any).width && (image as any).height ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+            >
+              {(image as any).width} x {(image as any).height}
+            </motion.div>
+          ) : null}
         </div>
-        <div className="text-gray-500 dark:text-gray-400 text-sm">
-          {formatFileSize(image.size)}
-        </div>
-      </motion.div>
+      </div>
     </motion.div>
   )
 } 

@@ -56,11 +56,11 @@ export default function Manage() {
       // 获取图片列表
       const data = await api.get<ImageListResponse>("/api/images", {
         page: page.toString(),
-        limit: "12",
+        limit: "16", // 修改为每页16张图片 (4行4列)
         format: filters.format,
         orientation: filters.orientation,
       });
-      console.log(data)
+      
       setImages(data.images);
       setCurrentPage(data.page);
       setTotalPages(data.totalPages);
@@ -112,16 +112,12 @@ export default function Manage() {
   };
 
   useEffect(() => {
-    console.log("Filters changed:", filters);
     setCurrentPage(1);
     fetchImages(1);
   }, [filters]);
 
   const handleFilterChange = (format: string, orientation: string) => {
     setFilters({ format, orientation });
-    console.log(format, orientation);
-    // setCurrentPage(1);
-    // fetchImages(1);
   };
 
   const handlePageChange = (page: number) => {
@@ -133,11 +129,11 @@ export default function Manage() {
   }, [currentPage]);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-7xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-10">
         <div className="flex items-center">
           <Link href="/" className="mr-4">
-            <div className="bg-gradient-primary w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
+            <div className="bg-gradient-primary w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transform hover:rotate-12 transition-transform">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-8 w-8 text-white"
@@ -217,8 +213,8 @@ export default function Manage() {
         <div
           className={`mb-8 p-4 rounded-xl ${
             status.type === "success"
-              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-              : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
+              : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
           }`}
         >
           {status.message}
@@ -235,7 +231,7 @@ export default function Manage() {
         <>
           {images.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {images.map((image) => (
                   <ImageCard
                     key={image.id}
@@ -245,7 +241,7 @@ export default function Manage() {
                 ))}
               </div>
 
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-10 flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   共 {totalImages} 张图片
                 </span>
@@ -257,9 +253,9 @@ export default function Manage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
               <svg
-                className="w-16 h-16 mb-4"
+                className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -271,7 +267,8 @@ export default function Manage() {
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <p>暂无图片</p>
+              <p className="text-lg font-medium">暂无图片</p>
+              <p className="mt-2 text-sm">请上传图片或调整筛选条件</p>
             </div>
           )}
         </>

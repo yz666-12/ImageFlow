@@ -29,6 +29,8 @@ export interface ImageFile {
   size: number;
   path: string;
   storageType: string;
+  width?: number;
+  height?: number;
 }
 
 export interface ImageListResponse {
