@@ -85,6 +85,8 @@ export interface UploadResult {
     webp: string;
     avif: string;
   };
+  id?: string;
+  path?: string;
 }
 
 export interface UploadResponse {

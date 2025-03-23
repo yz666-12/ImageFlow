@@ -1,5 +1,7 @@
 'use client'
 
+// 注意：此组件已被ImageSidebar组件代替，保留此文件仅为向后兼容
+
 import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'

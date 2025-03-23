@@ -1,5 +1,7 @@
 'use client'
 
+// 注意：此组件已被ImageSidebar替代，保留此文件仅为向后兼容
+
 import { motion } from 'framer-motion'
 import ImageResult from './ImageResult'
 
