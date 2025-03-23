@@ -79,6 +79,13 @@ func main() {
 	http.Handle("/favicon-32.png", faviconServer)
 	http.Handle("/favicon.ico", faviconServer)
 
+	http.HandleFunc("/index.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/index.txt")
+	})
+	http.HandleFunc("/manage.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/manage.txt")
+	})
+
 	// 提供上传页面与管理页面
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
