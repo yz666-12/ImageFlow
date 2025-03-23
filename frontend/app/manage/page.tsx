@@ -22,7 +22,7 @@ export default function Manage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalImages, setTotalImages] = useState(0);
-  const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "all" });
+  const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "landscape" });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {

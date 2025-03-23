@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ImageFiltersProps } from '../types'
 import { motion } from 'framer-motion'
 
 export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   const [format, setFormat] = useState('all')
-  const [orientation, setOrientation] = useState('all')
+  const [orientation, setOrientation] = useState('landscape')
 
   const handleFormatChange = (newFormat: string) => {
     setFormat(newFormat)
