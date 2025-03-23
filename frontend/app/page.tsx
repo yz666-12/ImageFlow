@@ -11,7 +11,6 @@ import StatusMessage from './components/StatusMessage'
 import UploadProgress from './components/UploadProgress'
 import ImageResults from './components/ImageResults'
 import UsageTips from './components/UsageTips'
-import Footer from './components/Footer'
 
 export default function Home() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
@@ -103,8 +102,6 @@ export default function Home() {
       {isUploading && <UploadProgress progress={uploadProgress} />}
       
       <UsageTips />
-      
-      <Footer />
 
       <ApiKeyModal 
         isOpen={showApiKeyModal}
