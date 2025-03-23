@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import ImageModal from './ImageModal'
-import { ImageFile } from '../types'
+import ImageDetailModal from './ImageDetailModal'
 
 interface ImageSidebarProps {
   isOpen: boolean
@@ -26,7 +25,19 @@ interface ImageSidebarProps {
 }
 
 export default function ImageSidebar({ isOpen, results, onClose, onDelete }: ImageSidebarProps) {
-  const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null)
+  const [selectedImage, setSelectedImage] = useState<{
+    filename: string
+    status: 'success' | 'error'
+    message?: string
+    format?: string
+    urls?: {
+      original: string
+      webp: string
+      avif: string
+    }
+    id?: string
+    path?: string
+  } | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [tab, setTab] = useState<'all' | 'success' | 'error'>('all')
 
@@ -41,16 +52,7 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
       : errorResults
 
   const handleImageClick = (image: any) => {
-    setSelectedImage({
-      id: image.id || Math.random().toString(), 
-      filename: image.filename,
-      url: image.urls?.original || '',
-      path: image.path || image.urls?.original || '',
-      format: image.format || 'unknown',
-      size: 0, // 这里可以填实际大小，如果有的话
-      orientation: 'landscape', // 默认值，可以根据实际情况调整
-      storageType: 'local', // 默认值
-    })
+    setSelectedImage(image)
     setShowModal(true)
   }
 
@@ -217,11 +219,11 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
       </AnimatePresence>
       
       {/* 图片详情模态框 */}
-      <ImageModal
+      <ImageDetailModal
         image={selectedImage}
         isOpen={showModal}
         onClose={handleCloseModal}
-        onDelete={onDelete || (async () => Promise.resolve())}
+        onDelete={onDelete}
       />
       
       {/* 背景遮罩 */}
