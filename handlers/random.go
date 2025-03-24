@@ -24,25 +24,6 @@ const (
 	FormatOriginal = "original"
 )
 
-// getImageURL constructs the public URL for an image
-func getImageURL(key string) string {
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "local" {
-		return fmt.Sprintf("/static/images/%s", key)
-	}
-
-	// For S3 storage
-	customDomain := os.Getenv("CUSTOM_DOMAIN")
-	if customDomain != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
-	}
-
-	// Fallback to S3 endpoint
-	s3Endpoint := os.Getenv("S3_ENDPOINT")
-	bucket := os.Getenv("S3_BUCKET")
-	return fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(s3Endpoint, "/"+bucket), bucket, key)
-}
-
 // detectBestFormat determines optimal image format based on Accept headers
 func detectBestFormat(r *http.Request) string {
 	accept := r.Header.Get("Accept")

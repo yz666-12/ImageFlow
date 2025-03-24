@@ -45,8 +45,8 @@ func main() {
 	configureMIMETypes()
 
 	// Create routes
-	http.HandleFunc("/validate-api-key", handlers.ValidateAPIKey(cfg))
-	http.HandleFunc("/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
+	http.HandleFunc("/api/validate-api-key", handlers.ValidateAPIKey(cfg))
+	http.HandleFunc("/api/upload", handlers.RequireAPIKey(cfg, handlers.UploadHandler(cfg)))
 	http.HandleFunc("/api/images", handlers.RequireAPIKey(cfg, handlers.ListImagesHandler(cfg)))
 	http.HandleFunc("/api/delete-image", handlers.RequireAPIKey(cfg, handlers.DeleteImageHandler(cfg)))
 	http.HandleFunc("/api/config", handlers.RequireAPIKey(cfg, handlers.ConfigHandler(cfg)))
