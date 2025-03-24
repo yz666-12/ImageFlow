@@ -51,12 +51,10 @@ func (ls *LocalStorage) Store(ctx context.Context, key string, data []byte) erro
 	fullPath := filepath.Join(ls.BasePath, key)
 	dir := filepath.Dir(fullPath)
 
-	// 确保目录存在
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %v", dir, err)
 	}
 
-	// 写入文件
 	if err := os.WriteFile(fullPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write file %s: %v", fullPath, err)
 	}
@@ -92,7 +90,6 @@ func NewS3Storage() (*S3Storage, error) {
 func (s *S3Storage) Store(ctx context.Context, key string, data []byte) error {
 	log.Printf("Storing to S3: bucket=%s, key=%s, size=%d bytes", s.bucket, key, len(data))
 
-	// 根据文件扩展名设置 Content-Type
 	contentType := "application/octet-stream"
 	ext := strings.ToLower(filepath.Ext(key))
 	switch ext {
@@ -117,7 +114,6 @@ func (s *S3Storage) Store(ctx context.Context, key string, data []byte) error {
 		return fmt.Errorf("failed to store object in S3: %v", err)
 	}
 
-	// 生成公开访问URL
 	customDomain := os.Getenv("CUSTOM_DOMAIN")
 	var url string
 	if customDomain != "" {

@@ -12,27 +12,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// 图片格式常量
+// Image format constants
 const (
 	FormatAVIF     = "avif"
 	FormatWebP     = "webp"
 	FormatOriginal = "original"
 )
 
-// 设备类型常量
-const (
-	DeviceMobile  = "mobile"
-	DeviceDesktop = "desktop"
-)
-
-// 支持的图片扩展名
-var supportedImageExtensions = []string{".jpg", ".jpeg", ".png"}
-
-// getImageURL 获取图片URL
+// getImageURL constructs the public URL for an image
 func getImageURL(key string) string {
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "local" {
@@ -51,21 +43,7 @@ func getImageURL(key string) string {
 	return fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(s3Endpoint, "/"+bucket), bucket, key)
 }
 
-// detectDeviceType 判断客户端是移动设备还是桌面设备
-func detectDeviceType(userAgent string) string {
-	mobilePlatforms := []string{
-		"android", "webos", "iphone", "ipad", "ipod", "blackberry", "windows phone",
-	}
-	userAgent = strings.ToLower(userAgent)
-	for _, platform := range mobilePlatforms {
-		if strings.Contains(userAgent, platform) {
-			return DeviceMobile
-		}
-	}
-	return DeviceDesktop
-}
-
-// detectBestFormat 根据客户端能力确定最佳图片格式
+// detectBestFormat determines optimal image format based on Accept headers
 func detectBestFormat(r *http.Request) string {
 	accept := r.Header.Get("Accept")
 	if strings.Contains(accept, "image/avif") {
@@ -77,11 +55,11 @@ func detectBestFormat(r *http.Request) string {
 	return FormatOriginal
 }
 
-// determineOrientation 根据设备类型和请求参数确定图片方向
+// determineOrientation selects orientation based on device type and request parameters
 func determineOrientation(r *http.Request, deviceType string) string {
 	orientation := r.URL.Query().Get("orientation")
 	if orientation == "" {
-		if deviceType == DeviceMobile {
+		if deviceType == utils.DeviceMobile {
 			return "portrait"
 		} else {
 			return "landscape"
@@ -90,7 +68,7 @@ func determineOrientation(r *http.Request, deviceType string) string {
 	return orientation
 }
 
-// getContentType 根据图片格式和文件名获取合适的Content-Type
+// getContentType returns the appropriate Content-Type based on format and filename
 func getContentType(format string, filename string) string {
 	if format == FormatAVIF {
 		return "image/avif"
@@ -99,16 +77,19 @@ func getContentType(format string, filename string) string {
 		return "image/webp"
 	}
 
-	// 根据文件扩展名判断
-	lowerFilename := strings.ToLower(filename)
-	if strings.HasSuffix(lowerFilename, ".png") {
+	// Determine content type based on file extension
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".png":
 		return "image/png"
+	case ".gif":
+		return "image/gif"
+	default:
+		return "image/jpeg"
 	}
-	// 默认为JPEG
-	return "image/jpeg"
 }
 
-// setImageResponseHeaders 设置图片响应的HTTP头
+// setImageResponseHeaders sets standard HTTP headers for image responses
 func setImageResponseHeaders(w http.ResponseWriter, contentType string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
@@ -117,7 +98,7 @@ func setImageResponseHeaders(w http.ResponseWriter, contentType string) {
 	w.Header().Set("Vary", "Accept, User-Agent")
 }
 
-// getFormattedImagePath 根据格式获取图片路径
+// getFormattedImagePath constructs the path to an image with the given format
 func getFormattedImagePath(format string, orientation string, filename string) string {
 	switch format {
 	case FormatAVIF:
@@ -125,35 +106,29 @@ func getFormattedImagePath(format string, orientation string, filename string) s
 	case FormatWebP:
 		return fmt.Sprintf("%s/webp/%s.webp", orientation, filename)
 	default:
-		// 保持原始路径
-		return fmt.Sprintf("original/%s/%s", orientation, filename)
-	}
-}
-
-// isImageFile 检查文件名是否为支持的图片文件
-func isImageFile(filename string) bool {
-	lowerName := strings.ToLower(filename)
-	for _, ext := range supportedImageExtensions {
-		if strings.HasSuffix(lowerName, ext) {
-			return true
+		// Keep original format and path
+		// Determine extension by checking if filename already has one
+		extension := filepath.Ext(filename)
+		if extension == "" {
+			extension = ".jpg" // Default to jpg if no extension
 		}
+		return fmt.Sprintf("original/%s/%s%s", orientation, filename, extension)
 	}
-	return false
 }
 
-// RandomImageHandler 处理S3存储的随机图片请求
+// RandomImageHandler serves random images from S3 storage
 func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bucket := os.Getenv("S3_BUCKET")
 
-		// 确定设备类型和方向
-		deviceType := detectDeviceType(r.UserAgent())
+		// Determine device type and orientation
+		deviceType := utils.DetectDeviceType(r)
 		orientation := determineOrientation(r, deviceType)
 
-		// 构建原始图片目录前缀
+		// Build the prefix for original images directory
 		prefix := fmt.Sprintf("original/%s/", orientation)
 
-		// 列出对应目录中的对象
+		// List objects in the directory
 		output, err := s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 			Bucket: &bucket,
 			Prefix: aws.String(prefix),
@@ -165,10 +140,10 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 			return
 		}
 
-		// 过滤出图片文件
+		// Filter image files
 		var imageObjects []string
 		for _, obj := range output.Contents {
-			if isImageFile(*obj.Key) {
+			if utils.IsImageFile(*obj.Key) {
 				imageObjects = append(imageObjects, *obj.Key)
 			}
 		}
@@ -178,24 +153,55 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 			return
 		}
 
-		// 选择一个随机图片
-		rand.Seed(time.Now().UnixNano())
-		randomIndex := rand.Intn(len(imageObjects))
+		// Select a random image
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		randomIndex := rng.Intn(len(imageObjects))
 		originalKey := imageObjects[randomIndex]
 		log.Printf("Selected random image: %s", originalKey)
 
-		// 提取不带扩展名的文件名
+		// Extract base filename without extension
 		fileBaseName := filepath.Base(originalKey)
 		filename := strings.TrimSuffix(fileBaseName, filepath.Ext(fileBaseName))
 
-		// 确定客户端最佳格式
+		// Determine best format for client
 		bestFormat := detectBestFormat(r)
 
-		// 获取图片路径
+		// Preserve PNG format for transparency if original is PNG
+		isPNG := strings.HasSuffix(strings.ToLower(originalKey), ".png")
+		if isPNG && bestFormat == FormatOriginal {
+			// Use original PNG
+			imageKey := originalKey
+			log.Printf("Serving original PNG: %s", imageKey)
+
+			// Get image from S3
+			data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
+				Bucket: &bucket,
+				Key:    aws.String(imageKey),
+			})
+
+			if err != nil {
+				log.Printf("Error getting image %s: %v", imageKey, err)
+				http.Error(w, "Image not found", http.StatusNotFound)
+				return
+			}
+			defer data.Body.Close()
+
+			// Set response headers with PNG content type
+			setImageResponseHeaders(w, "image/png")
+
+			// Copy image data to response
+			if _, err := io.Copy(w, data.Body); err != nil {
+				log.Printf("Error sending image: %v", err)
+				return
+			}
+			return
+		}
+
+		// Get image path
 		imageKey := getFormattedImagePath(bestFormat, orientation, filename)
 		log.Printf("Serving image format: %s, path: %s", bestFormat, imageKey)
 
-		// 从S3获取图片
+		// Get image from S3
 		data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
 			Bucket: &bucket,
 			Key:    aws.String(imageKey),
@@ -203,7 +209,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 
 		if err != nil {
 			log.Printf("Error getting image %s: %v", imageKey, err)
-			// 如果特定格式不存在，尝试回退到原始图片
+			// Fall back to original format if specific format not available
 			if bestFormat != FormatOriginal {
 				log.Printf("Falling back to original image format")
 				data, err = s3Client.GetObject(r.Context(), &s3.GetObjectInput{
@@ -217,7 +223,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 					return
 				}
 
-				// 使用原始格式
+				// Use original format
 				bestFormat = FormatOriginal
 				imageKey = originalKey
 			} else {
@@ -227,11 +233,11 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 		}
 		defer data.Body.Close()
 
-		// 设置响应头
+		// Set response headers
 		contentType := getContentType(bestFormat, imageKey)
 		setImageResponseHeaders(w, contentType)
 
-		// 拷贝图片数据到响应
+		// Copy image data to response
 		if _, err := io.Copy(w, data.Body); err != nil {
 			log.Printf("Error sending image: %v", err)
 			return
@@ -239,20 +245,20 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 	}
 }
 
-// LocalRandomImageHandler 处理本地存储的随机图片请求
+// LocalRandomImageHandler serves random images from local storage
 func LocalRandomImageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 获取本地存储路径
+		// Get local storage path
 		localPath := os.Getenv("LOCAL_STORAGE_PATH")
 
-		// 确定设备类型和方向
-		deviceType := detectDeviceType(r.UserAgent())
+		// Determine device type and orientation
+		deviceType := utils.DetectDeviceType(r)
 		orientation := determineOrientation(r, deviceType)
 
-		// 构建原始图片目录路径
+		// Build the original images directory path
 		originalDir := filepath.Join(localPath, "original", orientation)
 
-		// 读取目录中的所有文件
+		// Read all files in the directory
 		files, err := os.ReadDir(originalDir)
 		if err != nil {
 			log.Printf("Error reading directory %s: %v", originalDir, err)
@@ -260,10 +266,10 @@ func LocalRandomImageHandler() http.HandlerFunc {
 			return
 		}
 
-		// 过滤出图片文件
+		// Filter image files
 		var imageFiles []string
 		for _, file := range files {
-			if !file.IsDir() && isImageFile(file.Name()) {
+			if !file.IsDir() && utils.IsImageFile(file.Name()) {
 				imageFiles = append(imageFiles, file.Name())
 			}
 		}
@@ -273,18 +279,44 @@ func LocalRandomImageHandler() http.HandlerFunc {
 			return
 		}
 
-		// 选择一个随机图片
+		// Select a random image
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randomImage := imageFiles[rng.Intn(len(imageFiles))]
 		log.Printf("Selected random image: %s", randomImage)
 
-		// 提取不带扩展名的文件名
+		// Extract base filename without extension
 		filename := strings.TrimSuffix(randomImage, filepath.Ext(randomImage))
 
-		// 确定客户端最佳格式
+		// Determine best format for client
 		bestFormat := detectBestFormat(r)
 
-		// 确定图片路径
+		// Preserve PNG format for transparency if original is PNG
+		isPNG := strings.HasSuffix(strings.ToLower(randomImage), ".png")
+		if isPNG && bestFormat == FormatOriginal {
+			// Use original PNG
+			imagePath := filepath.Join(localPath, "original", orientation, randomImage)
+			log.Printf("Serving original PNG: %s", imagePath)
+
+			// Read image file
+			imageData, err := os.ReadFile(imagePath)
+			if err != nil {
+				log.Printf("Error reading image %s: %v", imagePath, err)
+				http.Error(w, "Image not found", http.StatusNotFound)
+				return
+			}
+
+			// Set response headers with PNG content type
+			setImageResponseHeaders(w, "image/png")
+
+			// Send image data
+			if _, err := w.Write(imageData); err != nil {
+				log.Printf("Error sending image: %v", err)
+				return
+			}
+			return
+		}
+
+		// Determine image path
 		var imagePath string
 		switch bestFormat {
 		case FormatAVIF:
@@ -297,15 +329,15 @@ func LocalRandomImageHandler() http.HandlerFunc {
 
 		log.Printf("Serving image format: %s, path: %s", bestFormat, imagePath)
 
-		// 检查文件是否存在
+		// Check if file exists
 		if _, err := os.Stat(imagePath); os.IsNotExist(err) && bestFormat != FormatOriginal {
-			// 如果转换格式不存在，回退到原始格式
+			// Fall back to original format if converted format doesn't exist
 			log.Printf("Converted format not found, falling back to original")
 			imagePath = filepath.Join(localPath, "original", orientation, randomImage)
 			bestFormat = FormatOriginal
 		}
 
-		// 读取图片文件
+		// Read image file
 		imageData, err := os.ReadFile(imagePath)
 		if err != nil {
 			log.Printf("Error reading image %s: %v", imagePath, err)
@@ -313,11 +345,11 @@ func LocalRandomImageHandler() http.HandlerFunc {
 			return
 		}
 
-		// 设置响应头
+		// Set response headers
 		contentType := getContentType(bestFormat, imagePath)
 		setImageResponseHeaders(w, contentType)
 
-		// 发送图片数据
+		// Send image data
 		if _, err := w.Write(imageData); err != nil {
 			log.Printf("Error sending image: %v", err)
 			return

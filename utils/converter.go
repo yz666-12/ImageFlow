@@ -5,62 +5,128 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 )
+
+// getImageQuality returns the configured quality setting from env vars or config
+func getImageQuality() string {
+	quality := "80" // Default quality
+	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
+		// Validate quality is a number between 1-100
+		if qInt, err := strconv.Atoi(q); err == nil && qInt > 0 && qInt <= 100 {
+			quality = q
+		} else {
+			log.Printf("Invalid IMAGE_QUALITY value: %s, using default: 80", q)
+		}
+	}
+	return quality
+}
+
+// getCompressionEffort returns the configured compression effort level
+func getCompressionEffort() int {
+	effort := 4 // Default effort (medium)
+	if e := os.Getenv("COMPRESSION_EFFORT"); e != "" {
+		if eInt, err := strconv.Atoi(e); err == nil && eInt >= 0 && eInt <= 10 {
+			effort = eInt
+		} else {
+			log.Printf("Invalid COMPRESSION_EFFORT value: %s, using default: 4", e)
+		}
+	}
+	return effort
+}
+
+// shouldUseLossless determines if lossless mode should be used
+func shouldUseLossless(format string) bool {
+	// Only use lossless when explicitly requested via environment variable
+	if l := os.Getenv("FORCE_LOSSLESS"); l == "1" || l == "true" {
+		return true
+	}
+
+	// Default to lossy for all formats including PNG
+	return false
+}
+
+// createTempFile creates a temporary file with the given prefix and suffix
+func createTempFile(prefix, suffix string, data []byte) (string, error) {
+	tempFile, err := os.CreateTemp("", prefix+"-*"+suffix)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(data); err != nil {
+		os.Remove(tempFile.Name())
+		return "", fmt.Errorf("failed to write temp file: %v", err)
+	}
+
+	return tempFile.Name(), nil
+}
 
 // ConvertToWebP converts image data to WebP format
 func ConvertToWebP(data []byte) ([]byte, error) {
-	// Get quality from environment variable or use default
-	quality := "80"
-	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
-		quality = q
-	}
-	log.Printf("Starting WebP conversion, input size: %d bytes", len(data))
+	quality := getImageQuality()
+	effort := getCompressionEffort()
+	threads := getThreadCount()
+
+	log.Printf("Starting WebP conversion, input size: %d bytes, quality: %s, effort: %d, threads: %d",
+		len(data), quality, effort, threads)
 
 	// Detect the image format
 	imgFormat, err := DetectImageFormat(data)
 	if err != nil {
-		log.Printf("Failed to detect image format: %v", err)
 		return nil, fmt.Errorf("failed to detect image format: %v", err)
 	}
-	
-	log.Printf("Detected image format: %s", imgFormat.Format)
+
+	log.Printf("Converting %s image to WebP", imgFormat.Format)
+
+	// For GIF images, return the original data without conversion
+	if imgFormat.Format == "gif" {
+		log.Printf("GIF detected, skipping WebP conversion and returning original data")
+		return data, nil
+	}
 
 	// Create temporary input file with appropriate extension
-	tempInput, err := os.CreateTemp("", fmt.Sprintf("input-*%s", imgFormat.Extension))
+	inputPath, err := createTempFile("input", imgFormat.Extension, data)
 	if err != nil {
-		log.Printf("Failed to create temp input file: %v", err)
-		return nil, fmt.Errorf("failed to create temp input file: %v", err)
+		return nil, err
 	}
-	defer os.Remove(tempInput.Name())
-	defer tempInput.Close()
-
-	// Write input data
-	if _, err := tempInput.Write(data); err != nil {
-		log.Printf("Failed to write temp input file: %v", err)
-		return nil, fmt.Errorf("failed to write temp input file: %v", err)
-	}
-	tempInput.Close()
+	defer os.Remove(inputPath)
 
 	// Create temporary output file
 	tempOutput, err := os.CreateTemp("", "output-*.webp")
 	if err != nil {
-		log.Printf("Failed to create temp output file: %v", err)
 		return nil, fmt.Errorf("failed to create temp output file: %v", err)
 	}
-	defer os.Remove(tempOutput.Name())
-	defer tempOutput.Close()
+	tempOutput.Close()
+	outputPath := tempOutput.Name()
+	defer os.Remove(outputPath)
 
-	// Convert to WebP with appropriate flags based on format
+	// Convert to WebP with appropriate flags based on source format
 	var cmd *exec.Cmd
-	if imgFormat.Format == "gif" {
-		// Special handling for GIF files (including animated GIFs)
-		log.Printf("Using special handling for GIF format")
-		cmd = exec.Command("gif2webp", "-q", quality, "-lossy", tempInput.Name(), "-o", tempOutput.Name())
-	} else {
-		// Standard conversion for other formats (JPEG, PNG)
-		cmd = exec.Command("cwebp", "-q", quality, tempInput.Name(), "-o", tempOutput.Name())
+
+	// Check if we should use lossless mode
+	useLossless := shouldUseLossless(imgFormat.Format)
+
+	// Build command with shared parameters
+	args := []string{
+		"-q", quality,
+		"-m", fmt.Sprintf("%d", effort),
+		"-mt", // Enable multi-threading (doesn't take a thread count parameter)
 	}
-	
+
+	// Add lossless flag if needed
+	if useLossless {
+		log.Printf("Using cwebp with lossless flag for %s conversion", imgFormat.Format)
+		args = append(args, "-lossless")
+	}
+
+	// Add input and output files
+	args = append(args, inputPath, "-o", outputPath)
+	cmd = exec.Command("cwebp", args...)
+
+	// Log the command for debugging
+	log.Printf("Running: %s", cmd.String())
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("WebP conversion failed: %v\nOutput: %s", err, string(output))
@@ -68,87 +134,88 @@ func ConvertToWebP(data []byte) ([]byte, error) {
 	}
 
 	// Read the output file
-	result, err := os.ReadFile(tempOutput.Name())
+	result, err := os.ReadFile(outputPath)
 	if err != nil {
-		log.Printf("Failed to read WebP output file: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to read WebP output file: %v", err)
 	}
 
-	log.Printf("WebP conversion successful, output size: %d bytes", len(result))
+	log.Printf("WebP conversion successful, output size: %d bytes, compression ratio: %.2f%%",
+		len(result), float64(len(result))*100/float64(len(data)))
+
 	return result, nil
 }
 
 // ConvertToAVIF converts image data to AVIF format
 func ConvertToAVIF(data []byte) ([]byte, error) {
-	// Get quality from environment variable or use default
-	quality := "80"
-	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
-		quality = q
-	}
-	log.Printf("Starting AVIF conversion, input size: %d bytes", len(data))
+	quality := getImageQuality()
+	effort := getCompressionEffort()
+
+	// Get thread count from environment or use default
+	threads := getThreadCount()
+
+	log.Printf("Starting AVIF conversion, input size: %d bytes, quality: %s, effort: %d, threads: %d",
+		len(data), quality, effort, threads)
 
 	// Detect the image format
 	imgFormat, err := DetectImageFormat(data)
 	if err != nil {
-		log.Printf("Failed to detect image format: %v", err)
 		return nil, fmt.Errorf("failed to detect image format: %v", err)
 	}
-	
-	log.Printf("Detected image format for AVIF conversion: %s", imgFormat.Format)
+
+	log.Printf("Converting %s image to AVIF", imgFormat.Format)
+
+	// For GIF images, return the original data without conversion
+	if imgFormat.Format == "gif" {
+		log.Printf("GIF detected, skipping AVIF conversion and returning original data")
+		return data, nil
+	}
 
 	// Create temporary input file with appropriate extension
-	tempInput, err := os.CreateTemp("", fmt.Sprintf("input-*%s", imgFormat.Extension))
+	inputPath, err := createTempFile("input", imgFormat.Extension, data)
 	if err != nil {
-		log.Printf("Failed to create temp input file: %v", err)
-		return nil, fmt.Errorf("failed to create temp input file: %v", err)
+		return nil, err
 	}
-	defer os.Remove(tempInput.Name())
-	defer tempInput.Close()
-
-	// Write input data
-	if _, err := tempInput.Write(data); err != nil {
-		log.Printf("Failed to write temp input file: %v", err)
-		return nil, fmt.Errorf("failed to write temp input file: %v", err)
-	}
-	tempInput.Close()
+	defer os.Remove(inputPath)
 
 	// Create temporary output file
 	tempOutput, err := os.CreateTemp("", "output-*.avif")
 	if err != nil {
-		log.Printf("Failed to create temp output file: %v", err)
 		return nil, fmt.Errorf("failed to create temp output file: %v", err)
 	}
-	defer os.Remove(tempOutput.Name())
-	defer tempOutput.Close()
+	tempOutput.Close()
+	outputPath := tempOutput.Name()
+	defer os.Remove(outputPath)
 
-	// Convert to AVIF with appropriate handling based on format
+	// Handle different source formats
 	var cmd *exec.Cmd
-	if imgFormat.Format == "gif" {
-		// For GIF files, we need to extract the first frame for AVIF
-		// Extract first frame to a temporary PNG file
-		tempPng, err := os.CreateTemp("", "gifframe-*.png")
-		if err != nil {
-			log.Printf("Failed to create temp PNG file: %v", err)
-			return nil, fmt.Errorf("failed to create temp PNG file: %v", err)
-		}
-		defer os.Remove(tempPng.Name())
-		defer tempPng.Close()
-		
-		// Extract first frame using convert (ImageMagick)
-		convertCmd := exec.Command("convert", tempInput.Name()+"[0]", tempPng.Name())
-		convertOutput, err := convertCmd.CombinedOutput()
-		if err != nil {
-			log.Printf("GIF frame extraction failed: %v\nOutput: %s", err, string(convertOutput))
-			return nil, fmt.Errorf("gif frame extraction failed: %v", err)
-		}
-		
-		// Now convert the PNG to AVIF
-		cmd = exec.Command("avifenc", "-q", quality, tempPng.Name(), tempOutput.Name())
-	} else {
-		// Standard conversion for other formats
-		cmd = exec.Command("avifenc", "-q", quality, tempInput.Name(), tempOutput.Name())
+
+	// Check if lossless mode should be used
+	useLossless := shouldUseLossless(imgFormat.Format)
+
+	// Speed in AVIF is opposite scale from our effort (0=fast, 10=slow)
+	avifSpeed := 10 - effort
+
+	// Build base command with speed parameter
+	args := []string{
+		"-s", fmt.Sprintf("%d", avifSpeed),
+		"--jobs", fmt.Sprintf("%d", threads),
 	}
-	
+
+	// Add lossless flag or quality parameter (they can't be used together)
+	if useLossless {
+		log.Printf("Using avifenc with lossless flag for %s conversion", imgFormat.Format)
+		args = append(args, "--lossless")
+	} else {
+		args = append(args, "-q", quality)
+	}
+
+	// Add input and output files
+	args = append(args, inputPath, outputPath)
+	cmd = exec.Command("avifenc", args...)
+
+	// Log the command for debugging
+	log.Printf("Running: %s", cmd.String())
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("AVIF conversion failed: %v\nOutput: %s", err, string(output))
@@ -156,12 +223,30 @@ func ConvertToAVIF(data []byte) ([]byte, error) {
 	}
 
 	// Read the output file
-	result, err := os.ReadFile(tempOutput.Name())
+	result, err := os.ReadFile(outputPath)
 	if err != nil {
-		log.Printf("Failed to read AVIF output file: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to read AVIF output file: %v", err)
 	}
 
-	log.Printf("AVIF conversion successful, output size: %d bytes", len(result))
+	log.Printf("AVIF conversion successful, output size: %d bytes, compression ratio: %.2f%%",
+		len(result), float64(len(result))*100/float64(len(data)))
+
 	return result, nil
+}
+
+// getThreadCount returns the number of threads to use for conversion
+func getThreadCount() int {
+	// Default to 4 threads if not specified
+	threads := 4
+
+	// Check environment variable
+	if t := os.Getenv("WORKER_THREADS"); t != "" {
+		if tInt, err := strconv.Atoi(t); err == nil && tInt > 0 {
+			threads = tInt
+		} else {
+			log.Printf("Invalid WORKER_THREADS value: %s, using default: 4", t)
+		}
+	}
+
+	return threads
 }

@@ -47,66 +47,19 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		// Get storage type from environment
 		storageType := os.Getenv("STORAGE_TYPE")
 
-		// Check for API key
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "未提供授权信息", http.StatusUnauthorized)
+		// Validate API key
+		if !validateAPIKey(w, r, cfg.APIKey) {
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "授权格式无效", http.StatusUnauthorized)
-			return
-		}
-
-		apiKey := parts[1]
-		if apiKey != cfg.APIKey {
-			http.Error(w, "API密钥无效", http.StatusUnauthorized)
-			return
-		}
-
-		// Process query parameters
-		orientation := r.URL.Query().Get("orientation")
-		format := r.URL.Query().Get("format")
-
-		// Parse pagination parameters
-		pageStr := r.URL.Query().Get("page")
-		limitStr := r.URL.Query().Get("limit")
-
-		// Default values
-		if orientation == "" {
-			orientation = "all" // all, landscape, portrait
-		}
-		if format == "" {
-			format = "original" // original, webp, avif
-		}
-
-		// Set default pagination values
-		page := 1
-		limit := 12 // Default items per page
-
-		// Parse page number
-		if pageStr != "" {
-			pageVal, err := strconv.Atoi(pageStr)
-			if err == nil && pageVal > 0 {
-				page = pageVal
-			}
-		}
-
-		// Parse limit
-		if limitStr != "" {
-			limitVal, err := strconv.Atoi(limitStr)
-			if err == nil && limitVal > 0 && limitVal <= 50 { // Cap at 50 items per page
-				limit = limitVal
-			}
-		}
+		// Parse query parameters
+		params := parseQueryParams(r)
 
 		var allImages []ImageInfo
 		var err error
 
-		// Handle special case for GIF format
-		if format == "gif" {
+		// Handle image listing based on format and storage type
+		if params.format == "gif" {
 			// For GIF files, orientation doesn't matter
 			if storageType == "s3" {
 				allImages, err = listS3GIFImages()
@@ -116,9 +69,9 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		} else {
 			// Handle regular image formats
 			if storageType == "s3" {
-				allImages, err = listS3Images(orientation, format)
+				allImages, err = listS3Images(params.orientation, params.format)
 			} else {
-				allImages, err = listLocalImages(cfg.ImageBasePath, orientation, format)
+				allImages, err = listLocalImages(cfg.ImageBasePath, params.orientation, params.format)
 			}
 		}
 
@@ -133,55 +86,134 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 			return allImages[i].FileName > allImages[j].FileName
 		})
 
-		// Calculate pagination values
-		total := len(allImages)
-		totalPages := int(math.Ceil(float64(total) / float64(limit)))
-
-		// Ensure page is within valid range
-		if page > totalPages && totalPages > 0 {
-			page = totalPages
-		}
-
-		// Calculate start and end indices for the current page
-		start := (page - 1) * limit
-		end := start + limit
-
-		// Ensure end index is within bounds
-		if end > total {
-			end = total
-		}
-
-		// Extract the subset of images for the current page
-		var pagedImages []ImageInfo
-		if start < total {
-			pagedImages = allImages[start:end]
-		} else {
-			pagedImages = []ImageInfo{} // Empty slice for out of range pages
-		}
-
-		// Set response headers
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-
-		// Encode and send the paginated response
-		response := PaginatedResponse{
-			Success:    true,
-			Images:     pagedImages,
-			Page:       page,
-			Limit:      limit,
-			TotalPages: totalPages,
-			Total:      total,
-		}
-
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("Error encoding JSON response: %v", err)
-		}
+		// Generate paginated response
+		sendPaginatedResponse(w, allImages, params.page, params.limit)
 	}
 }
 
-// listLocalImages returns a list of images from the local filesystem
-func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) {
-	var images []ImageInfo
+// Query parameters structure
+type queryParams struct {
+	orientation string
+	format      string
+	page        int
+	limit       int
+}
+
+// validateAPIKey checks if the provided API key is valid
+func validateAPIKey(w http.ResponseWriter, r *http.Request, configAPIKey string) bool {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "未提供授权信息", http.StatusUnauthorized)
+		return false
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		http.Error(w, "授权格式无效", http.StatusUnauthorized)
+		return false
+	}
+
+	apiKey := parts[1]
+	if apiKey != configAPIKey {
+		http.Error(w, "API密钥无效", http.StatusUnauthorized)
+		return false
+	}
+
+	return true
+}
+
+// parseQueryParams extracts and validates query parameters
+func parseQueryParams(r *http.Request) queryParams {
+	orientation := r.URL.Query().Get("orientation")
+	format := r.URL.Query().Get("format")
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	// Default values
+	if orientation == "" {
+		orientation = "all" // all, landscape, portrait
+	}
+	if format == "" {
+		format = "original" // original, webp, avif
+	}
+
+	// Set default pagination values
+	page := 1
+	limit := 12 // Default items per page
+
+	// Parse page number
+	if pageStr != "" {
+		pageVal, err := strconv.Atoi(pageStr)
+		if err == nil && pageVal > 0 {
+			page = pageVal
+		}
+	}
+
+	// Parse limit
+	if limitStr != "" {
+		limitVal, err := strconv.Atoi(limitStr)
+		if err == nil && limitVal > 0 && limitVal <= 50 { // Cap at 50 items per page
+			limit = limitVal
+		}
+	}
+
+	return queryParams{
+		orientation: orientation,
+		format:      format,
+		page:        page,
+		limit:       limit,
+	}
+}
+
+// sendPaginatedResponse creates and sends a paginated JSON response
+func sendPaginatedResponse(w http.ResponseWriter, allImages []ImageInfo, page, limit int) {
+	// Calculate pagination values
+	total := len(allImages)
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	// Ensure page is within valid range
+	if page > totalPages && totalPages > 0 {
+		page = totalPages
+	}
+
+	// Calculate start and end indices for the current page
+	start := (page - 1) * limit
+	end := start + limit
+
+	// Ensure end index is within bounds
+	if end > total {
+		end = total
+	}
+
+	// Extract the subset of images for the current page
+	var pagedImages []ImageInfo
+	if start < total {
+		pagedImages = allImages[start:end]
+	} else {
+		pagedImages = []ImageInfo{} // Empty slice for out of range pages
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	// Encode and send the paginated response
+	response := PaginatedResponse{
+		Success:    true,
+		Images:     pagedImages,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+		Total:      total,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
+	}
+}
+
+// getOrientationAndFormatSlices returns slices of orientations and formats based on input parameters
+func getOrientationAndFormatSlices(orientation, format string) ([]string, []string) {
 	var orientations []string
 	var formats []string
 
@@ -199,21 +231,65 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 		formats = []string{format}
 	}
 
+	return orientations, formats
+}
+
+// getDirPathAndExtensions returns directory path and valid extensions based on format
+func getDirPathAndExtensions(basePath, orientVal, formatVal string) (string, []string) {
+	var dirPath string
+	var extensions []string
+
+	// Construct the path based on format
+	if formatVal == "original" {
+		dirPath = filepath.Join(basePath, "original", orientVal)
+		extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
+	} else {
+		dirPath = filepath.Join(basePath, orientVal, formatVal)
+		extension := "." + formatVal
+		extensions = []string{extension}
+	}
+
+	return dirPath, extensions
+}
+
+// constructImageURL creates the appropriate URL for image access in list.go context
+func constructImageURL(relPath string) string {
+	storageType := os.Getenv("STORAGE_TYPE")
+	if storageType == "local" {
+		return fmt.Sprintf("/images/%s", relPath)
+	}
+
+	// For S3 storage
+	customDomain := os.Getenv("CUSTOM_DOMAIN")
+	if customDomain != "" {
+		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
+	}
+
+	// Fallback to S3 endpoint with bucket name
+	endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
+	bucket := os.Getenv("S3_BUCKET")
+	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
+}
+
+// hasValidExtension checks if a filename has one of the valid extensions
+func hasValidExtension(fileName string, extensions []string) bool {
+	lowerFileName := strings.ToLower(fileName)
+	for _, ext := range extensions {
+		if strings.HasSuffix(lowerFileName, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+// listLocalImages returns a list of images from the local filesystem
+func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) {
+	var images []ImageInfo
+	orientations, formats := getOrientationAndFormatSlices(orientation, format)
+
 	for _, orientVal := range orientations {
 		for _, formatVal := range formats {
-			var dirPath string
-			var extension string
-			var extensions []string
-
-			// Construct the path based on format
-			if formatVal == "original" {
-				dirPath = filepath.Join(basePath, "original", orientVal)
-				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
-			} else {
-				dirPath = filepath.Join(basePath, orientVal, formatVal)
-				extension = "." + formatVal
-				extensions = []string{extension}
-			}
+			dirPath, extensions := getDirPathAndExtensions(basePath, orientVal, formatVal)
 
 			// List files in the directory
 			files, err := os.ReadDir(dirPath)
@@ -223,25 +299,17 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 				continue
 			}
 
-			// Filter and collect image files
+			// Process each file
 			for _, file := range files {
 				if file.IsDir() {
 					continue
 				}
 
 				fileName := file.Name()
-
-				validExtension := false
-				for _, ext := range extensions {
-					if strings.HasSuffix(strings.ToLower(fileName), ext) {
-						validExtension = true
-						break
-					}
-				}
-
-				if !validExtension {
+				if !hasValidExtension(fileName, extensions) {
 					continue
 				}
+
 				// Get file info for size
 				fileInfo, err := file.Info()
 				if err != nil {
@@ -249,7 +317,7 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 					continue
 				}
 
-				// Construct image URL
+				// Construct relative path
 				var firstPart, thirdPart string
 				if formatVal == "original" {
 					firstPart = "original"
@@ -260,24 +328,6 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 				}
 				relPath := filepath.Join(firstPart, orientVal, thirdPart, fileName)
 
-				// 构建URL，与上传功能保持一致
-				var url string
-				storageType := os.Getenv("STORAGE_TYPE")
-				if storageType == "local" {
-					url = fmt.Sprintf("/images/%s", relPath)
-				} else {
-					// For S3 storage
-					customDomain := os.Getenv("CUSTOM_DOMAIN")
-					if customDomain != "" {
-						url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
-					} else {
-						// Fallback to S3 endpoint with bucket name
-						endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-						bucket := os.Getenv("S3_BUCKET")
-						url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
-					}
-				}
-
 				// Extract ID (filename without extension)
 				id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
@@ -285,13 +335,137 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 				images = append(images, ImageInfo{
 					ID:          id,
 					FileName:    fileName,
-					URL:         url,
+					URL:         constructImageURL(relPath),
 					Orientation: orientVal,
 					Format:      formatVal,
 					Size:        fileInfo.Size(),
 					Path:        relPath,
 					StorageType: "local",
 				})
+			}
+		}
+	}
+
+	return images, nil
+}
+
+// listGIFImages returns a list of GIF images from the special gif directory
+func listGIFImages(basePath string) ([]ImageInfo, error) {
+	var images []ImageInfo
+	dirPath := filepath.Join(basePath, "gif")
+
+	// List files in the directory
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		// Return empty list if directory doesn't exist
+		log.Printf("Warning: Could not read GIF directory %s: %v", dirPath, err)
+		return images, nil
+	}
+
+	// Filter and collect GIF files
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		fileName := file.Name()
+		if !strings.HasSuffix(strings.ToLower(fileName), ".gif") {
+			continue
+		}
+
+		// Get file info for size
+		fileInfo, err := file.Info()
+		if err != nil {
+			log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
+			continue
+		}
+
+		// Construct image URL and path
+		relPath := filepath.Join("gif", fileName)
+
+		// Extract ID (filename without extension)
+		id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+		// Add image info to the result
+		images = append(images, ImageInfo{
+			ID:          id,
+			FileName:    fileName,
+			URL:         constructImageURL(relPath),
+			Orientation: "gif", // Use "gif" as orientation to mark it as special
+			Format:      "gif",
+			Size:        fileInfo.Size(),
+			Path:        relPath,
+			StorageType: "local",
+		})
+	}
+
+	return images, nil
+}
+
+// listS3Images returns a list of images from S3 storage
+func listS3Images(orientation, format string) ([]ImageInfo, error) {
+	// For S3, we don't use basePath, but we need to handle GIF format separately
+	if format == "gif" {
+		// Fetch GIF images from S3 with gif/ prefix
+		return listS3GIFImages()
+	}
+
+	var images []ImageInfo
+	orientations, formats := getOrientationAndFormatSlices(orientation, format)
+	bucket := os.Getenv("S3_BUCKET")
+
+	for _, orientVal := range orientations {
+		for _, formatVal := range formats {
+			var prefix string
+			var extensions []string
+
+			// Construct the prefix based on format
+			if formatVal == "original" {
+				prefix = "original/" + orientVal + "/"
+				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
+			} else {
+				prefix = orientVal + "/" + formatVal + "/"
+				extension := "." + formatVal
+				extensions = []string{extension}
+			}
+
+			// List objects with the prefix
+			paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
+				Bucket: aws.String(bucket),
+				Prefix: aws.String(prefix),
+			})
+
+			// Process each page of results
+			for paginator.HasMorePages() {
+				output, err := paginator.NextPage(context.Background())
+				if err != nil {
+					return nil, err
+				}
+
+				// Process each object
+				for _, obj := range output.Contents {
+					key := *obj.Key
+					fileName := filepath.Base(key)
+
+					if !hasValidExtension(fileName, extensions) {
+						continue
+					}
+
+					// Extract ID (filename without extension)
+					id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+					// Add image info to the result
+					images = append(images, ImageInfo{
+						ID:          id,
+						FileName:    fileName,
+						URL:         constructImageURL(key),
+						Orientation: orientVal,
+						Format:      formatVal,
+						Size:        *obj.Size,
+						Path:        key,
+						StorageType: "s3",
+					})
+				}
 			}
 		}
 	}
@@ -327,16 +501,6 @@ func listS3GIFImages() ([]ImageInfo, error) {
 				continue
 			}
 
-			// Construct URL
-			var url string
-			customDomain := os.Getenv("CUSTOM_DOMAIN")
-			if customDomain != "" {
-				url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
-			} else {
-				endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-				url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
-			}
-
 			// Extract ID (filename without extension)
 			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
@@ -344,180 +508,13 @@ func listS3GIFImages() ([]ImageInfo, error) {
 			images = append(images, ImageInfo{
 				ID:          id,
 				FileName:    fileName,
-				URL:         url,
+				URL:         constructImageURL(key),
 				Orientation: "gif",
 				Format:      "gif",
 				Size:        *obj.Size,
 				Path:        key,
 				StorageType: "s3",
 			})
-		}
-	}
-
-	return images, nil
-}
-
-// listGIFImages returns a list of GIF images from the special gif directory
-func listGIFImages(basePath string) ([]ImageInfo, error) {
-	var images []ImageInfo
-
-	// Path for GIF files
-	dirPath := filepath.Join(basePath, "gif")
-
-	// List files in the directory
-	files, err := os.ReadDir(dirPath)
-	if err != nil {
-		// Return empty list if directory doesn't exist
-		log.Printf("Warning: Could not read GIF directory %s: %v", dirPath, err)
-		return images, nil
-	}
-
-	// Filter and collect GIF files
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		fileName := file.Name()
-		if strings.HasSuffix(strings.ToLower(fileName), ".gif") {
-			// Get file info for size
-			fileInfo, err := file.Info()
-			if err != nil {
-				log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
-				continue
-			}
-
-			// Construct image URL and path
-			relPath := filepath.Join("gif", fileName)
-			url := ""
-			storageType := os.Getenv("STORAGE_TYPE")
-			if storageType == "local" {
-				url = fmt.Sprintf("/images/%s", relPath)
-			} else {
-				// For S3 storage
-				customDomain := os.Getenv("CUSTOM_DOMAIN")
-				if customDomain != "" {
-					url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
-				} else {
-					// Fallback to S3 endpoint with bucket name
-					endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-					bucket := os.Getenv("S3_BUCKET")
-					url = fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
-				}
-			}
-
-			// Extract ID (filename without extension)
-			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-			// Add image info to the result
-			images = append(images, ImageInfo{
-				ID:          id,
-				FileName:    fileName,
-				URL:         url,
-				Orientation: "gif", // Use "gif" as orientation to mark it as special
-				Format:      "gif",
-				Size:        fileInfo.Size(),
-				Path:        relPath,
-				StorageType: "local",
-			})
-		}
-	}
-
-	return images, nil
-}
-
-// listS3Images returns a list of images from S3 storage
-func listS3Images(orientation, format string) ([]ImageInfo, error) {
-	// For S3, we don't use basePath, but we need to handle GIF format separately
-	if format == "gif" {
-		// Fetch GIF images from S3 with gif/ prefix
-		return listS3GIFImages()
-	}
-	var images []ImageInfo
-	var orientations []string
-	var formats []string
-	bucket := os.Getenv("S3_BUCKET")
-
-	// Determine which orientations to list
-	if orientation == "all" {
-		orientations = []string{"landscape", "portrait"}
-	} else {
-		orientations = []string{orientation}
-	}
-
-	// Determine which formats to list
-	if format == "all" {
-		formats = []string{"original", "webp", "avif"}
-	} else {
-		formats = []string{format}
-	}
-
-	for _, orientVal := range orientations {
-		for _, formatVal := range formats {
-			var prefix string
-			var extension string
-			var extensions []string
-
-			// Construct the prefix based on format
-			if formatVal == "original" {
-				prefix = "original/" + orientVal + "/"
-				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
-			} else {
-				prefix = orientVal + "/" + formatVal + "/"
-				extension = "." + formatVal
-				extensions = []string{extension}
-			}
-
-			// List objects with the prefix
-			paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
-				Bucket: aws.String(bucket),
-				Prefix: aws.String(prefix),
-			})
-
-			// Process each page of results
-			for paginator.HasMorePages() {
-				output, err := paginator.NextPage(context.Background())
-				if err != nil {
-					return nil, err
-				}
-
-				// Process each object
-				for _, obj := range output.Contents {
-					key := *obj.Key
-					fileName := filepath.Base(key)
-
-					// Skip if not an image with the right extension
-					validExtension := false
-					for _, ext := range extensions {
-						if strings.HasSuffix(strings.ToLower(fileName), ext) {
-							validExtension = true
-							break
-						}
-					}
-
-					if !validExtension {
-						continue
-					}
-
-					// Extract ID (filename without extension)
-					id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-					// Construct image URL using the getImageURL helper
-					url := getImageURL(key)
-
-					// Add image info to the result
-					images = append(images, ImageInfo{
-						ID:          id,
-						FileName:    fileName,
-						URL:         url,
-						Orientation: orientVal,
-						Format:      formatVal,
-						Size:        *obj.Size,
-						Path:        key,
-						StorageType: "s3",
-					})
-				}
-			}
 		}
 	}
 

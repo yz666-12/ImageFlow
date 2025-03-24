@@ -25,7 +25,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 只在使用S3存储时初始化S3客户端
+	// Initialize S3 client only when using S3 storage
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "s3" {
 		if err := utils.InitS3Client(); err != nil {
@@ -38,10 +38,10 @@ func main() {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
-	// 确保图片目录存在
+	// Ensure image directories exist
 	ensureDirectories(cfg)
 
-	// 设置MIME类型
+	// Configure MIME types
 	configureMIMETypes()
 
 	// Create routes
@@ -51,12 +51,12 @@ func main() {
 	http.HandleFunc("/api/delete-image", handlers.RequireAPIKey(cfg, handlers.DeleteImageHandler(cfg)))
 	http.HandleFunc("/api/config", handlers.RequireAPIKey(cfg, handlers.ConfigHandler(cfg)))
 
-	// 根据存储类型使用不同的随机图片处理器
+	// Use appropriate random image handler based on storage type
 	if storageType == "s3" {
 		http.HandleFunc("/api/random", handlers.RandomImageHandler(utils.S3Client))
 	} else {
 		http.HandleFunc("/api/random", handlers.LocalRandomImageHandler())
-		// 本地图片服务
+		// Serve local images
 		localPath := os.Getenv("LOCAL_STORAGE_PATH")
 		if !filepath.IsAbs(localPath) {
 			localPath = filepath.Join(".", localPath)
@@ -64,21 +64,22 @@ func main() {
 		http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(localPath))))
 	}
 
-	// 提供静态文件（包括图片、CSS、JS等）
+	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
 
-	// Next.js 静态资源
+	// Next.js static assets
 	http.Handle("/_next/", http.StripPrefix("/_next/", http.FileServer(http.Dir("static/_next"))))
 
-	// 静态资源
+	// Static assets
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// 图标文件
+	// Favicon files
 	faviconServer := http.FileServer(http.Dir("favicon"))
 	http.Handle("/favicon-16.png", faviconServer)
 	http.Handle("/favicon-32.png", faviconServer)
 	http.Handle("/favicon.ico", faviconServer)
 
+	// Text files
 	http.HandleFunc("/index.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "static/index.txt")
 	})
@@ -86,7 +87,7 @@ func main() {
 		http.ServeFile(w, r, "static/manage.txt")
 	})
 
-	// 提供上传页面与管理页面
+	// Serve upload and management pages
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/":
@@ -108,15 +109,15 @@ func main() {
 	})
 
 	// Start server
-	log.Printf("Starting server on 0.0.0.0:8686 with %s storage", storageType)
-	if err := http.ListenAndServe("0.0.0.0:8686", nil); err != nil {
+	log.Printf("Starting server on %s with %s storage", cfg.ServerAddr, storageType)
+	if err := http.ListenAndServe(cfg.ServerAddr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// 配置MIME类型
+// configureMIMETypes registers common MIME types
 func configureMIMETypes() {
-	// 设置常见的MIME类型
+	// Register common MIME types
 	mime.AddExtensionType(".css", "text/css")
 	mime.AddExtensionType(".js", "application/javascript")
 	mime.AddExtensionType(".svg", "image/svg+xml")
@@ -128,6 +129,7 @@ func configureMIMETypes() {
 	mime.AddExtensionType(".avif", "image/avif")
 }
 
+// ensureDirectories creates necessary directory structure for images
 func ensureDirectories(cfg *config.Config) {
 	dirs := []string{
 		filepath.Join(cfg.ImageBasePath, "original", "landscape"),
@@ -136,6 +138,7 @@ func ensureDirectories(cfg *config.Config) {
 		filepath.Join(cfg.ImageBasePath, "landscape", "avif"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "webp"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "avif"),
+		filepath.Join(cfg.ImageBasePath, "gif"), // Directory for GIF files
 	}
 
 	for _, dir := range dirs {

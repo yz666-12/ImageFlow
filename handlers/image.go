@@ -2,42 +2,37 @@ package handlers
 
 import (
 	"net/http"
-	"path/filepath"
-	"strings"
+	"os"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 )
 
-// RandomImage 处理随机图片请求
+// RandomImage handles random image requests in a unified way, working with both
+// local and S3 storage based on the configured storage type.
+//
+// This handler:
+// 1. Checks the storage type configuration (local or S3)
+// 2. Delegates to the appropriate specialized handler
+// 3. Returns a random image with proper format detection, including special handling for PNG
+//
+// Benefits:
+// - Provides a single entry point for random image functionality
+// - Maintains proper content type detection for all image formats
+// - Handles PNG transparency properly with special cases
+// - Ensures consistent headers and caching behavior
 func RandomImage(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 检测设备类型
-		deviceType := utils.DetectDevice(r)
+		// Get storage type from environment
+		storageType := os.Getenv("STORAGE_TYPE")
 
-		// 检测浏览器是否支持AVIF
-		avifSupport := cfg.AvifSupport
-		if accept := r.Header.Get("Accept"); !strings.Contains(accept, "image/avif") {
-			avifSupport = false
+		// Use the appropriate handler based on storage type
+		if storageType == "s3" {
+			// Use the existing S3 handler
+			RandomImageHandler(utils.S3Client)(w, r)
+		} else {
+			// Use the existing local handler
+			LocalRandomImageHandler()(w, r)
 		}
-
-		// 获取随机图片
-		imagePath, err := utils.GetRandomImage(cfg.ImageBasePath, deviceType, avifSupport)
-		if err != nil {
-			http.Error(w, "Failed to get random image", http.StatusInternalServerError)
-			return
-		}
-
-		// 设置适当的Content-Type
-		ext := filepath.Ext(imagePath)
-		switch ext {
-		case ".webp":
-			w.Header().Set("Content-Type", "image/webp")
-		case ".avif":
-			w.Header().Set("Content-Type", "image/avif")
-		default:
-			w.Header().Set("Content-Type", "image/jpeg")
-		}
-		http.ServeFile(w, r, imagePath)
 	}
 }

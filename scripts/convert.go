@@ -7,20 +7,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 )
 
 var (
-	sourcePath = flag.String("source", "", "源图片目录")
-	targetPath = flag.String("target", "", "目标图片目录")
-	format     = flag.String("format", "webp", "转换格式 (webp 或 avif)")
-	quality    = flag.Int("quality", 80, "图片质量 (1-100)")
-	workers    = flag.Int("workers", 4, "并行工作线程数")
+	sourcePath     = flag.String("source", "", "Source image directory")
+	targetPath     = flag.String("target", "", "Target image directory")
+	format         = flag.String("format", "webp", "Conversion format (webp or avif)")
+	quality        = flag.Int("quality", 80, "Image quality (1-100)")
+	workers        = flag.Int("workers", 0, "Number of parallel worker threads (0 = auto-detect)")
+	effort         = flag.Int("effort", 4, "Compression effort (0-10, higher is slower but better quality)")
+	lossless       = flag.Bool("lossless", false, "Force lossless mode for all images (not just PNGs)")
+	pngCompression = flag.String("png-mode", "auto", "PNG compression mode: auto, lossy, lossless")
 )
 
-// 从环境变量读取配置值
+// getEnvOrDefault reads configuration values from environment variables
+// with fallback to default value if not set
 func getEnvOrDefault(key string, defaultVal int) int {
 	val := os.Getenv(key)
 	if val == "" {
@@ -38,35 +43,86 @@ func getEnvOrDefault(key string, defaultVal int) int {
 func main() {
 	flag.Parse()
 
-	// 检查环境变量中是否有质量和线程数的设置
+	// Apply environment variable settings if specified
+	applyEnvironmentSettings()
+
+	// Validate input parameters
+	validateInputParameters()
+
+	// Auto-detect worker count if not specified
+	if *workers <= 0 {
+		*workers = runtime.NumCPU()
+		fmt.Printf("Auto-detected %d CPU cores, using %d worker threads\n", runtime.NumCPU(), *workers)
+	}
+
+	// Ensure target directory exists
+	if err := os.MkdirAll(*targetPath, 0755); err != nil {
+		log.Fatalf("Failed to create target directory: %v", err)
+	}
+
+	// Get all image files
+	files, err := findImageFiles(*sourcePath)
+	if err != nil {
+		log.Fatalf("Failed to scan source directory: %v", err)
+	}
+
+	fmt.Printf("Found %d image files\n", len(files))
+
+	// Process images in parallel using worker pool
+	processImagesInParallel(files)
+}
+
+// applyEnvironmentSettings reads and applies settings from environment variables
+func applyEnvironmentSettings() {
+	// Check for quality setting in environment
 	envQuality := getEnvOrDefault("IMAGE_QUALITY", -1)
 	if envQuality > 0 {
 		*quality = envQuality
-		fmt.Printf("使用环境变量设置的质量: %d\n", *quality)
+		fmt.Printf("Using quality from environment variable: %d\n", *quality)
 	}
 
+	// Check for thread count in environment
 	envWorkers := getEnvOrDefault("WORKER_THREADS", -1)
 	if envWorkers > 0 {
 		*workers = envWorkers
-		fmt.Printf("使用环境变量设置的线程数: %d\n", *workers)
+		fmt.Printf("Using thread count from environment variable: %d\n", *workers)
 	}
 
+	// Check for effort level in environment
+	envEffort := getEnvOrDefault("COMPRESSION_EFFORT", -1)
+	if envEffort >= 0 {
+		*effort = envEffort
+		fmt.Printf("Using compression effort from environment variable: %d\n", *effort)
+	}
+}
+
+// validateInputParameters checks that required parameters are provided and valid
+func validateInputParameters() {
 	if *sourcePath == "" || *targetPath == "" {
-		log.Fatal("必须指定源目录和目标目录")
+		log.Fatal("Source and target directories must be specified")
 	}
 
 	if *format != "webp" && *format != "avif" {
-		log.Fatal("格式必须是 webp 或 avif")
+		log.Fatal("Format must be either webp or avif")
 	}
 
-	// 确保目标目录存在
-	if err := os.MkdirAll(*targetPath, 0755); err != nil {
-		log.Fatalf("创建目标目录失败: %v", err)
+	if *quality < 1 || *quality > 100 {
+		log.Fatal("Quality must be between 1 and 100")
 	}
 
-	// 获取所有图片文件
+	if *effort < 0 || *effort > 10 {
+		log.Fatal("Effort must be between 0 and 10")
+	}
+
+	if *pngCompression != "auto" && *pngCompression != "lossy" && *pngCompression != "lossless" {
+		log.Fatal("PNG mode must be 'auto', 'lossy', or 'lossless'")
+	}
+}
+
+// findImageFiles returns a list of all image files in the given directory
+func findImageFiles(rootPath string) ([]string, error) {
 	var files []string
-	err := filepath.Walk(*sourcePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -78,14 +134,11 @@ func main() {
 		}
 		return nil
 	})
+	return files, err
+}
 
-	if err != nil {
-		log.Fatalf("扫描源目录失败: %v", err)
-	}
-
-	fmt.Printf("找到 %d 个图片文件\n", len(files))
-
-	// 使用工作池并行处理图片
+// processImagesInParallel converts images in parallel using a worker pool
+func processImagesInParallel(files []string) {
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, *workers)
 
@@ -97,40 +150,132 @@ func main() {
 			defer wg.Done()
 			defer func() { <-semaphore }()
 
-			// 确定输出文件名
-			relPath, err := filepath.Rel(*sourcePath, file)
+			// Get output file path
+			outFile, err := getOutputFilePath(file)
 			if err != nil {
-				log.Printf("计算相对路径失败 %s: %v", file, err)
+				log.Printf("Error: %v", err)
 				return
 			}
 
-			outFile := filepath.Join(*targetPath, strings.TrimSuffix(relPath, filepath.Ext(relPath))+"."+*format)
+			// Create output directory
 			outDir := filepath.Dir(outFile)
-
 			if err := os.MkdirAll(outDir, 0755); err != nil {
-				log.Printf("创建输出目录失败 %s: %v", outDir, err)
+				log.Printf("Failed to create output directory %s: %v", outDir, err)
 				return
 			}
 
-			// 转换图片
-			var cmd *exec.Cmd
-			if *format == "webp" {
-				cmd = exec.Command("cwebp", "-q", fmt.Sprintf("%d", *quality), file, "-o", outFile)
-			} else {
-				cmd = exec.Command("avifenc", "-q", fmt.Sprintf("%d", *quality), file, outFile)
+			// Convert the image
+			cmd := buildConversionCommand(file, outFile)
+			if cmd == nil {
+				return // Error already logged
 			}
 
-			// 捕获命令输出以便调试
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Printf("转换失败 %s: %v\n输出: %s", file, err, string(output))
+			// Run the conversion
+			if err := runConversion(cmd, file, outFile); err != nil {
+				log.Printf("Error: %v", err)
 				return
 			}
 
-			fmt.Printf("已转换: %s -> %s\n", file, outFile)
+			fmt.Printf("Converted: %s -> %s\n", file, outFile)
 		}(file)
 	}
 
 	wg.Wait()
-	fmt.Println("转换完成!")
+	fmt.Println("Conversion complete!")
+}
+
+// getOutputFilePath determines the path for the output file
+func getOutputFilePath(inputFile string) (string, error) {
+	relPath, err := filepath.Rel(*sourcePath, inputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate relative path for %s: %v", inputFile, err)
+	}
+	return filepath.Join(*targetPath, strings.TrimSuffix(relPath, filepath.Ext(relPath))+"."+*format), nil
+}
+
+// buildConversionCommand creates the appropriate conversion command based on format and options
+func buildConversionCommand(inputFile, outputFile string) *exec.Cmd {
+	isPNG := strings.ToLower(filepath.Ext(inputFile)) == ".png"
+
+	// Only use lossless if explicitly requested or png-mode is set to lossless
+	useLossless := *lossless || (isPNG && *pngCompression == "lossless")
+
+	if *format == "webp" {
+		return buildWebPCommand(inputFile, outputFile, isPNG, useLossless)
+	} else if *format == "avif" {
+		return buildAVIFCommand(inputFile, outputFile, isPNG, useLossless)
+	}
+
+	log.Printf("Unsupported format: %s", *format)
+	return nil
+}
+
+// buildWebPCommand creates command for WebP conversion
+func buildWebPCommand(inputFile, outputFile string, isPNG, useLossless bool) *exec.Cmd {
+	// Base arguments
+	args := []string{"-q", fmt.Sprintf("%d", *quality)}
+
+	// Add effort level if supported
+	args = append(args, "-m", fmt.Sprintf("%d", *effort))
+
+	// Add multi-threading support
+	args = append(args, "-mt")
+
+	// Use lossless for PNG files with transparency or if explicitly requested
+	if useLossless {
+		args = append(args, "-lossless")
+	}
+
+	// Add input and output files
+	args = append(args, inputFile, "-o", outputFile)
+
+	return exec.Command("cwebp", args...)
+}
+
+// buildAVIFCommand creates command for AVIF conversion
+func buildAVIFCommand(inputFile, outputFile string, isPNG, useLossless bool) *exec.Cmd {
+	args := []string{}
+
+	// Set speed/effort (0-10, higher is slower but better quality)
+	args = append(args, "-s", fmt.Sprintf("%d", 10-*effort)) // AVIF uses opposite scale
+
+	// Add multi-threading support
+	args = append(args, "--jobs", fmt.Sprintf("%d", *workers))
+
+	// Handle lossless mode - in AVIF we can't set quality with lossless
+	if useLossless {
+		args = append(args, "--lossless")
+	} else {
+		// Only set quality if not in lossless mode
+		args = append(args, "-q", fmt.Sprintf("%d", *quality))
+	}
+
+	// Add input and output files
+	args = append(args, inputFile, outputFile)
+
+	return exec.Command("avifenc", args...)
+}
+
+// runConversion executes the conversion command and handles errors
+func runConversion(cmd *exec.Cmd, inputFile, outputFile string) error {
+	// Log the command being executed for debugging
+	log.Printf("Running: %s %s", cmd.Path, strings.Join(cmd.Args[1:], " "))
+
+	// Execute the command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("conversion failed for %s: %v\nOutput: %s", inputFile, err, string(output))
+	}
+
+	// Verify the output file exists and has content
+	info, err := os.Stat(outputFile)
+	if err != nil {
+		return fmt.Errorf("output file not created: %v", err)
+	}
+
+	if info.Size() == 0 {
+		return fmt.Errorf("output file is empty: %s", outputFile)
+	}
+
+	return nil
 }

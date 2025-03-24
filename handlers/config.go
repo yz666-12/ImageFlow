@@ -7,7 +7,13 @@ import (
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 )
 
-// ConfigHandler returns a handler function that exposes selected configuration values
+// ClientConfig represents the configuration exposed to clients
+type ClientConfig struct {
+	MaxUploadCount int `json:"maxUploadCount"` // Maximum number of images allowed per upload
+	ImageQuality   int `json:"imageQuality"`   // Image conversion quality (1-100)
+}
+
+// ConfigHandler returns a handler function that exposes selected configuration values to clients
 func ConfigHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -16,9 +22,9 @@ func ConfigHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		// Create a simplified config that only exposes what we want clients to know
-		clientConfig := map[string]interface{}{
-			"maxUploadCount": cfg.MaxUploadCount,
-			"imageQuality":   cfg.ImageQuality,
+		clientConfig := ClientConfig{
+			MaxUploadCount: cfg.MaxUploadCount,
+			ImageQuality:   cfg.ImageQuality,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

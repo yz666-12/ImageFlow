@@ -19,14 +19,14 @@ import (
 
 // DeleteRequest represents the request body for deleting an image
 type DeleteRequest struct {
-	ID          string `json:"id"`
-	StorageType string `json:"storageType"`
+	ID          string `json:"id"`          // Image ID (filename without extension)
+	StorageType string `json:"storageType"` // "local" or "s3"
 }
 
 // DeleteResponse represents the response after deleting an image
 type DeleteResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success bool   `json:"success"` // Whether the operation was successful
+	Message string `json:"message"` // Description of the result
 }
 
 // DeleteImageHandler returns a handler for deleting images
@@ -74,7 +74,7 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 
 // deleteLocalImages deletes all formats of an image from local storage
 func deleteLocalImages(id string, basePath string) (bool, string) {
-	// 需要删除的所有格式和方向
+	// Formats and orientations to check for image files
 	formats := []string{"original", "webp", "avif"}
 	orientations := []string{"landscape", "portrait"}
 
@@ -82,7 +82,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 	errorCount := 0
 	var lastError error
 
-	// 查找所有匹配的图片文件并删除
+	// Find all matching image files and delete them
 	for _, format := range formats {
 		for _, orientation := range orientations {
 			var path string
@@ -92,7 +92,8 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 				path = filepath.Join(basePath, orientation, format)
 			}
 
-			// 查找匹配的文件
+			// Find matching files with glob pattern
+			// This will match any extension (jpg, png, etc)
 			files, err := filepath.Glob(filepath.Join(path, id+".*"))
 			if err != nil {
 				log.Printf("Error finding files for %s in %s: %v", id, path, err)
@@ -101,7 +102,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 				continue
 			}
 
-			// 删除找到的每个文件
+			// Delete each found file
 			for _, file := range files {
 				err := os.Remove(file)
 				if err != nil {
@@ -116,7 +117,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		}
 	}
 
-	// 查找并删除GIF文件 (存储在单独的gif目录下，没有方向分类)
+	// Check for GIF files (stored in a separate gif directory without orientation classification)
 	gifPath := filepath.Join(basePath, "gif")
 	gifFiles, err := filepath.Glob(filepath.Join(gifPath, id+".*"))
 	if err != nil {
@@ -124,7 +125,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		errorCount++
 		lastError = err
 	} else {
-		// 删除找到的每个GIF文件
+		// Delete each GIF file found
 		for _, file := range gifFiles {
 			err := os.Remove(file)
 			if err != nil {
@@ -138,43 +139,44 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		}
 	}
 
-	// 判断操作结果
+	// Determine operation result
 	if errorCount > 0 {
-		return false, fmt.Sprintf("删除部分失败，成功删除 %d 个文件，失败 %d 个: %v", deletedCount, errorCount, lastError)
+		return false, fmt.Sprintf("Partial deletion failure: %d files deleted successfully, %d failed: %v",
+			deletedCount, errorCount, lastError)
 	}
 
 	if deletedCount == 0 {
-		return false, "未找到匹配的图片文件"
+		return false, "No matching image files found"
 	}
 
-	return true, fmt.Sprintf("成功删除了 %d 个相关文件", deletedCount)
+	return true, fmt.Sprintf("Successfully deleted %d related files", deletedCount)
 }
 
 // deleteS3Images deletes all formats of an image from S3 storage
 func deleteS3Images(id string) (bool, string) {
-	// 获取S3配置
+	// Get S3 bucket from environment
 	bucket := os.Getenv("S3_BUCKET")
 	if bucket == "" {
 		return false, "S3 bucket not configured"
 	}
 
-	// 检查S3客户端是否初始化
+	// Check if S3 client is initialized
 	if utils.S3Client == nil {
 		return false, "S3 client not initialized"
 	}
 
-	// 需要删除的所有格式和方向
+	// Formats and orientations to check
 	formats := []string{"original", "webp", "avif"}
 	orientations := []string{"landscape", "portrait"}
 
-	// 构建要删除的对象列表
+	// Build list of objects to delete
 	var objectsToDelete []types.ObjectIdentifier
 	var deletedPathsForLogging []string
 
-	// 创建上下文
+	// Create context
 	ctx := context.Background()
 
-	// 查找匹配的对象
+	// Find matching objects
 	for _, format := range formats {
 		for _, orientation := range orientations {
 			var prefix string
@@ -184,7 +186,7 @@ func deleteS3Images(id string) (bool, string) {
 				prefix = fmt.Sprintf("%s/%s/%s", orientation, format, id)
 			}
 
-			// 列出匹配前缀的对象
+			// List objects matching prefix
 			paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
 				Bucket: aws.String(bucket),
 				Prefix: aws.String(prefix),
@@ -199,7 +201,7 @@ func deleteS3Images(id string) (bool, string) {
 
 				for _, obj := range output.Contents {
 					key := *obj.Key
-					// 检查文件名是否以ID开头
+					// Check if filename starts with ID
 					baseName := filepath.Base(key)
 					if strings.HasPrefix(baseName, id+".") {
 						objectsToDelete = append(objectsToDelete, types.ObjectIdentifier{
@@ -212,10 +214,10 @@ func deleteS3Images(id string) (bool, string) {
 		}
 	}
 
-	// 查找GIF文件 (存储在gif目录下，没有方向分类)
+	// Check for GIF files
 	gifPrefix := fmt.Sprintf("gif/%s", id)
 
-	// 列出匹配前缀的GIF对象
+	// List GIF objects matching prefix
 	gifPaginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(gifPrefix),
@@ -230,7 +232,7 @@ func deleteS3Images(id string) (bool, string) {
 
 		for _, obj := range output.Contents {
 			key := *obj.Key
-			// 检查文件名是否以ID开头
+			// Check if filename starts with ID
 			baseName := filepath.Base(key)
 			if strings.HasPrefix(baseName, id+".") {
 				objectsToDelete = append(objectsToDelete, types.ObjectIdentifier{
@@ -241,12 +243,12 @@ func deleteS3Images(id string) (bool, string) {
 		}
 	}
 
-	// 如果没有找到匹配的对象
+	// If no matching objects found
 	if len(objectsToDelete) == 0 {
-		return false, "未找到匹配的图片文件"
+		return false, "No matching image files found"
 	}
 
-	// 批量删除对象
+	// Delete objects in batch
 	_, err := utils.S3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
 		Delete: &types.Delete{
@@ -257,13 +259,13 @@ func deleteS3Images(id string) (bool, string) {
 
 	if err != nil {
 		log.Printf("Error deleting S3 objects: %v", err)
-		return false, fmt.Sprintf("删除失败: %v", err)
+		return false, fmt.Sprintf("Deletion failed: %v", err)
 	}
 
-	// 记录删除的文件
+	// Log deleted files
 	for _, path := range deletedPathsForLogging {
 		log.Printf("Successfully deleted file from S3: %s", path)
 	}
 
-	return true, fmt.Sprintf("成功删除了 %d 个相关文件", len(objectsToDelete))
+	return true, fmt.Sprintf("Successfully deleted %d related files", len(objectsToDelete))
 }
