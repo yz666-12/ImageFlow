@@ -102,11 +102,26 @@ export default function Home() {
       clearInterval(progressInterval)
       setUploadProgress(100)
 
-      const resultsWithIds = result.results.map(item => ({
-        ...item,
-        id: Math.random().toString(36).substring(2),
-        path: item.urls?.original || ''
-      }))
+      const resultsWithIds = result.results.map(item => {
+        // Extract the real image ID from the original URL if available
+        let imageId = Math.random().toString(36).substring(2) // Default to random ID
+        let path = item.urls?.original || ''
+        
+        if (item.urls?.original) {
+          // Extract file ID from the original URL
+          const urlParts = item.urls.original.split('/')
+          const filename = urlParts[urlParts.length - 1]
+          if (filename.includes('.')) {
+            imageId = filename.split('.')[0] // Remove file extension to get ID
+          }
+        }
+        
+        return {
+          ...item,
+          id: imageId,
+          path
+        }
+      })
 
       setUploadResults(resultsWithIds)
       const successCount = resultsWithIds.filter(r => r.status === 'success').length
@@ -141,20 +156,27 @@ export default function Home() {
   const handleDeleteImage = async (id: string) => {
     try {
       const image = uploadResults.find((img) => img.id === id);
-      if (!image) return;
+      if (!image || !image.urls?.original) return;
+
+      // Extract the real image ID from the original URL
+      // The original URL would be like: /images/original/landscape/filename.jpg
+      // or /images/original/portrait/filename.jpg
+      const urlParts = image.urls.original.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      const fileId = filename.split('.')[0]; // Remove file extension to get the real ID
 
       const response = await api.post<{ success: boolean; message: string }>(
         "/api/delete-image",
         {
-          id: image.id
+          id: fileId
         }
       );
 
       if (response.success) {
-        // 从当前列表中移除已删除的图片
+        // From current list remove the deleted image
         setUploadResults(prev => prev.filter(item => item.id !== id));
 
-        // 如果删除后没有图片了，关闭侧边栏
+        // If after deletion no images are left, close the sidebar
         if (uploadResults.length <= 1) {
           setShowSidebar(false);
         }

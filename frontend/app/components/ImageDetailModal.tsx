@@ -65,11 +65,25 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
 
   // 处理删除图片
   const handleDelete = async () => {
-    if (!image || !image.id || !onDelete) return
-
+    if (!image || !onDelete) return
+    
     try {
       setIsDeleting(true)
-      await onDelete(image.id)
+      
+      let imageId = image.id
+      
+      // If the ID is not available or not reliable, extract it from the URL
+      if (!imageId && image.urls?.original) {
+        const urlParts = image.urls.original.split('/')
+        const filename = urlParts[urlParts.length - 1]
+        imageId = filename.split('.')[0] // Remove file extension to get ID
+      }
+      
+      if (!imageId) {
+        throw new Error("无法获取图像ID")
+      }
+      
+      await onDelete(imageId)
       onClose()
     } catch (err) {
       console.error("删除失败:", err)
