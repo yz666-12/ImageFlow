@@ -36,7 +36,7 @@ func getPublicURL(key string) string {
 	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
 }
 
-func determineOrientation(img image.Config) string {
+func determineImageOrientation(img image.Config) string {
 	// 只有当宽度严格大于高度时才判断为横屏
 	// 正方形和竖型图片都归类为竖屏
 	if img.Width > img.Height {
@@ -130,7 +130,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					resultsMutex.Unlock()
 					return
 				}
-				orientation := determineOrientation(img)
+				orientation := determineImageOrientation(img)
 
 				// Reset file pointer
 				if _, err := file.Seek(0, 0); err != nil {
