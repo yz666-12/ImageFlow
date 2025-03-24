@@ -140,29 +140,41 @@ export default function Home() {
 
   const handleDeleteImage = async (id: string) => {
     try {
-      // 这里添加实际的删除API调用
-      // await api.delete(`/images/${id}`);
+      const image = uploadResults.find((img) => img.id === id);
+      if (!image) return;
 
-      // 更新本地状态，移除已删除的图片
-      setUploadResults(prev => prev.filter(item => item.id !== id))
+      const response = await api.post<{ success: boolean; message: string }>(
+        "/api/delete-image",
+        {
+          id: image.id
+        }
+      );
 
-      // 如果删除后没有图片了，关闭侧边栏
-      if (uploadResults.length <= 1) {
-        setShowSidebar(false)
+      if (response.success) {
+        // 从当前列表中移除已删除的图片
+        setUploadResults(prev => prev.filter(item => item.id !== id));
+
+        // 如果删除后没有图片了，关闭侧边栏
+        if (uploadResults.length <= 1) {
+          setShowSidebar(false);
+        }
+
+        setStatus({
+          type: 'success',
+          message: response.message
+        });
+      } else {
+        setStatus({
+          type: 'error',
+          message: response.message
+        });
       }
-
-      setStatus({
-        type: 'success',
-        message: '图片已成功删除'
-      })
-
-      return Promise.resolve()
     } catch (error) {
+      console.error('删除失败:', error);
       setStatus({
         type: 'error',
-        message: '删除图片失败，请重试'
-      })
-      return Promise.reject()
+        message: '删除失败，请重试'
+      });
     }
   }
 
