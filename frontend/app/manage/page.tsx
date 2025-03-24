@@ -94,8 +94,7 @@ export default function Manage() {
       const response = await api.post<{ success: boolean; message: string }>(
         "/api/delete-image",
         {
-          id: image.id,
-          storageType: image.storageType,
+          id: image.id
         }
       );
 

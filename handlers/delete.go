@@ -19,8 +19,7 @@ import (
 
 // DeleteRequest represents the request body for deleting an image
 type DeleteRequest struct {
-	ID          string `json:"id"`          // Image ID (filename without extension)
-	StorageType string `json:"storageType"` // "local" or "s3"
+	ID string `json:"id"` // Image ID (filename without extension)
 }
 
 // DeleteResponse represents the response after deleting an image
@@ -54,8 +53,14 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 		var success bool
 		var message string
 
+		// Get storage type from environment
+		storageType := os.Getenv("STORAGE_TYPE")
+		if storageType == "" {
+			storageType = "local" // Default to local storage if not specified
+		}
+
 		// Delete based on storage type
-		if req.StorageType == "s3" {
+		if storageType == "s3" {
 			success, message = deleteS3Images(req.ID)
 		} else {
 			success, message = deleteLocalImages(req.ID, cfg.ImageBasePath)
