@@ -40,23 +40,42 @@ const getOrientationLabel = (orientation: string): string => {
 
 // 构建URL
 const buildUrl = (path: string, format: string): string => {
-  if (format === "original") {
-    return path;
-  }
-
   const originalPath = path;
-  const pathParts = originalPath.split('.');
-  const extension = pathParts.pop();
-
-  // 根据路径构建WebP和AVIF的路径
-  if (format === "webp") {
-    // 替换路径中的 /original/ 为 format 路径，并改变扩展名
-    return originalPath.replace("/original/", "/webp/").replace(`.${extension}`, ".webp");
+  
+  // 从路径中提取方向信息 (landscape 或 portrait)
+  let orientation = "";
+  if (originalPath.includes("/landscape/")) {
+    orientation = "landscape";
+  } else if (originalPath.includes("/portrait/")) {
+    orientation = "portrait";
+  } else if (originalPath.includes("/square/")) {
+    orientation = "square";
+  }
+  
+  // 提取文件名（不带扩展名）
+  const fileName = originalPath.split('/').pop()?.split('.')[0] || "";
+  
+  // 提取域名部分（S3模式下需要）
+  const urlParts = originalPath.split('/');
+  const domain = urlParts.slice(0, 3).join('/');
+  
+  // 根据格式构建不同的URL路径部分
+  let relativePath = '';
+  if (format === "original") {
+    relativePath = `original/${orientation}/${fileName}.jpg`;
+  } else if (format === "webp") {
+    relativePath = `${orientation}/webp/${fileName}.webp`;
   } else if (format === "avif") {
-    return originalPath.replace("/original/", "/avif/").replace(`.${extension}`, ".avif");
+    relativePath = `${orientation}/avif/${fileName}.avif`;
   }
 
-  return originalPath;
+  // 如果是S3模式（URL包含域名），则添加域名前缀
+  if (originalPath.startsWith('http')) {
+    return `${domain}/${relativePath}`;
+  }
+  
+  // 本地模式
+  return `/images/${relativePath}`;
 };
 
 // 构建Markdown链接格式
@@ -123,10 +142,15 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
   if (!image) return null;
 
   // 构建不同格式的URL
-  const originalUrl = getFullUrl(image.url);
+  const originalUrl = getFullUrl(buildUrl(image.url, "original"));
   const webpUrl = getFullUrl(buildUrl(image.url, "webp"));
   const avifUrl = getFullUrl(buildUrl(image.url, "avif"));
-  const markdownLink = buildMarkdownLink(originalUrl, image.filename);
+  
+  // 根据当前查看的图片格式构建Markdown链接
+  const currentFormatUrl = image.format.toLowerCase() === 'webp' ? webpUrl :
+                         image.format.toLowerCase() === 'avif' ? avifUrl :
+                         originalUrl;
+  const markdownLink = buildMarkdownLink(currentFormatUrl, image.filename);
 
   return (
     <AnimatePresence>

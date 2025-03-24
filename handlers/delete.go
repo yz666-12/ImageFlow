@@ -154,7 +154,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		return false, "No matching image files found"
 	}
 
-	return true, fmt.Sprintf("Successfully deleted %d related files", deletedCount)
+	return true, fmt.Sprintf("成功删除 %d 张图片", deletedCount)
 }
 
 // deleteS3Images deletes all formats of an image from S3 storage
@@ -272,5 +272,5 @@ func deleteS3Images(id string) (bool, string) {
 		log.Printf("Successfully deleted file from S3: %s", path)
 	}
 
-	return true, fmt.Sprintf("Successfully deleted %d related files", len(objectsToDelete))
+	return true, fmt.Sprintf("成功删除 %d 张图片", len(objectsToDelete))
 }
