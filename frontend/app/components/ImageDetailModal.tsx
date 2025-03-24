@@ -110,12 +110,13 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
 
             <div className="overflow-y-auto max-h-[calc(90vh-5rem)]">
               <div className="flex flex-col md:flex-row">
-                <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700">
+                <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700 flex items-center">
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="relative aspect-square w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
+                    className="relative w-full h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
+                    style={{ height: '400px' }}
                   >
                     <Image
                       src={originalUrl}
@@ -125,11 +126,6 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                       className="object-contain"
                     />
                   </motion.div>
-                  <div className="mt-4">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      上传时间: {new Date().toLocaleDateString()}
-                    </p>
-                  </div>
                 </div>
 
                 <div className="flex-1 p-4">
