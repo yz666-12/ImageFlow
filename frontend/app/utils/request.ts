@@ -9,12 +9,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const apiKey = getApiKey()
-  if (!apiKey) {
-    throw new Error('未设置API Key')
-  }
 
   const { params, ...restOptions } = options
-  
+
   // 构建URL
   let url: URL
   try {
@@ -56,10 +53,11 @@ export async function fetchDirectoryListing(path: string = '/images/'): Promise<
 
 // 封装常用请求方法
 export const api = {
-  get: <T>(endpoint: string, params?: Record<string, string>) => 
+  request,
+  get: <T>(endpoint: string, params?: Record<string, string>) =>
     request<T>(endpoint, { method: 'GET', params }),
-    
-  post: <T>(endpoint: string, data?: any) => 
+
+  post: <T>(endpoint: string, data?: any) =>
     request<T>(endpoint, {
       method: 'POST',
       headers: {
@@ -67,10 +65,10 @@ export const api = {
       },
       body: JSON.stringify(data),
     }),
-    
-  delete: <T>(endpoint: string) => 
+
+  delete: <T>(endpoint: string) =>
     request<T>(endpoint, { method: 'DELETE' }),
-    
+
   upload: <T>(endpoint: string, files: File[]) => {
     const formData = new FormData()
     files.forEach(file => {

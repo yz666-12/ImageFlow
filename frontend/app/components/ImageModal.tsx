@@ -4,14 +4,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageFile } from "../types";
-
-// 获取正确的绝对URL
-const getAbsoluteUrl = (path: string) => {
-  // 移除开头的斜杠以防止路径重复
-  const relativePath = path.startsWith("/") ? path.substring(1) : path;
-  // 构建完整的URL
-  return `${window.location.origin}/${relativePath}`;
-};
+import { getFullUrl } from "../utils/baseUrl";
+import { copyToClipboard as copyTextToClipboard } from "../utils/clipboard";
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
@@ -29,6 +23,7 @@ const getFormatLabel = (format: string): string => {
     jpeg: "JPEG",
     webp: "WebP",
     gif: "GIF",
+    avif: "AVIF",
   };
   return formatMap[format.toLowerCase()] || format.toUpperCase();
 };
@@ -43,6 +38,32 @@ const getOrientationLabel = (orientation: string): string => {
   return orientationMap[orientation.toLowerCase()] || orientation;
 };
 
+// 构建URL
+const buildUrl = (path: string, format: string): string => {
+  if (format === "original") {
+    return path;
+  }
+
+  const originalPath = path;
+  const pathParts = originalPath.split('.');
+  const extension = pathParts.pop();
+
+  // 根据路径构建WebP和AVIF的路径
+  if (format === "webp") {
+    // 替换路径中的 /original/ 为 format 路径，并改变扩展名
+    return originalPath.replace("/original/", "/webp/").replace(`.${extension}`, ".webp");
+  } else if (format === "avif") {
+    return originalPath.replace("/original/", "/avif/").replace(`.${extension}`, ".avif");
+  }
+
+  return originalPath;
+};
+
+// 构建Markdown链接格式
+const buildMarkdownLink = (url: string, filename: string): string => {
+  return `![${filename}](${url})`;
+};
+
 interface ImageModalProps {
   image: ImageFile | null;
   isOpen: boolean;
@@ -53,37 +74,41 @@ interface ImageModalProps {
 export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<{ type: string } | null>(null);
 
   // 当模态框关闭时重置状态
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteConfirm(false);
       setIsDeleting(false);
-      setCopyStatus("idle");
+      setCopyStatus(null);
     }
   }, [isOpen]);
 
   // 复制URL到剪贴板
-  const copyToClipboard = async () => {
-    if (!image) return;
-    
-    try {
-      const absoluteUrl = getAbsoluteUrl(image.url);
-      await navigator.clipboard.writeText(absoluteUrl);
-      setCopyStatus("copied");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch (err) {
-      console.error("复制失败:", err);
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    }
+  const handleCopy = (text: string, type: string, e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) e.stopPropagation();
+
+    copyTextToClipboard(text)
+      .then(success => {
+        if (success) {
+          setCopyStatus({ type });
+          setTimeout(() => {
+            setCopyStatus(null);
+          }, 2000);
+        } else {
+          console.error("复制失败");
+        }
+      })
+      .catch(err => {
+        console.error("复制失败:", err);
+      });
   };
 
   // 处理删除
   const handleDelete = async () => {
     if (!image) return;
-    
+
     try {
       setIsDeleting(true);
       await onDelete(image.id);
@@ -96,6 +121,12 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
   };
 
   if (!image) return null;
+
+  // 构建不同格式的URL
+  const originalUrl = getFullUrl(image.url);
+  const webpUrl = getFullUrl(buildUrl(image.url, "webp"));
+  const avifUrl = getFullUrl(buildUrl(image.url, "avif"));
+  const markdownLink = buildMarkdownLink(originalUrl, image.filename);
 
   return (
     <AnimatePresence>
@@ -124,7 +155,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
+
             {/* 文件名标题 */}
             <div className="border-b border-gray-100 dark:border-gray-800 px-6 py-4">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate">{image.filename}</h3>
@@ -133,20 +164,44 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
             <div className="flex flex-col md:flex-row">
               {/* 图片预览区域 */}
               <div className="relative w-full md:w-3/5 h-64 md:h-[400px] bg-gray-100 dark:bg-gray-800">
-                <Image
-                  src={image.url}
-                  alt={image.filename}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, 60vw"
-                />
+                {image.format.toLowerCase() === 'gif' ? (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <img
+                      src={image.url}
+                      alt={image.filename}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                    <a
+                      href={image.url}
+                      download={image.filename}
+                      className="absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors duration-300"
+                      onClick={(e) => e.stopPropagation()}
+                      title="下载GIF"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </a>
+                  </div>
+                ) : (
+                  <Image
+                    src={image.url}
+                    alt={image.filename}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 60vw"
+                  />
+                )}
               </div>
-              
+
               {/* 图片信息区域 */}
               <div className="w-full md:w-2/5 p-6 flex flex-col h-full md:h-[400px] overflow-y-auto">
                 {/* 标签组 */}
                 <div className="flex flex-wrap gap-2 mb-6">
-                  <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-3 py-1 rounded-full text-xs font-medium">
+                  <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium ${image.format.toLowerCase() === 'gif'
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300'
+                    : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300'
+                    }`}>
                     {getFormatLabel(image.format)}
                   </div>
                   <div className="flex items-center bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-medium">
@@ -161,7 +216,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
                     </div>
                   )}
                 </div>
-                
+
                 {/* 图片信息 */}
                 <div className="space-y-4">
                   <div>
@@ -170,41 +225,143 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
                       {image.path}
                     </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">URL</label>
-                    <div className="relative">
-                      <div className="font-mono text-xs bg-gray-50 dark:bg-gray-800 p-2 pr-10 rounded text-gray-700 dark:text-gray-300 truncate">
-                        {getAbsoluteUrl(image.url)}
-                      </div>
-                      <button
-                        onClick={copyToClipboard}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                        title="复制URL"
-                      >
-                        {copyStatus === "idle" && (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                        {copyStatus === "copied" && (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                        {copyStatus === "error" && (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        )}
-                      </button>
+
+                  <div className="space-y-4">
+                    <div className="mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">可用格式</label>
                     </div>
-                    <div className="text-xs mt-1 text-gray-500 dark:text-gray-400">
-                      {copyStatus === "copied" ? "URL已复制到剪贴板" : "点击右侧按钮复制URL"}
+
+                    {/* 原始格式链接 */}
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                        </svg>
+                        <div className="text-xs font-medium">{image.format.toLowerCase() === 'gif' ? 'GIF 动图' : '原始格式'}</div>
+                      </div>
+
+                      <div className="rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center relative">
+                        <div className="flex-1 px-3 py-2 text-xs font-mono overflow-hidden text-ellipsis">
+                          {originalUrl}
+                        </div>
+                        <button
+                          onClick={(e) => handleCopy(originalUrl, 'original', e)}
+                          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-r-lg transition-colors relative"
+                          title="复制链接"
+                        >
+                          {copyStatus && copyStatus.type === 'original' ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 隐藏 WebP 和 AVIF 链接部分仅用于 GIF 格式 */}
+                    {image.format.toLowerCase() !== 'gif' && (
+                      <>
+                        {/* WebP格式链接 - 显示于非GIF图片*/}
+                        <div className="mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div className="text-xs font-medium">WebP格式</div>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center relative">
+                            <div className="flex-1 px-3 py-2 text-xs font-mono overflow-hidden text-ellipsis">
+                              {webpUrl}
+                            </div>
+                            <button
+                              onClick={(e) => handleCopy(webpUrl, 'webp', e)}
+                              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-r-lg transition-colors relative"
+                              title="复制链接"
+                            >
+                              {copyStatus && copyStatus.type === 'webp' ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* AVIF格式链接 - 显示于非GIF图片 */}
+                        <div className="mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div className="text-xs font-medium">AVIF格式</div>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center relative">
+                            <div className="flex-1 px-3 py-2 text-xs font-mono overflow-hidden text-ellipsis">
+                              {avifUrl}
+                            </div>
+                            <button
+                              onClick={(e) => handleCopy(avifUrl, 'avif', e)}
+                              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-r-lg transition-colors relative"
+                              title="复制链接"
+                            >
+                              {copyStatus && copyStatus.type === 'avif' ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Markdown格式链接 */}
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                        <div className="text-xs font-medium">Markdown格式</div>
+                      </div>
+
+                      <div className="rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center relative">
+                        <div className="flex-1 px-3 py-2 text-xs font-mono overflow-hidden text-ellipsis">
+                          {markdownLink}
+                        </div>
+                        <button
+                          onClick={(e) => handleCopy(markdownLink, 'markdown', e)}
+                          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-r-lg transition-colors relative"
+                          title="复制链接"
+                        >
+                          {copyStatus && copyStatus.type === 'markdown' ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* 底部删除区域 */}
                 <div className="mt-auto pt-4">
                   {!showDeleteConfirm ? (
@@ -219,7 +376,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
                     </button>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-center text-sm text-red-600 dark:text-red-400">确定要删除此图片吗？</p>
+                      <p className="text-center text-sm text-red-600 dark:text-red-400">确定要删除此图片吗？<br />（将同时删除所有相关格式）</p>
                       <div className="flex space-x-2">
                         <button
                           onClick={() => setShowDeleteConfirm(false)}

@@ -13,6 +13,9 @@ import ImageSidebar from './components/ImageSidebar'
 import UsageTips from './components/UsageTips'
 import { motion } from 'framer-motion'
 
+// 环境变量中的最大上传数量，如果没有则默认为10
+const MAX_UPLOAD_COUNT = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_COUNT || '10', 10);
+
 export default function Home() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -20,6 +23,8 @@ export default function Home() {
   const [status, setStatus] = useState<StatusMessageType | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
   const [showSidebar, setShowSidebar] = useState(false)
+  const [isKeyVerified, setIsKeyVerified] = useState(false)
+  const [maxUploadCount, setMaxUploadCount] = useState(10)
 
   // 监听上传结果变化，当有新上传结果时自动打开侧边栏
   useEffect(() => {
@@ -34,20 +39,40 @@ export default function Home() {
       const apiKey = getApiKey()
       if (!apiKey) {
         setShowApiKeyModal(true)
+        setIsKeyVerified(false)
         return
       }
-      
+
       const isValid = await validateApiKey(apiKey)
       if (!isValid) {
         setShowApiKeyModal(true)
+        setIsKeyVerified(false)
         setStatus({
           type: 'error',
           message: 'API Key无效,请重新验证'
         })
+      } else {
+        setIsKeyVerified(true)
       }
     }
-    
+
     checkApiKey()
+  }, [])
+
+  useEffect(() => {
+    // 获取配置
+    const fetchConfig = async () => {
+      try {
+        const response = await api.request<{ maxUploadCount: number }>('/api/config')
+        setMaxUploadCount(response.maxUploadCount)
+      } catch (error) {
+        console.error('Failed to fetch config:', error)
+        // 如果获取失败，使用默认值
+        setMaxUploadCount(10)
+      }
+    }
+
+    fetchConfig()
   }, [])
 
   const handleUpload = async (selectedFiles: File[]) => {
@@ -59,9 +84,9 @@ export default function Home() {
 
     setIsUploading(true)
     setUploadProgress(0)
+    setStatus(null)
 
     try {
-      // 模拟进度条
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -71,36 +96,45 @@ export default function Home() {
           return prev + 5
         })
       }, 300)
-      
-      const result = await api.upload<UploadResponse>('/upload', selectedFiles)
-      
+
+      const result = await api.upload<UploadResponse>('/api/upload', selectedFiles)
+
       clearInterval(progressInterval)
       setUploadProgress(100)
-      
-      // 为每个结果添加唯一ID和路径，以兼容侧边栏组件
+
       const resultsWithIds = result.results.map(item => ({
         ...item,
         id: Math.random().toString(36).substring(2),
         path: item.urls?.original || ''
       }))
-      
+
       setUploadResults(resultsWithIds)
       const successCount = resultsWithIds.filter(r => r.status === 'success').length
       const errorCount = resultsWithIds.filter(r => r.status === 'error').length
       const totalCount = resultsWithIds.length
-      
+
       setStatus({
         type: errorCount === 0 ? 'success' : 'warning',
         message: `上传完成：共${totalCount}张，${successCount}张成功，${errorCount}张失败`
       })
     } catch (error) {
+      let errorMessage = '上传失败，请重试'
+
+      if (error instanceof Error) {
+        if (error.message.includes('超过最大上传数量') || error.message.includes('maximum upload')) {
+          errorMessage = `上传失败：超过最大上传数量限制（${maxUploadCount}张图片）`
+        } else {
+          errorMessage = `上传失败：${error.message}`
+        }
+      }
+
       setStatus({
         type: 'error',
-        message: '上传失败，请重试'
+        message: errorMessage
       })
     } finally {
       setIsUploading(false)
-      setTimeout(() => setUploadProgress(0), 1000) // 延迟清除进度条
+      setTimeout(() => setUploadProgress(0), 1000)
     }
   }
 
@@ -108,20 +142,20 @@ export default function Home() {
     try {
       // 这里添加实际的删除API调用
       // await api.delete(`/images/${id}`);
-      
+
       // 更新本地状态，移除已删除的图片
       setUploadResults(prev => prev.filter(item => item.id !== id))
-      
+
       // 如果删除后没有图片了，关闭侧边栏
       if (uploadResults.length <= 1) {
         setShowSidebar(false)
       }
-      
+
       setStatus({
         type: 'success',
         message: '图片已成功删除'
       })
-      
+
       return Promise.resolve()
     } catch (error) {
       setStatus({
@@ -134,12 +168,16 @@ export default function Home() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
-      <Header onApiKeyClick={() => setShowApiKeyModal(true)} />
-      
-      <UploadSection onUpload={handleUpload} isUploading={isUploading} />
-      
+      <Header onApiKeyClick={() => setShowApiKeyModal(true)} isKeyVerified={isKeyVerified} />
+
+      <UploadSection
+        onUpload={handleUpload}
+        isUploading={isUploading}
+        maxUploadCount={MAX_UPLOAD_COUNT}
+      />
+
       {status && <StatusMessage type={status.type} message={status.message} />}
-      
+
       {/* 添加一个查看图片按钮，只有在有上传结果且侧边栏关闭时显示 */}
       {uploadResults.length > 0 && !showSidebar && (
         <motion.button
@@ -162,19 +200,20 @@ export default function Home() {
       {isUploading && <UploadProgress progress={uploadProgress} />}
 
       {/* 图片侧边栏 */}
-      <ImageSidebar 
+      <ImageSidebar
         isOpen={showSidebar}
         results={uploadResults}
         onClose={() => setShowSidebar(false)}
         onDelete={handleDeleteImage}
       />
 
-      <ApiKeyModal 
+      <ApiKeyModal
         isOpen={showApiKeyModal}
         onClose={() => setShowApiKeyModal(false)}
         onSuccess={(apiKey) => {
           setApiKey(apiKey)
           setShowApiKeyModal(false)
+          setIsKeyVerified(true)
           setStatus({
             type: 'success',
             message: 'API Key验证成功！'

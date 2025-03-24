@@ -21,13 +21,23 @@ export const removeApiKey = (): void => {
 
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
   try {
-    const response = await fetch(`${BASE_URL}/validate-api-key`, {
+    const response = await fetch(`${BASE_URL}/api/validate-api-key`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API Key validation failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        responseText: errorText
+      });
+      return false;
+    }
 
     const data = await response.json();
     return data.valid === true;

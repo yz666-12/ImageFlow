@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getFullUrl } from '../utils/baseUrl'
+import { copyToClipboard } from '../utils/clipboard'
 
 interface ImageDetailModalProps {
   isOpen: boolean
@@ -25,30 +26,39 @@ interface ImageDetailModalProps {
 }
 
 export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: ImageDetailModalProps) {
-  const [copyStatus, setCopyStatus] = useState<{type: string} | null>(null)
+  const [copyStatus, setCopyStatus] = useState<{ type: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   if (!image || image.status !== 'success' || !image.urls) {
     return null
   }
-  
+
   const handleCopy = (text: string, type: string, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) e.stopPropagation() // 阻止冒泡
-    navigator.clipboard.writeText(text).then(() => {
-      setCopyStatus({type})
-      setTimeout(() => {
-        setCopyStatus(null)
-      }, 2000)
-    })
+
+    copyToClipboard(text)
+      .then(success => {
+        if (success) {
+          setCopyStatus({ type })
+          setTimeout(() => {
+            setCopyStatus(null)
+          }, 2000)
+        } else {
+          console.error("复制失败")
+        }
+      })
+      .catch(err => {
+        console.error("复制失败:", err)
+      });
   }
-  
+
   // 处理URL，确保都是完整路径
   const getProcessedUrl = (url: string | undefined) => {
     if (!url) return ''
     return getFullUrl(url)
   }
-  
+
   const originalUrl = getProcessedUrl(image.urls.original)
   const webpUrl = getProcessedUrl(image.urls.webp)
   const avifUrl = getProcessedUrl(image.urls.avif)
@@ -56,7 +66,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
   // 处理删除图片
   const handleDelete = async () => {
     if (!image || !image.id || !onDelete) return
-    
+
     try {
       setIsDeleting(true)
       await onDelete(image.id)
@@ -71,14 +81,14 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
@@ -88,7 +98,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
           >
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
               <h3 className="text-xl font-semibold">{image.filename}</h3>
-              <button 
+              <button
                 onClick={onClose}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
               >
@@ -97,17 +107,17 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                 </svg>
               </button>
             </div>
-            
+
             <div className="overflow-y-auto max-h-[calc(90vh-5rem)]">
               <div className="flex flex-col md:flex-row">
                 <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700">
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.1 }}
                     className="relative aspect-square w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
                   >
-                    <Image 
+                    <Image
                       src={originalUrl}
                       alt={image.filename}
                       fill
@@ -121,10 +131,10 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex-1 p-4">
                   <h4 className="text-lg font-medium mb-4">可用格式</h4>
-                  
+
                   <div className="space-y-6">
                     {/* 原始图片链接 */}
                     <motion.div
@@ -138,12 +148,12 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                         </svg>
                         <div className="font-medium">原始图片</div>
                       </div>
-                      
+
                       <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                         <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                           {originalUrl}
                         </div>
-                        <button 
+                        <button
                           onClick={(e) => handleCopy(originalUrl, 'original', e)}
                           className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                           title="复制链接"
@@ -165,7 +175,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                         </button>
                       </div>
                     </motion.div>
-                    
+
                     {/* WebP 格式链接 */}
                     {webpUrl && (
                       <motion.div
@@ -179,12 +189,12 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                           </svg>
                           <div className="font-medium">WebP 格式</div>
                         </div>
-                        
+
                         <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                           <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                             {webpUrl}
                           </div>
-                          <button 
+                          <button
                             onClick={(e) => handleCopy(webpUrl, 'webp', e)}
                             className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                             title="复制链接"
@@ -207,7 +217,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                         </div>
                       </motion.div>
                     )}
-                    
+
                     {/* AVIF 格式链接 */}
                     {avifUrl && (
                       <motion.div
@@ -221,12 +231,12 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                           </svg>
                           <div className="font-medium">AVIF 格式</div>
                         </div>
-                        
+
                         <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                           <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                             {avifUrl}
                           </div>
-                          <button 
+                          <button
                             onClick={(e) => handleCopy(avifUrl, 'avif', e)}
                             className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                             title="复制链接"
@@ -249,7 +259,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                         </div>
                       </motion.div>
                     )}
-                    
+
                     {/* Markdown 格式链接 */}
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -262,12 +272,12 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                         </svg>
                         <div className="font-medium">Markdown 格式</div>
                       </div>
-                      
+
                       <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                         <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                           ![{image.filename}]({originalUrl})
                         </div>
-                        <button 
+                        <button
                           onClick={(e) => handleCopy(`![${image.filename}](${originalUrl})`, 'markdown', e)}
                           className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                           title="复制链接"
@@ -293,8 +303,8 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                 </div>
               </div>
             </div>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
@@ -347,7 +357,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                   )}
                 </div>
               )}
-              <button 
+              <button
                 onClick={onClose}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors font-medium"
               >

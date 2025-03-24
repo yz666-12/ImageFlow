@@ -2,7 +2,12 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+// Configure font with display: swap to avoid FOIT (Flash of Invisible Text)
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  preload: false // Don't preload the font
+})
 
 export const metadata: Metadata = {
   title: 'ImageFlow - 图片管理',
@@ -37,9 +42,9 @@ export default function RootLayout({
           <div className="bubble"></div>
           <div className="bubble"></div>
         </div>
-        
+
         {children}
-        
+
         {/* 页脚 */}
         <div className="max-w-7xl mx-auto px-6 mt-8 text-center text-gray-600 dark:text-gray-400">
           Create By <a href="https://catcat.blog/" target="_blank" className="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">猫猫博客</a>

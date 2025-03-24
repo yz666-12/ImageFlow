@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 
 export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   const [format, setFormat] = useState('all')
-  const [orientation, setOrientation] = useState('landscape')
+  const [orientation, setOrientation] = useState('all')
 
   const handleFormatChange = (newFormat: string) => {
     setFormat(newFormat)
@@ -17,7 +17,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700"
@@ -28,7 +28,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
         </svg>
         筛选图片
       </h2>
-      
+
       <div className="flex flex-wrap gap-4">
         <div className="w-full md:w-[calc(50%-0.5rem)]">
           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -39,18 +39,17 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               <button
                 key={item}
                 onClick={() => handleFormatChange(item)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  format === item
-                    ? 'bg-indigo-500 text-white shadow-md'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${format === item
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
               >
                 {item === 'all' ? '全部' : item === 'original' ? '原始' : item.toUpperCase()}
               </button>
             ))}
           </div>
         </div>
-        
+
         <div className="w-full md:w-[calc(50%-0.5rem)]">
           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
             图片方向
@@ -61,13 +60,12 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                 key={item}
                 disabled={format === 'gif'}
                 onClick={() => handleOrientationChange(item)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  format === 'gif'
-                    ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                    : orientation === item
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${format === 'gif'
+                  ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+                  : orientation === item
                     ? 'bg-purple-500 text-white shadow-md'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 {item === 'all' ? '全部' : item === 'landscape' ? '横向' : '纵向'}
               </button>

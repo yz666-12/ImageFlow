@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getFullUrl } from '../utils/baseUrl'
+import { copyToClipboard } from '../utils/clipboard'
 
 interface ImageResultProps {
   result: {
@@ -23,25 +24,34 @@ interface ImageResultProps {
 }
 
 export default function ImageResult({ result, index }: ImageResultProps) {
-  const [copyStatus, setCopyStatus] = useState<{type: string} | null>(null)
+  const [copyStatus, setCopyStatus] = useState<{ type: string } | null>(null)
   const [showModal, setShowModal] = useState(false)
-  
+
   const handleCopy = (text: string, type: string, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) e.stopPropagation(); // 阻止冒泡
-    navigator.clipboard.writeText(text).then(() => {
-      setCopyStatus({type})
-      setTimeout(() => {
-        setCopyStatus(null)
-      }, 2000)
-    })
+
+    copyToClipboard(text)
+      .then(success => {
+        if (success) {
+          setCopyStatus({ type })
+          setTimeout(() => {
+            setCopyStatus(null)
+          }, 2000)
+        } else {
+          console.error("复制失败")
+        }
+      })
+      .catch(err => {
+        console.error("复制失败:", err)
+      });
   }
-  
+
   // 处理URL，确保都是完整路径
   const getProcessedUrl = (url: string | undefined) => {
     if (!url) return '';
     return getFullUrl(url);
   }
-  
+
   const originalUrl = getProcessedUrl(result.urls?.original);
   const webpUrl = getProcessedUrl(result.urls?.webp);
   const avifUrl = getProcessedUrl(result.urls?.avif);
@@ -89,7 +99,7 @@ export default function ImageResult({ result, index }: ImageResultProps) {
       >
         <div className="h-full flex flex-col">
           <div className="relative aspect-square w-full flex-shrink-0 bg-slate-50 dark:bg-slate-900 overflow-hidden group">
-            <Image 
+            <Image
               src={originalUrl}
               alt={result.filename}
               fill
@@ -116,14 +126,14 @@ export default function ImageResult({ result, index }: ImageResultProps) {
       {/* 模态框 */}
       <AnimatePresence>
         {showModal && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
@@ -133,7 +143,7 @@ export default function ImageResult({ result, index }: ImageResultProps) {
             >
               <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
                 <h3 className="text-xl font-semibold">{result.filename}</h3>
-                <button 
+                <button
                   onClick={() => setShowModal(false)}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                 >
@@ -142,17 +152,17 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                   </svg>
                 </button>
               </div>
-              
+
               <div className="overflow-y-auto max-h-[calc(90vh-5rem)]">
                 <div className="flex flex-col md:flex-row">
                   <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700">
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.1 }}
                       className="relative aspect-square w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
                     >
-                      <Image 
+                      <Image
                         src={originalUrl}
                         alt={result.filename}
                         fill
@@ -166,10 +176,10 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 p-4">
                     <h4 className="text-lg font-medium mb-4">可用格式</h4>
-                    
+
                     <div className="space-y-6">
                       {/* 原始图片链接 */}
                       <motion.div
@@ -183,12 +193,12 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                           </svg>
                           <div className="font-medium">原始图片</div>
                         </div>
-                        
+
                         <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                           <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                             {originalUrl}
                           </div>
-                          <button 
+                          <button
                             onClick={(e) => handleCopy(originalUrl, 'original', e)}
                             className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                             title="复制链接"
@@ -210,7 +220,7 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                           </button>
                         </div>
                       </motion.div>
-                      
+
                       {/* WebP 格式链接 */}
                       {webpUrl && (
                         <motion.div
@@ -224,12 +234,12 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                             </svg>
                             <div className="font-medium">WebP 格式</div>
                           </div>
-                          
+
                           <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                             <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                               {webpUrl}
                             </div>
-                            <button 
+                            <button
                               onClick={(e) => handleCopy(webpUrl, 'webp', e)}
                               className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                               title="复制链接"
@@ -252,7 +262,7 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                           </div>
                         </motion.div>
                       )}
-                      
+
                       {/* AVIF 格式链接 */}
                       {avifUrl && (
                         <motion.div
@@ -266,12 +276,12 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                             </svg>
                             <div className="font-medium">AVIF 格式</div>
                           </div>
-                          
+
                           <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                             <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                               {avifUrl}
                             </div>
-                            <button 
+                            <button
                               onClick={(e) => handleCopy(avifUrl, 'avif', e)}
                               className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                               title="复制链接"
@@ -294,7 +304,7 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                           </div>
                         </motion.div>
                       )}
-                      
+
                       {/* Markdown 格式链接 */}
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
@@ -307,12 +317,12 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                           </svg>
                           <div className="font-medium">Markdown 格式</div>
                         </div>
-                        
+
                         <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
                           <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
                             ![{result.filename}]({originalUrl})
                           </div>
-                          <button 
+                          <button
                             onClick={(e) => handleCopy(`![${result.filename}](${originalUrl})`, 'markdown', e)}
                             className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
                             title="复制链接"
@@ -338,14 +348,14 @@ export default function ImageResult({ result, index }: ImageResultProps) {
                   </div>
                 </div>
               </div>
-              
-              <motion.div 
+
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
                 className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end"
               >
-                <button 
+                <button
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors font-medium"
                 >

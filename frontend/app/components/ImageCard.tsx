@@ -1,7 +1,7 @@
 "use client";
 
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ImageFile } from '../types'
 
@@ -46,20 +46,35 @@ const getOrientationLabel = (orientation: string): string => {
 export default function ImageCard({ image, onClick }: { image: ImageFile; onClick: () => void }) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [isHovered, setIsHovered] = useState(false);
-  
-  // 根据方向确定高度类
-  const getHeightClass = (orientation: string) => {
+  const isGif = image.format.toLowerCase() === 'gif';
+
+  // 根据方向确定高度类和比例
+  const getHeightAndAspectRatio = (orientation: string) => {
     switch (orientation.toLowerCase()) {
       case 'portrait':
-        return "h-96"; // 纵向图片使用更高的容器
+        return {
+          heightClass: "h-auto",
+          aspectRatio: "aspect-[3/4]"
+        };
       case 'landscape':
-        return "h-56"; // 横向图片使用标准高度
+        return {
+          heightClass: "h-auto",
+          aspectRatio: "aspect-[4/3]"
+        };
       case 'square':
-        return "h-64"; // 方形图片使用中等高度
+        return {
+          heightClass: "h-auto",
+          aspectRatio: "aspect-square"
+        };
       default:
-        return "h-56"; // 默认高度
+        return {
+          heightClass: "h-auto",
+          aspectRatio: "aspect-auto"
+        };
     }
   };
+
+  const { heightClass, aspectRatio } = getHeightAndAspectRatio(image.orientation);
 
   // 复制URL到剪贴板
   const copyToClipboard = async (e: React.MouseEvent) => {
@@ -82,30 +97,40 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col w-full"
+      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col h-full"
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`relative ${getHeightClass(image.orientation)} overflow-hidden bg-gray-100 dark:bg-gray-900`}>
-        <Image
-          src={image.url}
-          alt={image.filename}
-          fill
-          className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
-        
+      <div className={`relative ${heightClass} ${aspectRatio} overflow-hidden bg-gray-100 dark:bg-gray-900`}>
+        {isGif ? (
+          // Use img tag for GIFs to ensure animation plays
+          <img
+            src={image.url}
+            alt={image.filename}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          // Use Next.js Image for non-GIF images
+          <Image
+            src={image.url}
+            alt={image.filename}
+            fill
+            className={`object-cover w-full h-full group-hover:scale-105 transition-transform duration-500`}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        )}
+
         <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white">
           <div className="flex space-x-1">
-            <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-500/70 backdrop-blur-sm">
+            <span className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm ${isGif ? 'bg-green-500/70' : 'bg-blue-500/70'}`}>
               {getFormatLabel(image.format)}
             </span>
             <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70 backdrop-blur-sm">
               {getOrientationLabel(image.orientation)}
             </span>
           </div>
-          
+
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: isHovered ? 1 : 0 }}
@@ -132,9 +157,9 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
         </div>
       </div>
 
-      <div className="p-4 flex-grow">
+      <div className="p-4 flex-grow flex flex-col justify-between">
         <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{image.filename}</div>
-        <div className="flex justify-between items-center mt-2">
+        <div className="flex justify-between items-center mt-3">
           <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(image.size)}</span>
           {(image as any).width && (image as any).height ? (
             <motion.div
