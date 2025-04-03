@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useInView } from 'react-intersection-observer';
+import { motion, AnimatePresence } from 'framer-motion';
 import Masonry from 'react-masonry-css';
 import { getApiKey, validateApiKey, setApiKey } from "../utils/auth";
 import { api } from "../utils/request";
@@ -9,7 +11,6 @@ import ApiKeyModal from "../components/ApiKeyModal";
 import ImageFilters from "../components/ImageFilters";
 import ImageCard from "../components/ImageCard";
 import ImageModal from "../components/ImageModal";
-import Pagination from "../components/Pagination";
 import { useTheme } from "../hooks/useTheme";
 import { ImageFile, ImageListResponse, StatusMessage, ImageFilterState } from "../types";
 import Header from "../components/Header";
@@ -27,13 +28,70 @@ export default function Manage() {
   const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "all" });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKeyVerified, setIsKeyVerified] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // 立即检查API密钥
+  // Infinite scroll setup
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.5,
+    delay: 100
+  });
+
+  // Preload images for next page
+  const preloadImages = useCallback((imageUrls: string[]) => {
+    imageUrls.forEach(url => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, []);
+
+  // Check API key
   useEffect(() => {
     checkApiKey();
   }, []);
 
-  // 检查API Key
+  // Load more images when scrolling
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore) {
+      fetchNextPage();
+    }
+  }, [inView, hasMore]);
+
+  const fetchNextPage = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const nextPage = Math.floor(images.length / 24) + 1;
+      const data = await api.get<ImageListResponse>("/api/images", {
+        page: nextPage.toString(),
+        limit: "24",
+        format: filters.format,
+        orientation: filters.orientation,
+      });
+
+      if (data.images.length === 0) {
+        setHasMore(false);
+      } else {
+        setImages(prev => [...prev, ...data.images]);
+        setTotalPages(data.totalPages);
+        setTotalImages(data.total);
+        
+        // Preload next page images
+        const nextPageUrls = data.images.map(img => img.url);
+        preloadImages(nextPageUrls);
+      }
+    } catch (error) {
+      console.error("加载更多图片失败:", error);
+      setStatus({
+        type: "error",
+        message: "加载更多图片失败",
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   const checkApiKey = async () => {
     const apiKey = getApiKey();
     if (!apiKey) {
@@ -53,28 +111,36 @@ export default function Manage() {
       return;
     }
 
-    // API Key有效
     setIsKeyVerified(true);
-    // 加载图片列表
     fetchImages();
   };
 
-  const fetchImages = async (page = currentPage) => {
+  const fetchImages = async () => {
     try {
       setIsLoading(true);
-      // 获取图片列表
+      setImages([]);
+      setHasMore(true);
+      setCurrentPage(1);
+      
       const data = await api.get<ImageListResponse>("/api/images", {
-        page: page.toString(),
-        limit: "24", // 修改为每页24张图片以更好地展示瀑布流
+        page: "1",
+        limit: "24",
         format: filters.format,
         orientation: filters.orientation,
       });
 
       setImages(data.images);
-      setCurrentPage(data.page);
       setTotalPages(data.totalPages);
       setTotalImages(data.total);
       setStatus(null);
+
+      // Preload next page
+      if (data.images.length === 24) {
+        const nextPageUrls = data.images.map(img => img.url);
+        preloadImages(nextPageUrls);
+      } else {
+        setHasMore(false);
+      }
     } catch (error) {
       console.error("加载图片列表失败:", error);
       setStatus({
@@ -99,15 +165,11 @@ export default function Manage() {
       );
 
       if (response.success) {
-        // 从当前列表中移除已删除的图片
         setImages(images.filter((img) => img.id !== id));
         setStatus({
           type: "success",
           message: response.message,
         });
-
-        // 删除成功后刷新图片列表
-        fetchImages(currentPage);
       } else {
         setStatus({
           type: "error",
@@ -124,21 +186,12 @@ export default function Manage() {
   };
 
   useEffect(() => {
-    setCurrentPage(1);
-    fetchImages(1);
+    fetchImages();
   }, [filters]);
 
   const handleFilterChange = (format: string, orientation: string) => {
     setFilters({ format, orientation });
   };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  useEffect(() => {
-    fetchImages(currentPage);
-  }, [currentPage]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -149,14 +202,18 @@ export default function Manage() {
       />
 
       {status && (
-        <div
-          className={`mb-8 p-4 rounded-xl ${status.type === "success"
-            ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
-            : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
-            }`}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className={`mb-8 p-4 rounded-xl ${
+            status.type === "success"
+              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
+              : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+          }`}
         >
           {status.message}
-        </div>
+        </motion.div>
       )}
 
       <ImageFilters onFilterChange={handleFilterChange} />
@@ -168,21 +225,45 @@ export default function Manage() {
       ) : (
         <>
           {images.length > 0 ? (
-            <>
-              {filters.orientation === "all" ? (
-                <Masonry
-                  breakpointCols={{
-                    default: 4,
-                    1280: 4,
-                    1024: 3,
-                    768: 2,
-                    640: 1
-                  }}
-                  className="my-masonry-grid"
-                  columnClassName="my-masonry-grid_column"
-                >
-                  {images.map((image) => (
-                    <div key={image.id}>
+            <div className="space-y-8">
+              <div className={filters.orientation === "all" ? "" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"}>
+                {filters.orientation === "all" ? (
+                  <Masonry
+                    breakpointCols={{
+                      default: 4,
+                      1280: 4,
+                      1024: 3,
+                      768: 2,
+                      640: 1
+                    }}
+                    className="my-masonry-grid"
+                    columnClassName="my-masonry-grid_column"
+                  >
+                    {images.map((image, index) => (
+                      <motion.div
+                        key={image.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: index % 24 * 0.05 }}
+                      >
+                        <ImageCard
+                          image={image}
+                          onClick={() => {
+                            setSelectedImage(image);
+                            setIsModalOpen(true);
+                          }}
+                        />
+                      </motion.div>
+                    ))}
+                  </Masonry>
+                ) : (
+                  images.map((image, index) => (
+                    <motion.div
+                      key={image.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: index % 24 * 0.05 }}
+                    >
                       <ImageCard
                         image={image}
                         onClick={() => {
@@ -190,35 +271,31 @@ export default function Manage() {
                           setIsModalOpen(true);
                         }}
                       />
-                    </div>
-                  ))}
-                </Masonry>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                  {images.map((image) => (
-                    <ImageCard
-                      key={image.id}
-                      image={image}
-                      onClick={() => {
-                        setSelectedImage(image);
-                        setIsModalOpen(true);
-                      }}
-                    />
-                  ))}
+                    </motion.div>
+                  ))
+                )}
+              </div>
+
+              {/* Load more trigger */}
+              {hasMore && (
+                <div
+                  ref={loadMoreRef}
+                  className="flex justify-center items-center py-8"
+                >
+                  {isLoadingMore ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                  ) : (
+                    <div className="text-gray-400 dark:text-gray-500">向下滚动加载更多</div>
+                  )}
                 </div>
               )}
 
-              <div className="mt-10 flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   共 <span className="font-medium text-gray-700 dark:text-gray-300">{totalImages}</span> 张图片
                 </span>
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
               <svg
@@ -254,14 +331,8 @@ export default function Manage() {
       <ApiKeyModal
         isOpen={showApiKeyModal}
         onClose={() => setShowApiKeyModal(false)}
-        onSuccess={(apiKey) => {
-          setApiKey(apiKey);
-          setShowApiKeyModal(false);
+        onSuccess={() => {
           setIsKeyVerified(true);
-          setStatus({
-            type: "success",
-            message: "API Key验证成功！",
-          });
           fetchImages();
         }}
       />

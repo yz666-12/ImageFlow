@@ -1,7 +1,7 @@
 "use client";
 
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { ImageFile } from '../types'
 
@@ -46,7 +46,36 @@ const getOrientationLabel = (orientation: string): string => {
 export default function ImageCard({ image, onClick }: { image: ImageFile; onClick: () => void }) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [isHovered, setIsHovered] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const isGif = image.format.toLowerCase() === 'gif';
+
+  // Generate blur placeholder
+  useEffect(() => {
+    const generateBlurPlaceholder = async () => {
+      try {
+        // Create a tiny version of the image for blur effect
+        const response = await fetch(image.url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setBlurDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error generating blur placeholder:', error);
+      }
+    };
+
+    if (!isGif) {
+      generateBlurPlaceholder();
+    }
+  }, [image.url, isGif]);
+
+  // Image load handler
+  const handleImageLoad = useCallback(() => {
+    setIsLoading(false);
+  }, []);
 
   // 根据方向确定高度类和比例
   const getHeightAndAspectRatio = (orientation: string) => {
@@ -108,20 +137,40 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
           <img
             src={image.url}
             alt={image.filename}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+            onLoad={handleImageLoad}
+            className={`w-full h-full object-cover transition-all duration-500 ${
+              isLoading ? 'scale-110 blur-lg' : 'scale-100 blur-0 group-hover:scale-105'
+            }`}
           />
         ) : (
-          // Use Next.js Image for non-GIF images
+          // Use Next.js Image for non-GIF images with optimizations
           <Image
             src={image.url}
             alt={image.filename}
             fill
-            className={`object-cover w-full h-full group-hover:scale-105 transition-transform duration-500`}
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            loading="lazy"
+            onLoad={handleImageLoad}
+            placeholder={blurDataUrl ? "blur" : "empty"}
+            blurDataURL={blurDataUrl || undefined}
+            className={`object-cover w-full h-full transition-all duration-500 ${
+              isLoading ? 'scale-110 blur-lg' : 'scale-100 blur-0 group-hover:scale-105'
+            }`}
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            quality={75}
+            priority={false}
           />
         )}
 
-        <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white">
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+
+        {/* Image info overlay */}
+        <div className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
           <div className="flex space-x-1">
             <span className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm ${isGif ? 'bg-green-500/70' : 'bg-blue-500/70'}`}>
               {getFormatLabel(image.format)}
@@ -157,7 +206,7 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
         </div>
       </div>
 
-      <div className="p-4 flex-grow flex flex-col justify-between">
+      <div className={`p-4 flex-grow flex flex-col justify-between transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
         <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{image.filename}</div>
         <div className="flex justify-between items-center mt-3">
           <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(image.size)}</span>
