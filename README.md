@@ -214,45 +214,51 @@ The system returns the most suitable image based on the device type and browser 
 | Endpoint | Method | Description | Parameters | Authentication |
 |----------|---------|-------------|------------|-------------|
 | `/api/random` | GET | Get a random image | `orientation`: Optional, specify "landscape" or "portrait" | Not required |
-| `/upload` | POST | Upload new images | Form data, field name "images[]" | API key required |
+| `/api/upload` | POST | Upload new images | Form data, field name "images[]" | API key required |
 | `/api/delete-image` | POST | Delete an image and all its formats | JSON with `id` and `storageType` | API key required |
-| `/validate-api-key` | POST | Validate API key | API key in request header | Not required |
+| `/api/validate-api-key` | POST | Validate API key | API key in request header | Not required |
+| `/api/images` | GET | List all uploaded images | None | API key required |
+| `/api/config` | GET | Get system configuration | None | API key required |
 
-## 📁 Project Structure
+### Project Structure
 
 ```
 ImageFlow/
+├── .github/        # GitHub related configurations
 ├── config/         # Configuration related code
-├── handlers/       # HTTP handlers
-│   ├── delete.go    # Image deletion handler
-├── scripts/        # Utility scripts
-├── static/         # Static files and image storage
-│   ├── favicon.ico # Favicon
-│   ├── favicon.svg # SVG favicon
-│   ├── favicon-16.png # 16px favicon
-│   ├── favicon-32.png # 32px favicon
-│   ├── favicon-48.png # 48px favicon
-│   ├── imageflow1.png # Preview image 1
-│   ├── imageflow2.png # Preview image 2
-│   ├── images/    # Image storage directory
-│   │   ├── landscape/ # Landscape images
-│   │   │   ├── avif/  # AVIF format
-│   │   │   └── webp/  # WebP format
-│   │   ├── portrait/  # Portrait images
-│   │   │   ├── avif/  # AVIF format
-│   │   │   └── webp/  # WebP format
-│   │   └── original/  # Original uploaded images
-│   ├── index.html # Homepage
-│   ├── styles.css # Stylesheet
-│   ├── manage.html # Image management interface
-│   ├── manage.js   # Image management functionality script
-│   └── upload.js  # Upload functionality script
+├── docs/          # Documentation and images
+├── favicon/       # Favicon assets
+├── frontend/      # Next.js frontend application
+│   ├── app/       # Next.js app directory
+│   ├── public/    # Public assets
+│   ├── .next/     # Next.js build output
+│   ├── out/       # Static export output
+│   ├── build.sh   # Build script for Unix
+│   └── build.bat  # Build script for Windows
+├── handlers/      # HTTP request handlers
+├── scripts/       # Utility scripts
+├── static/        # Static files and image storage
+│   └── images/    # Image storage directory
+│       ├── landscape/  # Landscape images
+│       │   ├── avif/   # AVIF format
+│       │   └── webp/   # WebP format
+│       ├── portrait/   # Portrait images
+│       │   ├── avif/   # AVIF format
+│       │   └── webp/   # WebP format
+│       ├── original/   # Original images
+│       │   ├── landscape/  # Original landscape
+│       │   └── portrait/   # Original portrait
+│       └── gif/       # GIF format images
 ├── utils/         # Utility functions
-├── main.go        # Main program entry
-├── Dockerfile     # Docker build file
-├── docker-compose.yml # Docker Compose configuration
-├── .env           # Environment variables
-└── README.md      # Project documentation
+├── .env          # Environment variables
+├── .env.example  # Example environment configuration
+├── Dockerfile    # Docker configuration
+├── docker-compose.yaml      # Docker Compose configuration
+├── docker-compose-build.yml # Docker Compose build configuration
+├── go.mod        # Go module file
+├── go.sum        # Go module checksum
+├── main.go       # Main application entry
+└── README.md     # Project documentation
 ```
 
 ## 🤝 Contributing
