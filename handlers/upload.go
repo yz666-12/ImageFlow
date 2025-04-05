@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ type UploadResult struct {
 	Orientation string            `json:"orientation,omitempty"`
 	Format      string            `json:"format,omitempty"`
 	URLs        map[string]string `json:"urls,omitempty"`
+	ExpiryTime  string            `json:"expiryTime,omitempty"`
 }
 
 // getPublicURL constructs a public-facing URL for accessing an image
@@ -86,6 +88,16 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		// Get expiry time parameter (in minutes)
+		expiryMinutes := 0 // Default: never expire
+		if expiryParam := r.FormValue("expiryMinutes"); expiryParam != "" {
+			if minutes, err := strconv.Atoi(expiryParam); err == nil && minutes >= 0 {
+				expiryMinutes = minutes
+			} else {
+				log.Printf("Invalid expiryMinutes parameter: %s, using default: %d", expiryParam, expiryMinutes)
+			}
+		}
+
 		// Create result array and wait group
 		results := make([]UploadResult, 0, len(files))
 		resultsMutex := sync.Mutex{}
@@ -102,6 +114,13 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 				// Acquire worker slot
 				workerSemaphore <- struct{}{}
 				defer func() { <-workerSemaphore }()
+
+				// Calculate expiry time
+				var expiryTime time.Time
+				if expiryMinutes > 0 {
+					expiryTime = time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
+					log.Printf("Image will expire at: %v", expiryTime)
+				}
 
 				file, err := fileHeader.Open()
 				if err != nil {
@@ -162,6 +181,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 				// Generate unique filename
 				timestamp := time.Now().Format("20060102_150405")
 				filename := fmt.Sprintf("%s_%d", timestamp, time.Now().UnixNano()%10000)
+				imageID := filename
 
 				// Detect image format
 				imgFormat, err := utils.DetectImageFormat(data)
@@ -208,13 +228,36 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					// GIF files are not converted, only store original format
 					log.Printf("GIF file stored in special directory: %s", originalKey)
 
+					var expiryTimeStr string
+					if !expiryTime.IsZero() {
+						expiryTimeStr = expiryTime.Format(time.RFC3339)
+					}
+
+					metadata := &utils.ImageMetadata{
+						ID:           imageID,
+						OriginalName: fileHeader.Filename,
+						UploadTime:   time.Now(),
+						Format:       imgFormat.Format,
+					}
+
+					if !expiryTime.IsZero() {
+						metadata.ExpiryTime = expiryTime
+					}
+
+					metadata.Paths.Original = originalKey
+
+					if err := utils.MetadataManager.SaveMetadata(r.Context(), metadata); err != nil {
+						log.Printf("Warning: Failed to save metadata for GIF image %s: %v", imageID, err)
+					}
+
 					// Add success result to results array
 					resultsMutex.Lock()
 					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "success",
-						Message:  "GIF file uploaded successfully",
-						Format:   imgFormat.Format,
+						Filename:   fileHeader.Filename,
+						Status:     "success",
+						Message:    "GIF file uploaded successfully",
+						Format:     imgFormat.Format,
+						ExpiryTime: expiryTimeStr,
 						URLs: map[string]string{
 							"original": getPublicURL(originalKey),
 							"webp":     "",
@@ -294,6 +337,36 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					avifURL = originalURL // Fallback to original when conversion fails
 				}
 
+				var expiryTimeStr string
+				if !expiryTime.IsZero() {
+					expiryTimeStr = expiryTime.Format(time.RFC3339)
+				}
+
+				metadata := &utils.ImageMetadata{
+					ID:           imageID,
+					OriginalName: fileHeader.Filename,
+					UploadTime:   time.Now(),
+					Format:       imgFormat.Format,
+					Orientation:  orientation,
+				}
+
+				if !expiryTime.IsZero() {
+					metadata.ExpiryTime = expiryTime
+				}
+
+				metadata.Paths.Original = originalKey
+				if webpURL != originalURL {
+					metadata.Paths.WebP = filepath.Join(orientation, "webp", imageID+".webp")
+				}
+				if avifURL != originalURL {
+					metadata.Paths.AVIF = filepath.Join(orientation, "avif", imageID+".avif")
+				}
+
+				// Save Metadata
+				if err := utils.MetadataManager.SaveMetadata(r.Context(), metadata); err != nil {
+					log.Printf("Warning: Failed to save metadata for image %s: %v", imageID, err)
+				}
+
 				// Add success result to results array
 				resultsMutex.Lock()
 				results = append(results, UploadResult{
@@ -302,6 +375,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					Message:     "File uploaded and converted successfully",
 					Orientation: orientation,
 					Format:      imgFormat.Format,
+					ExpiryTime:  expiryTimeStr,
 					URLs: map[string]string{
 						"original": originalURL,
 						"webp":     webpURL,

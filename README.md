@@ -10,7 +10,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/favicon/favicon.svg" alt="ImageFlow Logo" width="120" height="120" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px; border-radius: 16px;">
   <h3>Efficient and Intelligent Image Management and Distribution System</h3>
-  
+
 </div>
 
 ImageFlow is an efficient image service system designed for modern websites and applications. It automatically provides the most suitable images based on device type and supports modern image formats like WebP and AVIF, significantly improving website performance and user experience.
@@ -20,6 +20,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - **API Key Authentication**: Secure API key verification mechanism to protect your image upload functionality
 - **Adaptive Image Service**: Automatically provides landscape or portrait images based on device type (desktop/mobile)
 - **Modern Format Support**: Automatically detects browser compatibility and serves WebP or AVIF format images
+- **Image Expiration**: Set expiration times for images with automatic deletion when expired
 - **Simple API**: Get random images through simple API calls
 - **User-Friendly Upload Interface**: Drag-and-drop upload interface with dark mode support and real-time preview
 - **Image Management**: View, filter, and delete images with an intuitive management interface
@@ -34,13 +35,14 @@ ImageFlow is an efficient image service system designed for modern websites and 
 1. **Security**: API key verification mechanism ensures secure access to image upload and management functionality
 2. **Format Conversion**: Automatically converts uploaded images to WebP and AVIF formats, reducing file size by 30-50%
 3. **Device Adaptation**: Provides the most suitable image orientation for different devices
-4. **Hot Reload**: Uploaded images are immediately available without service restart
-5. **Concurrent Processing**: Efficiently handles image conversion using Go's concurrency features
-6. **Consistent Management**: When deleting an image, all related formats (original, WebP, AVIF) are removed simultaneously
-7. **Scalability**: Modular design for easy extension and customization
-8. **Responsive Design**: Perfect adaptation for desktop and mobile devices
-9. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
-10. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
+4. **Image Lifecycle Management**: Set expiration times for images with automatic cleanup when expired
+5. **Hot Reload**: Uploaded images are immediately available without service restart
+6. **Concurrent Processing**: Efficiently handles image conversion using Go's concurrency features
+7. **Consistent Management**: When deleting an image, all related formats (original, WebP, AVIF) are removed simultaneously
+8. **Scalability**: Modular design for easy extension and customization
+9. **Responsive Design**: Perfect adaptation for desktop and mobile devices
+10. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
+11. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
 
 ## 📸 Interface Preview
 
@@ -158,6 +160,10 @@ S3_BUCKET=
 
 # Custom Domain (optional)
 CUSTOM_DOMAIN=
+
+# Image Expiration Settings
+# Images can be set to expire after a specified time during upload
+# The system will automatically clean up expired images
 ```
 
 #### Deployment Notes
@@ -185,9 +191,11 @@ Access the upload interface at `http://localhost:8686/`. You can:
 
 1. Drag and drop images to the upload area
 2. Click to select images for upload
-3. Preview selected images in real-time
-4. System automatically detects if images are landscape or portrait
-5. After upload, images are automatically converted to WebP and AVIF formats
+3. Set an expiration time for images (optional)
+4. Preview selected images in real-time
+5. System automatically detects if images are landscape or portrait
+6. After upload, images are automatically converted to WebP and AVIF formats
+7. If an expiration time is set, images will be automatically deleted after expiration
 
 ### Managing Images
 
@@ -214,11 +222,12 @@ The system returns the most suitable image based on the device type and browser 
 | Endpoint | Method | Description | Parameters | Authentication |
 |----------|---------|-------------|------------|-------------|
 | `/api/random` | GET | Get a random image | `orientation`: Optional, specify "landscape" or "portrait" | Not required |
-| `/api/upload` | POST | Upload new images | Form data, field name "images[]" | API key required |
+| `/api/upload` | POST | Upload new images | Form data, field name "images[]"<br>Optional: `expiryMinutes` (expiration time in minutes) | API key required |
 | `/api/delete-image` | POST | Delete an image and all its formats | JSON with `id` and `storageType` | API key required |
 | `/api/validate-api-key` | POST | Validate API key | API key in request header | Not required |
 | `/api/images` | GET | List all uploaded images | None | API key required |
 | `/api/config` | GET | Get system configuration | None | API key required |
+| `/api/trigger-cleanup` | POST | Manually trigger cleanup of expired images | None | API key required |
 
 ### Project Structure
 
@@ -248,7 +257,8 @@ ImageFlow/
 │       ├── original/   # Original images
 │       │   ├── landscape/  # Original landscape
 │       │   └── portrait/   # Original portrait
-│       └── gif/       # GIF format images
+│       ├── gif/       # GIF format images
+│       └── metadata/  # Image metadata (including expiration information)
 ├── utils/         # Utility functions
 ├── .env          # Environment variables
 ├── .env.example  # Example environment configuration

@@ -12,6 +12,8 @@ interface ImageSidebarProps {
     status: 'success' | 'error'
     message: string
     format?: string
+    orientation?: string
+    expiryTime?: string
     urls?: {
       original: string
       webp: string
@@ -30,6 +32,8 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
     status: 'success' | 'error'
     message?: string
     format?: string
+    orientation?: string
+    expiryTime?: string
     urls?: {
       original: string
       webp: string
@@ -43,12 +47,12 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
 
   const successResults = results.filter(result => result.status === 'success')
   const errorResults = results.filter(result => result.status === 'error')
-  
+
   // 根据当前标签确定要显示的结果
-  const displayResults = tab === 'all' 
-    ? results 
-    : tab === 'success' 
-      ? successResults 
+  const displayResults = tab === 'all'
+    ? results
+    : tab === 'success'
+      ? successResults
       : errorResults
 
   const handleImageClick = (image: any) => {
@@ -94,8 +98,8 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
               <button
                 onClick={() => setTab('all')}
                 className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
-                  tab === 'all' 
-                  ? 'text-indigo-600 dark:text-indigo-400' 
+                  tab === 'all'
+                  ? 'text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -110,8 +114,8 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
               <button
                 onClick={() => setTab('success')}
                 className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
-                  tab === 'success' 
-                  ? 'text-green-600 dark:text-green-400' 
+                  tab === 'success'
+                  ? 'text-green-600 dark:text-green-400'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -126,8 +130,8 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
               <button
                 onClick={() => setTab('error')}
                 className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
-                  tab === 'error' 
-                  ? 'text-red-600 dark:text-red-400' 
+                  tab === 'error'
+                  ? 'text-red-600 dark:text-red-400'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -150,8 +154,8 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
                   </svg>
                   <p className="text-lg font-medium mb-2">暂无图片</p>
                   <p className="text-sm">
-                    {tab === 'all' ? '上传完成的图片将会显示在这里' : 
-                     tab === 'success' ? '没有成功上传的图片' : 
+                    {tab === 'all' ? '上传完成的图片将会显示在这里' :
+                     tab === 'success' ? '没有成功上传的图片' :
                      '没有上传失败的图片'}
                   </p>
                 </div>
@@ -192,6 +196,13 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
                               </div>
                               <div className="absolute bottom-0 left-0 right-0 p-2 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                                 <p className="text-xs truncate" title={result.filename}>{result.filename}</p>
+                                {result.expiryTime && (
+                                  <p className="text-xs mt-1">
+                                    <span className="bg-yellow-500/80 text-white px-1 py-0.5 rounded text-[10px]">
+                                      过期时间: {new Date(result.expiryTime).toLocaleString()}
+                                    </span>
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </>
@@ -217,7 +228,7 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* 图片详情模态框 */}
       <ImageDetailModal
         image={selectedImage}
@@ -225,7 +236,7 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
         onClose={handleCloseModal}
         onDelete={onDelete}
       />
-      
+
       {/* 背景遮罩 */}
       <AnimatePresence>
         {isOpen && (
@@ -240,4 +251,4 @@ export default function ImageSidebar({ isOpen, results, onClose, onDelete }: Ima
       </AnimatePresence>
     </>
   )
-} 
+}

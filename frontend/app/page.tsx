@@ -75,7 +75,7 @@ export default function Home() {
     fetchConfig()
   }, [])
 
-  const handleUpload = async (selectedFiles: File[]) => {
+  const handleUpload = async (selectedFiles: File[], expiryMinutes: number) => {
     const apiKey = getApiKey()
     if (!apiKey) {
       setShowApiKeyModal(true)
@@ -97,7 +97,20 @@ export default function Home() {
         })
       }, 300)
 
-      const result = await api.upload<UploadResponse>('/api/upload', selectedFiles)
+      // 添加过期时间参数
+      const formData = new FormData()
+      selectedFiles.forEach(file => {
+        formData.append('images[]', file)
+      })
+
+      // 添加过期时间参数（分钟）
+      formData.append('expiryMinutes', expiryMinutes.toString())
+
+      // 使用自定义上传方法
+      const result = await api.request<UploadResponse>('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -106,7 +119,7 @@ export default function Home() {
         // Extract the real image ID from the original URL if available
         let imageId = Math.random().toString(36).substring(2) // Default to random ID
         let path = item.urls?.original || ''
-        
+
         if (item.urls?.original) {
           // Extract file ID from the original URL
           const urlParts = item.urls.original.split('/')
@@ -115,7 +128,7 @@ export default function Home() {
             imageId = filename.split('.')[0] // Remove file extension to get ID
           }
         }
-        
+
         return {
           ...item,
           id: imageId,
@@ -256,4 +269,4 @@ export default function Home() {
       />
     </div>
   )
-} 
+}

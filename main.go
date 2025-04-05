@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"mime"
 	"net/http"
@@ -38,8 +39,17 @@ func main() {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
+	// Initialize metadata store
+	if err := utils.InitMetadataStore(); err != nil {
+		log.Fatalf("Failed to initialize metadata store: %v", err)
+	}
+
 	// Ensure image directories exist
 	ensureDirectories(cfg)
+
+	// Initialize and start image cleaner
+	utils.InitCleaner()
+	log.Printf("Image cleaner started")
 
 	// Configure MIME types
 	configureMIMETypes()
@@ -50,6 +60,23 @@ func main() {
 	http.HandleFunc("/api/images", handlers.RequireAPIKey(cfg, handlers.ListImagesHandler(cfg)))
 	http.HandleFunc("/api/delete-image", handlers.RequireAPIKey(cfg, handlers.DeleteImageHandler(cfg)))
 	http.HandleFunc("/api/config", handlers.RequireAPIKey(cfg, handlers.ConfigHandler(cfg)))
+
+	// Add cleanup trigger endpoint
+	http.HandleFunc("/api/trigger-cleanup", handlers.RequireAPIKey(cfg, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		utils.TriggerCleanup()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "success",
+			"message": "Cleanup process triggered",
+		})
+	}))
 
 	// Use appropriate random image handler based on storage type
 	if storageType == "s3" {
@@ -138,7 +165,8 @@ func ensureDirectories(cfg *config.Config) {
 		filepath.Join(cfg.ImageBasePath, "landscape", "avif"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "webp"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "avif"),
-		filepath.Join(cfg.ImageBasePath, "gif"), // Directory for GIF files
+		filepath.Join(cfg.ImageBasePath, "gif"),      // Directory for GIF files
+		filepath.Join(cfg.ImageBasePath, "metadata"), // Directory for image metadata
 	}
 
 	for _, dir := range dirs {

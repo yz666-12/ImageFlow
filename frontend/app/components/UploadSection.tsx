@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import ExpirySelector from './ExpirySelector'
 
 interface UploadSectionProps {
-  onUpload: (files: File[]) => Promise<void>
+  onUpload: (files: File[], expiryMinutes: number) => Promise<void>
   isUploading: boolean
   maxUploadCount?: number
 }
@@ -14,6 +15,7 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
   const [previewUrls, setPreviewUrls] = useState<{ id: string, url: string, file: File }[]>([])
   const [wasUploading, setWasUploading] = useState(false)
   const [exceedsLimit, setExceedsLimit] = useState(false)
+  const [expiryMinutes, setExpiryMinutes] = useState<number>(0) // 默认为0，表示永不过期
 
   // 监听上传状态变化，当上传完成时清空选择的文件
   useEffect(() => {
@@ -130,8 +132,12 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
     e.preventDefault()
     if (selectedFiles.length === 0) return
 
-    await onUpload(selectedFiles)
+    await onUpload(selectedFiles, expiryMinutes)
     // 成功上传后，状态清理在父组件进行
+  }
+
+  const handleExpiryChange = (minutes: number) => {
+    setExpiryMinutes(minutes)
   }
 
   return (
@@ -174,6 +180,9 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
             选择图片
           </button>
         </div>
+
+        {/* 过期时间选择器 */}
+        <ExpirySelector onChange={handleExpiryChange} />
 
         {exceedsLimit && (
           <div className="mb-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300">
@@ -250,4 +259,4 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
       </form>
     </div>
   )
-} 
+}

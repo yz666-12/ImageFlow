@@ -80,6 +80,8 @@ export interface UploadResult {
   status: 'success' | 'error';
   message: string;
   format?: string;
+  orientation?: string;
+  expiryTime?: string; // 过期时间
   urls?: {
     original: string;
     webp: string;
@@ -97,4 +99,4 @@ export interface UploadResponse {
 export interface StatusMessage {
   type: 'success' | 'error' | 'warning';
   message: string;
-} 
+}

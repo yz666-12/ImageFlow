@@ -14,6 +14,8 @@ interface ImageDetailModalProps {
     status: 'success' | 'error'
     message?: string
     format?: string
+    orientation?: string
+    expiryTime?: string
     urls?: {
       original: string
       webp: string
@@ -66,23 +68,23 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
   // 处理删除图片
   const handleDelete = async () => {
     if (!image || !onDelete) return
-    
+
     try {
       setIsDeleting(true)
-      
+
       let imageId = image.id
-      
+
       // If the ID is not available or not reliable, extract it from the URL
       if (!imageId && image.urls?.original) {
         const urlParts = image.urls.original.split('/')
         const filename = urlParts[urlParts.length - 1]
         imageId = filename.split('.')[0] // Remove file extension to get ID
       }
-      
+
       if (!imageId) {
         throw new Error("无法获取图像ID")
       }
-      
+
       await onDelete(imageId)
       onClose()
     } catch (err) {
@@ -143,6 +145,34 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                 </div>
 
                 <div className="flex-1 p-4">
+                  <h4 className="text-lg font-medium mb-4">图片信息</h4>
+
+                  {/* 图片基本信息 */}
+                  <div className="mb-6 space-y-2">
+                    {image.format && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">原始格式:</span>
+                        <span className="text-sm bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{image.format.toUpperCase()}</span>
+                      </div>
+                    )}
+
+                    {image.orientation && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">图片方向:</span>
+                        <span className="text-sm bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded capitalize">{image.orientation}</span>
+                      </div>
+                    )}
+
+                    {image.expiryTime && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">过期时间:</span>
+                        <span className="text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 rounded">
+                          {new Date(image.expiryTime).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                   <h4 className="text-lg font-medium mb-4">可用格式</h4>
 
                   <div className="space-y-6">
@@ -379,4 +409,4 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
       )}
     </AnimatePresence>
   )
-} 
+}
