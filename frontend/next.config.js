@@ -20,10 +20,7 @@ const nextConfig = {
   },
   optimizeFonts: false,
   // We'll get the config from the API instead of environment variables
-  env: {},
-  experimental: {
-    appDir: true,
-  }
+  env: {}
 }
 
 module.exports = nextConfig

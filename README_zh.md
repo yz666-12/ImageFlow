@@ -61,9 +61,10 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 
 ### 前置条件
 
-- Go 1.16 或更高版本
-- WebP 工具（`cwebp`）
-- AVIF 工具（`avifenc`）
+- Go 1.22 或更高版本
+- Node.js 18 或更高版本（用于构建前端）
+- WebP 工具（`libwebp-tools`）
+- AVIF 工具（`libavif-apps`）
 - Docker 和 Docker Compose（可选，用于容器化部署）
 
 ### 安装
@@ -77,20 +78,29 @@ git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
 cd ImageFlow
 ```
 
-2. 初始化 Go 模块
+2. 构建前端
 
 ```bash
-go mod init github.com/Yuri-NagaSaki/ImageFlow
-go mod tidy
+cd frontend
+bash build.sh
+cd ..
 ```
 
-3. 构建项目
+3. 构建后端
 
 ```bash
+go mod tidy
 go build -o imageflow
 ```
 
-4. 设置系统服务（以 systemd 为例）
+4. 配置环境变量
+
+```bash
+cp .env.example .env
+# 编辑 .env 文件进行配置
+```
+
+5. 设置系统服务（以 systemd 为例）
 
 ```ini
 [Unit]
@@ -102,12 +112,13 @@ ExecStart=/path/to/imageflow
 WorkingDirectory=/path/to/imageflow/directory
 Restart=always
 User=youruser
+EnvironmentFile=/path/to/imageflow/.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-5. 启用服务
+6. 启用服务
 
 ```bash
 sudo systemctl enable imageflow
@@ -116,63 +127,64 @@ sudo systemctl start imageflow
 
 #### 方法二：Docker 部署
 
-1. 克隆仓库并进入目录
+1. 使用预构建镜像（推荐）
 
 ```bash
+# 1. 克隆仓库
 git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
 cd ImageFlow
-```
 
-2. 配置 `.env` 文件
-
-```bash
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件进行配置
-```
+# 编辑 .env 文件
 
-3. 使用 Docker Compose 启动服务
-
-```bash
+# 3. 启动服务
 docker compose up -d
 ```
 
-服务将在 `http://localhost:8686` 启动。
-
-### 配置
-
-通过创建和编辑 `.env` 文件配置系统：
+2. 本地构建部署
 
 ```bash
-# API 密钥
-API_KEY=your_api_key_here
+# 1. 克隆仓库
+git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
+cd ImageFlow
 
-# 存储配置
-STORAGE_TYPE=local  # 选项：local, s3
-LOCAL_STORAGE_PATH=static/images
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件
 
-# S3 配置（当 STORAGE_TYPE=s3 时需要）
-S3_ENDPOINT=
-S3_REGION=
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
-S3_BUCKET=
-
-# 自定义域名（可选）
-CUSTOM_DOMAIN=
-
-# 图片过期设置
-# 图片可以在上传时设置过期时间
-# 系统将自动清理过期图片
+# 3. 构建并启动
+docker compose -f docker-compose-build.yml up --build -d
 ```
 
-#### 部署说明
+### 配置说明
 
-- 服务默认运行在 8686 端口
-- 图片文件通过卷持久化
-- `.env` 文件通过卷挂载用于系统配置
-- 自动包含 WebP 和 AVIF 转换工具
-- 支持健康检查
-- 存储类型（本地或 s3）通过 `.env` 文件中的 `STORAGE_TYPE` 配置
+通过创建和编辑 `.env` 文件配置系统。以下是主要配置项说明：
+
+```bash
+# API 密钥配置
+API_KEY=your_api_key_here  # 设置您的 API 密钥
+
+# 存储配置
+STORAGE_TYPE=local  # 存储类型：local（本地存储）或 s3（S3 兼容存储）
+LOCAL_STORAGE_PATH=static/images  # 本地存储路径
+
+# S3 存储配置（当 STORAGE_TYPE=s3 时需要）
+S3_ENDPOINT=  # S3 端点地址
+S3_REGION=    # S3 区域
+S3_ACCESS_KEY=  # 访问密钥
+S3_SECRET_KEY=  # 访问密钥密文
+S3_BUCKET=      # 存储桶名称
+CUSTOM_DOMAIN=  # 自定义域名
+
+# 图像处理配置
+MAX_UPLOAD_COUNT=20    # 单次最大上传数量
+IMAGE_QUALITY=80      # 图像质量（1-100）
+WORKER_THREADS=4      # 并行处理线程数
+COMPRESSION_EFFORT=6  # 压缩级别（1-10）
+FORCE_LOSSLESS=false  # 是否强制无损压缩
+```
+
 
 ## 📝 使用方法
 
@@ -310,3 +322,38 @@ Blog - [猫猫博客](https://catcat.blog)
   <p>⭐ 如果您喜欢这个项目，请给它一个星标！⭐</p>
   <p>由 Yuri NagaSaki 用 ❤️ 制作</p>
 </div>
+
+#### 部署说明
+
+- 服务默认运行在 8686 端口
+- Docker 部署会自动包含所有必要的依赖
+- 支持多架构部署（amd64/arm64）
+- 提供健康检查功能
+- 支持环境变量配置和覆盖
+
+#### 常见问题排查
+
+1. 容器显示 unhealthy：
+   - 检查健康检查日志：`docker logs <container_id>`
+   - 确保容器内部的 8686 端口正常监听：`docker exec <container_id> netstat -tulpn`
+   - 验证服务是否正在运行：`docker exec <container_id> ps aux`
+
+2. 外网无法访问：
+   - 确保 SERVER_ADDR 设置为 0.0.0.0:8686
+   - 检查防火墙设置：`sudo ufw status` 或 `sudo iptables -L`
+   - 验证端口映射：`docker port <container_id>`
+   - 尝试使用 host 网络模式：
+     ```yaml
+     # 在 docker-compose.yaml 中添加
+     network_mode: "host"
+     ```
+
+3. 静态资源访问问题：
+   - 确保卷挂载正确：`docker inspect <container_id>`
+   - 检查目录权限：`ls -la ./static/images`
+   - 验证静态文件是否存在：`docker exec <container_id> ls -la /app/static`
+
+4. 性能优化建议：
+   - 使用 volume 而不是 bind mount 来提高性能
+   - 配置适当的 WORKER_THREADS 数量
+   - 根据服务器配置调整 IMAGE_QUALITY 和 COMPRESSION_EFFORT

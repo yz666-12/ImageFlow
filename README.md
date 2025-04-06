@@ -62,9 +62,10 @@ ImageFlow is an efficient image service system designed for modern websites and 
 
 ### Prerequisites
 
-- Go 1.16 or higher
-- WebP tools (`cwebp`)
-- AVIF tools (`avifenc`)
+- Go 1.22 or higher
+- Node.js 18 or higher (for frontend build)
+- WebP tools (`libwebp-tools`)
+- AVIF tools (`libavif-apps`)
 - Docker and Docker Compose (optional, for containerized deployment)
 
 ### Installation
@@ -78,20 +79,28 @@ git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
 cd ImageFlow
 ```
 
-2. Initialize Go modules
+2. Build frontend
 
 ```bash
-go mod init github.com/Yuri-NagaSaki/ImageFlow
-go mod tidy
+cd frontend
+bash build.sh
 ```
 
-3. Build the project
+3. Build backend
 
 ```bash
+go mod tidy
 go build -o imageflow
 ```
 
-4. Set up system service (example using systemd)
+4. Configure environment variables
+
+```bash
+cp .env.example .env
+# Edit the .env file with your configuration
+```
+
+5. Set up system service (example using systemd)
 
 ```ini
 [Unit]
@@ -103,12 +112,13 @@ ExecStart=/path/to/imageflow
 WorkingDirectory=/path/to/imageflow/directory
 Restart=always
 User=youruser
+EnvironmentFile=/path/to/imageflow/.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-5. Enable the service
+6. Enable the service
 
 ```bash
 sudo systemctl enable imageflow
@@ -117,63 +127,64 @@ sudo systemctl start imageflow
 
 #### Method 2: Docker Deployment
 
-1. Clone the repository and enter the directory
+1. Using pre-built image (recommended)
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
 cd ImageFlow
-```
 
-2. Configure the `.env` file
-
-```bash
+# 2. Configure environment
 cp .env.example .env
-# Edit the .env file with your configuration
-```
+# Edit the .env file
 
-3. Start the service using Docker Compose
-
-```bash
+# 3. Start service
 docker compose up -d
 ```
 
-The service will start at `http://localhost:8686`.
-
-### Configuration
-
-Configure the system by creating and editing the `.env` file:
+2. Local build deployment
 
 ```bash
-# API Keys
-API_KEY=your_api_key_here
+# 1. Clone the repository
+git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
+cd ImageFlow
 
-# Storage Configuration
-STORAGE_TYPE=local  # Options: local, s3
-LOCAL_STORAGE_PATH=static/images
+# 2. Configure environment
+cp .env.example .env
+# Edit the .env file
 
-# S3 Configuration (required when STORAGE_TYPE=s3)
-S3_ENDPOINT=
-S3_REGION=
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
-S3_BUCKET=
-
-# Custom Domain (optional)
-CUSTOM_DOMAIN=
-
-# Image Expiration Settings
-# Images can be set to expire after a specified time during upload
-# The system will automatically clean up expired images
+# 3. Build and start
+docker compose -f docker-compose-build.yml up --build -d
 ```
 
-#### Deployment Notes
+### Configuration Guide
 
-- Service runs on port 8686 by default
-- Image files are persisted through volumes
-- `.env` file is mounted via volumes for system configuration
-- WebP and AVIF conversion tools are automatically included
-- Health check support
-- Storage type (local or s3) configured via `STORAGE_TYPE` in `.env` file
+Configure the system by creating and editing the `.env` file. Here are the main configuration options:
+
+```bash
+# API Key Configuration
+API_KEY=your_api_key_here  # Set your API key
+
+# Storage Configuration
+STORAGE_TYPE=local  # Storage type: local or s3 (S3-compatible storage)
+LOCAL_STORAGE_PATH=static/images  # Local storage path
+
+# S3 Storage Configuration (required when STORAGE_TYPE=s3)
+S3_ENDPOINT=  # S3 endpoint address
+S3_REGION=    # S3 region
+S3_ACCESS_KEY=  # Access key
+S3_SECRET_KEY=  # Secret key
+S3_BUCKET=      # Bucket name
+CUSTOM_DOMAIN=  # Custom domain 
+
+# Image Processing Configuration
+MAX_UPLOAD_COUNT=20    # Maximum upload count per request
+IMAGE_QUALITY=80      # Image quality (1-100)
+WORKER_THREADS=4      # Number of parallel processing threads
+COMPRESSION_EFFORT=6  # Compression level (1-10)
+FORCE_LOSSLESS=false  # Force lossless compression
+```
+
 
 ## 📝 Usage
 
