@@ -222,7 +222,7 @@ GET http://localhost:8686/api/random?tag=nature
 
 | 接口 | 方法 | 描述 | 参数 | 认证 |
 |----------|---------|-------------|------------|-------------|
-| `/api/random` | GET | 获取随机图片 | `tag`：可选，按标签筛选<br>`orientation`：可选，指定 "landscape" 或 "portrait" | 不需要 |
+| `/api/random` | GET | 获取随机图片 | `tag`：可选，按标签筛选<br> | 不需要 |
 | `/api/upload` | POST | 上传新图片 | Form 数据，字段名 "images[]"<br>可选参数：`expiryMinutes`（过期时间，分钟）<br>可选参数：`tags`（标签数组） | 需要 API 密钥 |
 | `/api/delete-image` | POST | 删除图片及其所有格式 | JSON 数据，包含 `id` 和 `storageType` | 需要 API 密钥 |
 | `/api/validate-api-key` | POST | 验证 API 密钥 | 请求头中的 API 密钥 | 不需要 |
@@ -275,7 +275,7 @@ ImageFlow/
 
 ## 🆕 最近更新
 
-### 版本 1.1.0
+### 版本 1.4.1
 
 - **标签管理**：添加了在上传时为图片添加标签和按标签筛选的功能
 - **改进的UI**：增强了标签管理界面，采用现代化设计

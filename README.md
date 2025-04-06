@@ -223,7 +223,7 @@ The system returns the most suitable image based on the device type and browser 
 
 | Endpoint | Method | Description | Parameters | Authentication |
 |----------|---------|-------------|------------|-------------|
-| `/api/random` | GET | Get a random image | `tag`: Optional, filter by tag<br>`orientation`: Optional, specify "landscape" or "portrait" | Not required |
+| `/api/random` | GET | Get a random image | `tag`: Optional, filter by tag<br> | Not required |
 | `/api/upload` | POST | Upload new images | Form data, field name "images[]"<br>Optional: `expiryMinutes` (expiration time in minutes)<br>Optional: `tags` (array of tags) | API key required |
 | `/api/delete-image` | POST | Delete an image and all its formats | JSON with `id` and `storageType` | API key required |
 | `/api/validate-api-key` | POST | Validate API key | API key in request header | Not required |
@@ -276,7 +276,7 @@ ImageFlow/
 
 ## 🆕 Recent Updates
 
-### Version 1.1.0
+### Version 1.4.1
 
 - **Tag Management**: Added support for tagging images during upload and filtering by tags
 - **Improved UI**: Enhanced tag management interface with modern design
