@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import ImageDetailModal from './ImageDetailModal'
+import ImageDetailModal from './ImageDetail/ImageDetailModal'
 
 interface ImageSidebarProps {
   isOpen: boolean
