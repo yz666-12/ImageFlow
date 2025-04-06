@@ -20,9 +20,9 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - **API Key Authentication**: Secure API key verification mechanism to protect your image upload functionality
 - **Adaptive Image Service**: Automatically provides landscape or portrait images based on device type (desktop/mobile)
 - **Modern Format Support**: Automatically detects browser compatibility and serves WebP or AVIF format images
-- **Image Expiration**: Set expiration times for images with automatic deletion when expired
-- **Simple API**: Get random images through simple API calls
-- **User-Friendly Upload Interface**: Drag-and-drop upload interface with dark mode support and real-time preview
+- **Image Expiration**: Set expiration times for images with automatic deletion when expired (works with both local and S3 storage)
+- **Simple API**: Get random images through simple API calls with tag filtering support
+- **User-Friendly Upload Interface**: Drag-and-drop upload interface with dark mode support, real-time preview, and tag management
 - **Image Management**: View, filter, and delete images with an intuitive management interface
 - **Automatic Image Processing**: Automatically detects image orientation and converts to multiple formats after upload
 - **Asynchronous Processing**: Image conversion happens in the background without affecting the main service
@@ -35,7 +35,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 1. **Security**: API key verification mechanism ensures secure access to image upload and management functionality
 2. **Format Conversion**: Automatically converts uploaded images to WebP and AVIF formats, reducing file size by 30-50%
 3. **Device Adaptation**: Provides the most suitable image orientation for different devices
-4. **Image Lifecycle Management**: Set expiration times for images with automatic cleanup when expired
+4. **Image Lifecycle Management**: Set expiration times for images with automatic cleanup when expired across all storage types
 5. **Hot Reload**: Uploaded images are immediately available without service restart
 6. **Concurrent Processing**: Efficiently handles image conversion using Go's concurrency features
 7. **Consistent Management**: When deleting an image, all related formats (original, WebP, AVIF) are removed simultaneously
@@ -192,6 +192,7 @@ Access the upload interface at `http://localhost:8686/`. You can:
 1. Drag and drop images to the upload area
 2. Click to select images for upload
 3. Set an expiration time for images (optional)
+4. Add tags to categorize your images (optional)
 4. Preview selected images in real-time
 5. System automatically detects if images are landscape or portrait
 6. After upload, images are automatically converted to WebP and AVIF formats
@@ -201,7 +202,7 @@ Access the upload interface at `http://localhost:8686/`. You can:
 
 Access the management interface at `http://localhost:8686/manage.html`. You can:
 
-1. View all uploaded images with filtering options by format and orientation
+1. View all uploaded images with filtering options by format, orientation, and tags
 2. Click on any image to view detailed information
 3. Copy the direct URL to the image for easy sharing
 4. Delete images when no longer needed (requires API key authentication)
@@ -213,21 +214,23 @@ Get random images through the API (no API key required):
 
 ```
 GET http://localhost:8686/api/random
+GET http://localhost:8686/api/random?tag=nature
 ```
 
-The system returns the most suitable image based on the device type and browser support in request headers.
+The system returns the most suitable image based on the device type and browser support in request headers. You can also filter random images by tags.
 
 ### API Reference
 
 | Endpoint | Method | Description | Parameters | Authentication |
 |----------|---------|-------------|------------|-------------|
-| `/api/random` | GET | Get a random image | `orientation`: Optional, specify "landscape" or "portrait" | Not required |
-| `/api/upload` | POST | Upload new images | Form data, field name "images[]"<br>Optional: `expiryMinutes` (expiration time in minutes) | API key required |
+| `/api/random` | GET | Get a random image | `tag`: Optional, filter by tag<br>`orientation`: Optional, specify "landscape" or "portrait" | Not required |
+| `/api/upload` | POST | Upload new images | Form data, field name "images[]"<br>Optional: `expiryMinutes` (expiration time in minutes)<br>Optional: `tags` (array of tags) | API key required |
 | `/api/delete-image` | POST | Delete an image and all its formats | JSON with `id` and `storageType` | API key required |
 | `/api/validate-api-key` | POST | Validate API key | API key in request header | Not required |
-| `/api/images` | GET | List all uploaded images | None | API key required |
+| `/api/images` | GET | List all uploaded images | Optional: `tag` (filter by tag) | API key required |
 | `/api/config` | GET | Get system configuration | None | API key required |
 | `/api/trigger-cleanup` | POST | Manually trigger cleanup of expired images | None | API key required |
+| `/api/tags` | GET | Get all available tags | None | API key required |
 
 ### Project Structure
 
@@ -271,6 +274,18 @@ ImageFlow/
 └── README.md     # Project documentation
 ```
 
+## 🆕 Recent Updates
+
+### Version 1.1.0
+
+- **Tag Management**: Added support for tagging images during upload and filtering by tags
+- **Improved UI**: Enhanced tag management interface with modern design
+- **Bug Fixes**:
+  - Fixed image expiration functionality to work properly with both local and S3 storage
+  - Improved PNG image handling with optional lossless compression
+  - Fixed random image API to correctly filter by tags
+  - Optimized device-specific image orientation detection
+
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to submit code, report issues, or suggest improvements!
@@ -286,6 +301,10 @@ Blog - [猫猫博客](https://catcat.blog)
 Project Link: [https://github.com/Yuri-NagaSaki/ImageFlow](https://github.com/Yuri-NagaSaki/ImageFlow)
 
 ---
+## ❤️ Thanks
+[YXVM](https://support.nodeget.com/page/promotion?id=80)赞助了本项目
+
+[NodeSupport](https://github.com/NodeSeekDev/NodeSupport)赞助了本项目
 
 <div align="center">
   <p>⭐ If you like this project, please give it a star! ⭐</p>

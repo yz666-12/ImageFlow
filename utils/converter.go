@@ -36,13 +36,22 @@ func getCompressionEffort() int {
 }
 
 // shouldUseLossless determines if lossless mode should be used
+// format parameter can be used to make format-specific decisions
 func shouldUseLossless(format string) bool {
 	// Only use lossless when explicitly requested via environment variable
 	if l := os.Getenv("FORCE_LOSSLESS"); l == "1" || l == "true" {
 		return true
 	}
 
-	// Default to lossy for all formats including PNG
+	// Optionally use lossless for PNG images to preserve transparency
+	if format == "png" {
+		// Check if PNG images should use lossless by default
+		if png := os.Getenv("PNG_LOSSLESS"); png == "1" || png == "true" {
+			return true
+		}
+	}
+
+	// Default to lossy for all other formats
 	return false
 }
 
