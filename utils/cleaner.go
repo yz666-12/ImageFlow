@@ -57,8 +57,6 @@ func (ic *ImageCleaner) Stop() {
 
 // cleanExpiredImages removes all expired images
 func (ic *ImageCleaner) cleanExpiredImages() {
-	log.Println("Starting cleanup of expired images...")
-
 	ctx := context.Background()
 	expiredImages, err := MetadataManager.ListExpiredImages(ctx)
 	if err != nil {
@@ -67,10 +65,10 @@ func (ic *ImageCleaner) cleanExpiredImages() {
 	}
 
 	if len(expiredImages) == 0 {
-		log.Println("No expired images found")
 		return
 	}
 
+	log.Printf("Starting cleanup of expired images...")
 	log.Printf("Found %d expired images to clean up", len(expiredImages))
 
 	for _, metadata := range expiredImages {
