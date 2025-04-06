@@ -103,3 +103,11 @@ export interface StatusMessage {
   type: 'success' | 'error' | 'warning';
   message: string;
 }
+
+// 配置类型
+export interface ConfigSettings {
+  maxUploadCount: number;
+  imageQuality: number;
+  compressionEffort?: number;
+  forceLossless?: boolean;
+}

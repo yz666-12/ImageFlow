@@ -26,6 +26,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Set the config in the utils package
+	utils.SetConfig(cfg)
+
 	// Initialize S3 client only when using S3 storage
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "s3" {

@@ -6,10 +6,25 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 )
 
-// getImageQuality returns the configured quality setting from env vars or config
+// Global configuration instance
+var Config *config.Config
+
+// SetConfig sets the global configuration
+func SetConfig(cfg *config.Config) {
+	Config = cfg
+}
+
+// getImageQuality returns the configured quality setting
 func getImageQuality() string {
+	if Config != nil {
+		return strconv.Itoa(Config.ImageQuality)
+	}
+
+	// Fallback to environment variable if config is not set
 	quality := "80" // Default quality
 	if q := os.Getenv("IMAGE_QUALITY"); q != "" {
 		// Validate quality is a number between 1-100
@@ -24,12 +39,17 @@ func getImageQuality() string {
 
 // getCompressionEffort returns the configured compression effort level
 func getCompressionEffort() int {
-	effort := 4 // Default effort (medium)
+	if Config != nil {
+		return Config.CompressionEffort
+	}
+
+	// Fallback to environment variable if config is not set
+	effort := 6 // Default effort (medium-high)
 	if e := os.Getenv("COMPRESSION_EFFORT"); e != "" {
 		if eInt, err := strconv.Atoi(e); err == nil && eInt >= 0 && eInt <= 10 {
 			effort = eInt
 		} else {
-			log.Printf("Invalid COMPRESSION_EFFORT value: %s, using default: 4", e)
+			log.Printf("Invalid COMPRESSION_EFFORT value: %s, using default: 6", e)
 		}
 	}
 	return effort
@@ -38,7 +58,12 @@ func getCompressionEffort() int {
 // shouldUseLossless determines if lossless mode should be used
 // format parameter can be used to make format-specific decisions
 func shouldUseLossless(format string) bool {
-	// Only use lossless when explicitly requested via environment variable
+	// Check config first
+	if Config != nil && Config.ForceLossless {
+		return true
+	}
+
+	// Fallback to environment variable if config is not set
 	if l := os.Getenv("FORCE_LOSSLESS"); l == "1" || l == "true" {
 		return true
 	}

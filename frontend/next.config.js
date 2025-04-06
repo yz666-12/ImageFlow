@@ -19,13 +19,11 @@ const nextConfig = {
     unoptimized: true,
   },
   optimizeFonts: false,
-  env: {
-    NEXT_PUBLIC_MAX_UPLOAD_COUNT: envConfig.MAX_UPLOAD_COUNT || process.env.MAX_UPLOAD_COUNT || '10',
-  },
-  // 禁用服务端组件
+  // We'll get the config from the API instead of environment variables
+  env: {},
   experimental: {
     appDir: true,
   }
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig

@@ -9,8 +9,10 @@ import (
 
 // ClientConfig represents the configuration exposed to clients
 type ClientConfig struct {
-	MaxUploadCount int `json:"maxUploadCount"` // Maximum number of images allowed per upload
-	ImageQuality   int `json:"imageQuality"`   // Image conversion quality (1-100)
+	MaxUploadCount    int  `json:"maxUploadCount"`    // Maximum number of images allowed per upload
+	ImageQuality      int  `json:"imageQuality"`      // Image conversion quality (1-100)
+	CompressionEffort int  `json:"compressionEffort"` // Compression effort level (0-10)
+	ForceLossless     bool `json:"forceLossless"`     // Whether to force lossless conversion
 }
 
 // ConfigHandler returns a handler function that exposes selected configuration values to clients
@@ -23,8 +25,10 @@ func ConfigHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Create a simplified config that only exposes what we want clients to know
 		clientConfig := ClientConfig{
-			MaxUploadCount: cfg.MaxUploadCount,
-			ImageQuality:   cfg.ImageQuality,
+			MaxUploadCount:    cfg.MaxUploadCount,
+			ImageQuality:      cfg.ImageQuality,
+			CompressionEffort: cfg.CompressionEffort,
+			ForceLossless:     cfg.ForceLossless,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

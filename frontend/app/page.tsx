@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { getApiKey, validateApiKey, setApiKey } from './utils/auth'
 import { api } from './utils/request'
 import ApiKeyModal from './components/ApiKeyModal'
-import { UploadResponse, StatusMessage as StatusMessageType } from './types'
+import { UploadResponse, StatusMessage as StatusMessageType, ConfigSettings } from './types'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
 import StatusMessage from './components/StatusMessage'
@@ -12,8 +12,8 @@ import UploadProgress from './components/UploadProgress'
 import ImageSidebar from './components/ImageSidebar'
 import { motion } from 'framer-motion'
 
-// 环境变量中的最大上传数量，如果没有则默认为10
-const MAX_UPLOAD_COUNT = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_COUNT || '10', 10);
+// 默认最大上传数量，将从API获取实际值
+const DEFAULT_MAX_UPLOAD_COUNT = 10;
 
 export default function Home() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
@@ -23,7 +23,7 @@ export default function Home() {
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
   const [showSidebar, setShowSidebar] = useState(false)
   const [isKeyVerified, setIsKeyVerified] = useState(false)
-  const [maxUploadCount, setMaxUploadCount] = useState(10)
+  const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
 
   // 监听上传结果变化，当有新上传结果时自动打开侧边栏
   useEffect(() => {
@@ -62,12 +62,14 @@ export default function Home() {
     // 获取配置
     const fetchConfig = async () => {
       try {
-        const response = await api.request<{ maxUploadCount: number }>('/api/config')
+        const response = await api.request<ConfigSettings>('/api/config')
         setMaxUploadCount(response.maxUploadCount)
+        // 这里可以处理其他配置项，如果需要在前端使用
+        // 例如：如果需要展示高级设置选项
       } catch (error) {
         console.error('Failed to fetch config:', error)
         // 如果获取失败，使用默认值
-        setMaxUploadCount(10)
+        setMaxUploadCount(DEFAULT_MAX_UPLOAD_COUNT)
       }
     }
 
@@ -224,7 +226,7 @@ export default function Home() {
       <UploadSection
         onUpload={handleUpload}
         isUploading={isUploading}
-        maxUploadCount={MAX_UPLOAD_COUNT}
+        maxUploadCount={maxUploadCount}
       />
 
       {status && <StatusMessage type={status.type} message={status.message} />}
