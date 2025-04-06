@@ -10,7 +10,6 @@ import UploadSection from './components/UploadSection'
 import StatusMessage from './components/StatusMessage'
 import UploadProgress from './components/UploadProgress'
 import ImageSidebar from './components/ImageSidebar'
-import UsageTips from './components/UsageTips'
 import { motion } from 'framer-motion'
 
 // 环境变量中的最大上传数量，如果没有则默认为10

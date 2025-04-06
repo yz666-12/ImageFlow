@@ -34,7 +34,6 @@ type LocalStorage struct {
 }
 
 func NewLocalStorage(basePath string) (*LocalStorage, error) {
-	// 创建基础目录结构
 	dirs := []string{
 		filepath.Join(basePath, "original", "landscape"),
 		filepath.Join(basePath, "original", "portrait"),
