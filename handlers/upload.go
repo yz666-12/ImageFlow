@@ -30,6 +30,7 @@ type UploadResult struct {
 	Format      string            `json:"format,omitempty"`
 	URLs        map[string]string `json:"urls,omitempty"`
 	ExpiryTime  string            `json:"expiryTime,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
 }
 
 // getPublicURL constructs a public-facing URL for accessing an image
@@ -96,6 +97,19 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			} else {
 				log.Printf("Invalid expiryMinutes parameter: %s, using default: %d", expiryParam, expiryMinutes)
 			}
+		}
+
+		// Get tags parameter
+		var tags []string
+		if tagsParam := r.FormValue("tags"); tagsParam != "" {
+			// Split by comma and trim spaces
+			for _, tag := range strings.Split(tagsParam, ",") {
+				trimmedTag := strings.TrimSpace(tag)
+				if trimmedTag != "" {
+					tags = append(tags, trimmedTag)
+				}
+			}
+			log.Printf("Image tags: %v", tags)
 		}
 
 		// Create result array and wait group
@@ -238,6 +252,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 						OriginalName: fileHeader.Filename,
 						UploadTime:   time.Now(),
 						Format:       imgFormat.Format,
+						Tags:         tags,
 					}
 
 					if !expiryTime.IsZero() {
@@ -258,6 +273,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 						Message:    "GIF file uploaded successfully",
 						Format:     imgFormat.Format,
 						ExpiryTime: expiryTimeStr,
+						Tags:       tags,
 						URLs: map[string]string{
 							"original": getPublicURL(originalKey),
 							"webp":     "",
@@ -348,6 +364,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					UploadTime:   time.Now(),
 					Format:       imgFormat.Format,
 					Orientation:  orientation,
+					Tags:         tags,
 				}
 
 				if !expiryTime.IsZero() {
@@ -376,6 +393,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					Orientation: orientation,
 					Format:      imgFormat.Format,
 					ExpiryTime:  expiryTimeStr,
+					Tags:        tags,
 					URLs: map[string]string{
 						"original": originalURL,
 						"webp":     webpURL,

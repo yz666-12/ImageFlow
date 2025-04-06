@@ -15,6 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
+// S3Object represents an object in S3 storage
+type S3Object struct {
+	Key  string
+	Size int64
+}
+
 // StorageProvider defines the interface for storage operations
 type StorageProvider interface {
 	Store(ctx context.Context, key string, data []byte) error
@@ -147,6 +153,35 @@ func (s *S3Storage) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("failed to delete object from S3: %v", err)
 	}
 	return nil
+}
+
+// ListObjects lists objects in S3 with the given prefix
+func (s *S3Storage) ListObjects(ctx context.Context, prefix string) ([]S3Object, error) {
+	var objects []S3Object
+
+	// Create paginator for listing objects
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(s.bucket),
+		Prefix: aws.String(prefix),
+	})
+
+	// Iterate through pages
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list objects from S3: %v", err)
+		}
+
+		// Process each object in the page
+		for _, obj := range page.Contents {
+			objects = append(objects, S3Object{
+				Key:  *obj.Key,
+				Size: *obj.Size,
+			})
+		}
+	}
+
+	return objects, nil
 }
 
 // StorageConfig represents the storage configuration

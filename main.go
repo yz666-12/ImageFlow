@@ -60,6 +60,8 @@ func main() {
 	http.HandleFunc("/api/images", handlers.RequireAPIKey(cfg, handlers.ListImagesHandler(cfg)))
 	http.HandleFunc("/api/delete-image", handlers.RequireAPIKey(cfg, handlers.DeleteImageHandler(cfg)))
 	http.HandleFunc("/api/config", handlers.RequireAPIKey(cfg, handlers.ConfigHandler(cfg)))
+	http.HandleFunc("/api/tags", handlers.RequireAPIKey(cfg, handlers.TagsHandler(cfg)))
+	http.HandleFunc("/api/debug/tags", handlers.RequireAPIKey(cfg, handlers.DebugTagsHandler(cfg)))
 
 	// Add cleanup trigger endpoint
 	http.HandleFunc("/api/trigger-cleanup", handlers.RequireAPIKey(cfg, func(w http.ResponseWriter, r *http.Request) {

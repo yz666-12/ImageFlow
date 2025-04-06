@@ -22,6 +22,7 @@ type ImageMetadata struct {
 	ExpiryTime   time.Time `json:"expiryTime"`   // Expiry timestamp (if set)
 	Format       string    `json:"format"`       // Original format
 	Orientation  string    `json:"orientation"`  // Image orientation
+	Tags         []string  `json:"tags"`         // Image tags for categorization
 	Paths        struct {
 		Original string `json:"original"` // Path to original image
 		WebP     string `json:"webp"`     // Path to WebP format

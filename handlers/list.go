@@ -21,14 +21,15 @@ import (
 
 // ImageInfo represents information about an image
 type ImageInfo struct {
-	ID          string `json:"id"`          // Filename without extension
-	FileName    string `json:"filename"`    // Full filename with extension
-	URL         string `json:"url"`         // URL to access the image
-	Orientation string `json:"orientation"` // landscape or portrait
-	Format      string `json:"format"`      // original, webp, avif
-	Size        int64  `json:"size"`        // File size in bytes
-	Path        string `json:"path"`        // Path relative to storage root
-	StorageType string `json:"storageType"` // "local" or "s3"
+	ID          string   `json:"id"`          // Filename without extension
+	FileName    string   `json:"filename"`    // Full filename with extension
+	URL         string   `json:"url"`         // URL to access the image
+	Orientation string   `json:"orientation"` // landscape or portrait
+	Format      string   `json:"format"`      // original, webp, avif
+	Size        int64    `json:"size"`        // File size in bytes
+	Path        string   `json:"path"`        // Path relative to storage root
+	StorageType string   `json:"storageType"` // "local" or "s3"
+	Tags        []string `json:"tags"`        // Image tags for categorization
 }
 
 // PaginatedResponse represents a paginated response with images
@@ -86,6 +87,21 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 			return allImages[i].FileName > allImages[j].FileName
 		})
 
+		// Filter by tag if specified
+		if params.tag != "" {
+			filteredImages := []ImageInfo{}
+			for _, img := range allImages {
+				// Check if the image has the requested tag
+				for _, tag := range img.Tags {
+					if tag == params.tag {
+						filteredImages = append(filteredImages, img)
+						break
+					}
+				}
+			}
+			allImages = filteredImages
+		}
+
 		// Generate paginated response
 		sendPaginatedResponse(w, allImages, params.page, params.limit)
 	}
@@ -95,6 +111,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 type queryParams struct {
 	orientation string
 	format      string
+	tag         string // Tag to filter by
 	page        int
 	limit       int
 }
@@ -126,6 +143,7 @@ func validateAPIKey(w http.ResponseWriter, r *http.Request, configAPIKey string)
 func parseQueryParams(r *http.Request) queryParams {
 	orientation := r.URL.Query().Get("orientation")
 	format := r.URL.Query().Get("format")
+	tag := r.URL.Query().Get("tag")
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
 
@@ -136,6 +154,7 @@ func parseQueryParams(r *http.Request) queryParams {
 	if format == "" {
 		format = "original" // original, webp, avif
 	}
+	// Tag can be empty, which means no tag filtering
 
 	// Set default pagination values
 	page := 1
@@ -160,6 +179,7 @@ func parseQueryParams(r *http.Request) queryParams {
 	return queryParams{
 		orientation: orientation,
 		format:      format,
+		tag:         tag,
 		page:        page,
 		limit:       limit,
 	}
@@ -331,6 +351,13 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 				// Extract ID (filename without extension)
 				id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
+				// Get tags from metadata if available
+				var tags []string
+				metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+				if err == nil && metadata != nil {
+					tags = metadata.Tags
+				}
+
 				// Add image info to the result
 				images = append(images, ImageInfo{
 					ID:          id,
@@ -341,6 +368,7 @@ func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) 
 					Size:        fileInfo.Size(),
 					Path:        relPath,
 					StorageType: "local",
+					Tags:        tags,
 				})
 			}
 		}
@@ -386,6 +414,13 @@ func listGIFImages(basePath string) ([]ImageInfo, error) {
 		// Extract ID (filename without extension)
 		id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
+		// Get tags from metadata if available
+		var tags []string
+		metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+		if err == nil && metadata != nil {
+			tags = metadata.Tags
+		}
+
 		// Add image info to the result
 		images = append(images, ImageInfo{
 			ID:          id,
@@ -396,6 +431,7 @@ func listGIFImages(basePath string) ([]ImageInfo, error) {
 			Size:        fileInfo.Size(),
 			Path:        relPath,
 			StorageType: "local",
+			Tags:        tags,
 		})
 	}
 
@@ -454,6 +490,13 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 					// Extract ID (filename without extension)
 					id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
+					// Get tags from metadata if available
+					var tags []string
+					metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+					if err == nil && metadata != nil {
+						tags = metadata.Tags
+					}
+
 					// Add image info to the result
 					images = append(images, ImageInfo{
 						ID:          id,
@@ -464,6 +507,7 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 						Size:        *obj.Size,
 						Path:        key,
 						StorageType: "s3",
+						Tags:        tags,
 					})
 				}
 			}
@@ -504,6 +548,13 @@ func listS3GIFImages() ([]ImageInfo, error) {
 			// Extract ID (filename without extension)
 			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
+			// Get tags from metadata if available
+			var tags []string
+			metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+			if err == nil && metadata != nil {
+				tags = metadata.Tags
+			}
+
 			// Add to results
 			images = append(images, ImageInfo{
 				ID:          id,
@@ -514,6 +565,7 @@ func listS3GIFImages() ([]ImageInfo, error) {
 				Size:        *obj.Size,
 				Path:        key,
 				StorageType: "s3",
+				Tags:        tags,
 			})
 		}
 	}

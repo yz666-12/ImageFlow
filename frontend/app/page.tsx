@@ -75,7 +75,7 @@ export default function Home() {
     fetchConfig()
   }, [])
 
-  const handleUpload = async (selectedFiles: File[], expiryMinutes: number) => {
+  const handleUpload = async (selectedFiles: File[], expiryMinutes: number, tags: string[]) => {
     const apiKey = getApiKey()
     if (!apiKey) {
       setShowApiKeyModal(true)
@@ -105,6 +105,11 @@ export default function Home() {
 
       // 添加过期时间参数（分钟）
       formData.append('expiryMinutes', expiryMinutes.toString())
+
+      // 添加标签参数
+      if (tags.length > 0) {
+        formData.append('tags', tags.join(','))
+      }
 
       // 使用自定义上传方法
       const result = await api.request<UploadResponse>('/api/upload', {

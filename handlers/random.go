@@ -106,6 +106,9 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 		deviceType := utils.DetectDeviceType(r)
 		orientation := determineOrientation(r, deviceType)
 
+		// Get tag parameter for filtering
+		tag := r.URL.Query().Get("tag")
+
 		// Build the prefix for original images directory
 		prefix := fmt.Sprintf("original/%s/", orientation)
 
@@ -125,6 +128,34 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 		var imageObjects []string
 		for _, obj := range output.Contents {
 			if utils.IsImageFile(*obj.Key) {
+				// If tag filtering is requested, check metadata
+				if tag != "" {
+					// Extract ID from key
+					fileBaseName := filepath.Base(*obj.Key)
+					id := strings.TrimSuffix(fileBaseName, filepath.Ext(fileBaseName))
+
+					// Get metadata to check tags
+					metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+					if err != nil || metadata == nil {
+						// Skip if metadata not found or error
+						continue
+					}
+
+					// Check if image has the requested tag
+					hasTag := false
+					for _, imgTag := range metadata.Tags {
+						if imgTag == tag {
+							hasTag = true
+							break
+						}
+					}
+
+					if !hasTag {
+						// Skip if image doesn't have the tag
+						continue
+					}
+				}
+
 				imageObjects = append(imageObjects, *obj.Key)
 			}
 		}
@@ -232,93 +263,161 @@ func LocalRandomImageHandler() http.HandlerFunc {
 		// Get local storage path
 		localPath := os.Getenv("LOCAL_STORAGE_PATH")
 
-		// Determine device type and orientation
+		// Determine device type
 		deviceType := utils.DetectDeviceType(r)
-		orientation := determineOrientation(r, deviceType)
 
-		// Build the original images directory path
-		originalDir := filepath.Join(localPath, "original", orientation)
+		// Get tag parameter for filtering
+		tag := r.URL.Query().Get("tag")
+		log.Printf("Random image request with tag: %s, device type: %s", tag, deviceType)
 
-		// Read all files in the directory
-		files, err := os.ReadDir(originalDir)
-		if err != nil {
-			log.Printf("Error reading directory %s: %v", originalDir, err)
-			http.Error(w, "No images found", http.StatusNotFound)
-			return
+		// Determine orientation based on device type
+		// This is the core design principle: desktop gets landscape, mobile gets portrait
+		orientation := "landscape" // Default for desktop
+		if deviceType == utils.DeviceMobile {
+			orientation = "portrait" // Mobile gets portrait
 		}
 
-		// Filter image files
-		var imageFiles []string
-		for _, file := range files {
-			if !file.IsDir() && utils.IsImageFile(file.Name()) {
-				imageFiles = append(imageFiles, file.Name())
+		log.Printf("Using orientation: %s based on device type: %s", orientation, deviceType)
+
+		// Find all images with the specified tag
+		var matchingImages []*utils.ImageMetadata
+		var err error
+
+		if tag != "" {
+			// When filtering by tag, get all images with that tag
+			// First get the image IDs with the tag
+			imageIDs, err := findImagesWithTagDebug(tag, "local", localPath)
+			if err != nil {
+				log.Printf("Error finding images with tag %s: %v", tag, err)
+				http.Error(w, "Error finding images", http.StatusInternalServerError)
+				return
+			}
+
+			// Convert image IDs to metadata objects
+			for _, id := range imageIDs {
+				metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+				if err == nil && metadata != nil {
+					matchingImages = append(matchingImages, metadata)
+				}
+			}
+
+			log.Printf("Found %d images with tag: %s", len(matchingImages), tag)
+
+			if len(matchingImages) == 0 {
+				log.Printf("No images found with tag: %s", tag)
+				http.Error(w, "No images found", http.StatusNotFound)
+				return
+			}
+
+			// Filter by the determined orientation (based on device type)
+			var filteredImages []*utils.ImageMetadata
+			for _, img := range matchingImages {
+				if img.Orientation == orientation {
+					filteredImages = append(filteredImages, img)
+				}
+			}
+
+			// Only use filtered images if we found any
+			if len(filteredImages) > 0 {
+				matchingImages = filteredImages
+				log.Printf("Filtered to %d images with orientation: %s", len(matchingImages), orientation)
+			} else {
+				log.Printf("No images found with tag %s and orientation %s", tag, orientation)
+				http.Error(w, "No images found matching criteria", http.StatusNotFound)
+				return
+			}
+		} else {
+			// Without tag filtering, use the standard approach
+
+			// Read files from the orientation directory
+			originalDir := filepath.Join(localPath, "original", orientation)
+			log.Printf("Looking for images in directory: %s", originalDir)
+
+			files, err := os.ReadDir(originalDir)
+			if err != nil {
+				log.Printf("Error reading directory %s: %v", originalDir, err)
+				http.Error(w, "No images found", http.StatusNotFound)
+				return
+			}
+
+			// Convert files to metadata objects
+			for _, file := range files {
+				if !file.IsDir() && utils.IsImageFile(file.Name()) {
+					id := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+					matchingImages = append(matchingImages, &utils.ImageMetadata{
+						ID:          id,
+						Orientation: orientation,
+						Paths: struct {
+							Original string `json:"original"`
+							WebP     string `json:"webp"`
+							AVIF     string `json:"avif"`
+						}{
+							Original: filepath.Join("original", orientation, file.Name()),
+						},
+					})
+				}
+			}
+
+			if len(matchingImages) == 0 {
+				log.Printf("No images found in directory: %s", originalDir)
+				http.Error(w, "No images found", http.StatusNotFound)
+				return
 			}
 		}
 
-		if len(imageFiles) == 0 {
-			http.Error(w, "No images found", http.StatusNotFound)
-			return
-		}
-
-		// Select a random image
+		// Select a random image from matching images
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		randomImage := imageFiles[rng.Intn(len(imageFiles))]
-		log.Printf("Selected random image: %s", randomImage)
-
-		// Extract base filename without extension
-		filename := strings.TrimSuffix(randomImage, filepath.Ext(randomImage))
+		randomIndex := rng.Intn(len(matchingImages))
+		selectedImage := matchingImages[randomIndex]
+		log.Printf("Selected random image: %s, orientation: %s", selectedImage.ID, selectedImage.Orientation)
 
 		// Determine best format for client
 		bestFormat := detectBestFormat(r)
+		log.Printf("Best format for client: %s", bestFormat)
 
-		// Preserve PNG format for transparency if original is PNG
-		isPNG := strings.HasSuffix(strings.ToLower(randomImage), ".png")
-		if isPNG && bestFormat == FormatOriginal {
-			// Use original PNG
-			imagePath := filepath.Join(localPath, "original", orientation, randomImage)
-			log.Printf("Serving original PNG: %s", imagePath)
-
-			// Read image file
-			imageData, err := os.ReadFile(imagePath)
-			if err != nil {
-				log.Printf("Error reading image %s: %v", imagePath, err)
-				http.Error(w, "Image not found", http.StatusNotFound)
-				return
-			}
-
-			// Set response headers with PNG content type
-			setImageResponseHeaders(w, "image/png")
-
-			// Send image data
-			if _, err := w.Write(imageData); err != nil {
-				log.Printf("Error sending image: %v", err)
-				return
-			}
-			return
-		}
-
-		// Determine image path
+		// Get the image path based on the format
 		var imagePath string
-		switch bestFormat {
-		case FormatAVIF:
-			imagePath = filepath.Join(localPath, orientation, "avif", filename+".avif")
-		case FormatWebP:
-			imagePath = filepath.Join(localPath, orientation, "webp", filename+".webp")
-		default:
-			imagePath = filepath.Join(localPath, "original", orientation, randomImage)
+		var contentType string
+
+		// Check if the image is a PNG (for transparency)
+		isPNG := false
+		if selectedImage.Format == "png" {
+			isPNG = true
+		} else {
+			// Try to detect from the original path
+			isPNG = strings.HasSuffix(strings.ToLower(selectedImage.Paths.Original), ".png")
 		}
 
-		log.Printf("Serving image format: %s, path: %s", bestFormat, imagePath)
+		// For PNG images with transparency, use original format
+		if isPNG && bestFormat == FormatOriginal {
+			imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+			contentType = "image/png"
+			log.Printf("Using original PNG for transparency: %s", imagePath)
+		} else {
+			// Use the appropriate format based on browser support
+			switch bestFormat {
+			case FormatAVIF:
+				imagePath = filepath.Join(localPath, selectedImage.Orientation, "avif", selectedImage.ID+".avif")
+				contentType = "image/avif"
+			case FormatWebP:
+				imagePath = filepath.Join(localPath, selectedImage.Orientation, "webp", selectedImage.ID+".webp")
+				contentType = "image/webp"
+			default:
+				// Use original format
+				imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+				contentType = getContentType(FormatOriginal, imagePath)
+			}
+			log.Printf("Using format %s, path: %s", bestFormat, imagePath)
 
-		// Check if file exists
-		if _, err := os.Stat(imagePath); os.IsNotExist(err) && bestFormat != FormatOriginal {
-			// Fall back to original format if converted format doesn't exist
-			log.Printf("Converted format not found, falling back to original")
-			imagePath = filepath.Join(localPath, "original", orientation, randomImage)
-			bestFormat = FormatOriginal
+			// Check if file exists, fall back to original if needed
+			if _, err := os.Stat(imagePath); os.IsNotExist(err) && bestFormat != FormatOriginal {
+				log.Printf("Format %s not available, falling back to original", bestFormat)
+				imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+				contentType = getContentType(FormatOriginal, imagePath)
+			}
 		}
 
-		// Read image file
+		// Read and serve the image
 		imageData, err := os.ReadFile(imagePath)
 		if err != nil {
 			log.Printf("Error reading image %s: %v", imagePath, err)
@@ -327,7 +426,6 @@ func LocalRandomImageHandler() http.HandlerFunc {
 		}
 
 		// Set response headers
-		contentType := getContentType(bestFormat, imagePath)
 		setImageResponseHeaders(w, contentType)
 
 		// Send image data

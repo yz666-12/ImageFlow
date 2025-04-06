@@ -25,7 +25,7 @@ export default function Manage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalImages, setTotalImages] = useState(0);
-  const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "all" });
+  const [filters, setFilters] = useState<ImageFilterState>({ format: "all", orientation: "all", tag: "" });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKeyVerified, setIsKeyVerified] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -59,7 +59,7 @@ export default function Manage() {
 
   const fetchNextPage = async () => {
     if (isLoadingMore || !hasMore) return;
-    
+
     setIsLoadingMore(true);
     try {
       const nextPage = Math.floor(images.length / 24) + 1;
@@ -68,6 +68,7 @@ export default function Manage() {
         limit: "24",
         format: filters.format,
         orientation: filters.orientation,
+        tag: filters.tag,
       });
 
       if (data.images.length === 0) {
@@ -76,7 +77,7 @@ export default function Manage() {
         setImages(prev => [...prev, ...data.images]);
         setTotalPages(data.totalPages);
         setTotalImages(data.total);
-        
+
         // Preload next page images
         const nextPageUrls = data.images.map(img => img.url);
         preloadImages(nextPageUrls);
@@ -121,12 +122,13 @@ export default function Manage() {
       setImages([]);
       setHasMore(true);
       setCurrentPage(1);
-      
+
       const data = await api.get<ImageListResponse>("/api/images", {
         page: "1",
         limit: "24",
         format: filters.format,
         orientation: filters.orientation,
+        tag: filters.tag,
       });
 
       setImages(data.images);
@@ -189,8 +191,8 @@ export default function Manage() {
     fetchImages();
   }, [filters]);
 
-  const handleFilterChange = (format: string, orientation: string) => {
-    setFilters({ format, orientation });
+  const handleFilterChange = (format: string, orientation: string, tag: string) => {
+    setFilters({ format, orientation, tag });
   };
 
   return (

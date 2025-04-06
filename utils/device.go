@@ -34,6 +34,7 @@ func DetectDevice(r *http.Request) DeviceType {
 
 // DetectDeviceType returns a string identifier ("mobile" or "desktop") based on User-Agent
 func DetectDeviceType(r *http.Request) string {
+	// Detect device type from User-Agent
 	userAgent := r.Header.Get("User-Agent")
 	return GetDeviceTypeFromUserAgent(userAgent)
 }

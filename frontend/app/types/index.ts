@@ -29,6 +29,7 @@ export interface ImageFile {
   size: number;
   path: string;
   storageType: string;
+  tags?: string[];
   width?: number;
   height?: number;
 }
@@ -43,6 +44,7 @@ export interface ImageListResponse {
 export interface ImageFilterState {
   format: string;
   orientation: string;
+  tag: string;
 }
 
 // 组件 Props 类型
@@ -71,7 +73,7 @@ export interface ApiKeyModalProps {
 }
 
 export interface ImageFiltersProps {
-  onFilterChange: (format: string, orientation: string) => void;
+  onFilterChange: (format: string, orientation: string, tag: string) => void;
 }
 
 // 上传结果类型定义
@@ -82,6 +84,7 @@ export interface UploadResult {
   format?: string;
   orientation?: string;
   expiryTime?: string; // 过期时间
+  tags?: string[];
   urls?: {
     original: string;
     webp: string;
