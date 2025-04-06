@@ -68,7 +68,6 @@ func (ic *ImageCleaner) cleanExpiredImages() {
 		return
 	}
 
-	log.Printf("Starting cleanup of expired images...")
 	log.Printf("Found %d expired images to clean up", len(expiredImages))
 
 	for _, metadata := range expiredImages {
