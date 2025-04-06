@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22-alpine AS backend-builder
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
@@ -16,6 +16,25 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
 
+FROM node:18-alpine AS frontend-builder
+
+
+RUN npm config set registry https://registry.npmmirror.com
+
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+
+
+RUN if [ -f package-lock.json ]; then \
+        npm ci --prefer-offline; \
+    else \
+        npm install; \
+    fi
+
+COPY frontend/ ./
+RUN npm run build
+
 FROM alpine:latest
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
@@ -28,21 +47,32 @@ RUN apk add --no-cache \
     libavif-apps \
     wget
 
-RUN mkdir -p /app/static/images/original/landscape && \
+RUN mkdir -p /app/static/images/metadata && \
+    mkdir -p /app/static/images/original/landscape && \
     mkdir -p /app/static/images/original/portrait && \
     mkdir -p /app/static/images/landscape/webp && \
     mkdir -p /app/static/images/landscape/avif && \
     mkdir -p /app/static/images/portrait/webp && \
-    mkdir -p /app/static/images/portrait/avif 
+    mkdir -p /app/static/images/portrait/avif
 
-COPY --from=builder /app/imageflow /app/
-COPY --from=builder /app/static /app/static
-COPY --from=builder /app/config /app/config
-
+COPY --from=backend-builder /app/imageflow /app/
+COPY --from=backend-builder /app/config /app/config
+COPY --from=frontend-builder /app/frontend/out /app/static
 
 ENV API_KEY=""
 ENV STORAGE_TYPE="local"
 ENV LOCAL_STORAGE_PATH="/app/static/images"
+ENV S3_ENDPOINT=""
+ENV S3_REGION=""
+ENV S3_ACCESS_KEY=""
+ENV S3_SECRET_KEY=""
+ENV S3_BUCKET=""
+ENV CUSTOM_DOMAIN=""
+ENV MAX_UPLOAD_COUNT="20"
+ENV IMAGE_QUALITY="80"
+ENV WORKER_THREADS="4"
+ENV COMPRESSION_EFFORT="6"
+ENV FORCE_LOSSLESS="false"
 
 EXPOSE 8686
 
