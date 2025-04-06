@@ -8,7 +8,6 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   const [orientation, setOrientation] = useState('all')
   const [tag, setTag] = useState('')
   const [availableTags, setAvailableTags] = useState<string[]>([])
-  const [inputTag, setInputTag] = useState('')
   const [isTagMenuOpen, setIsTagMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const tagMenuRef = useRef<HTMLDivElement>(null)
@@ -62,19 +61,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   const handleTagChange = (newTag: string) => {
     setTag(newTag)
     onFilterChange(format, orientation, newTag)
-  }
-
-  const handleTagInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputTag(e.target.value)
-  }
-
-  const handleTagSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (inputTag.trim()) {
-      handleTagChange(inputTag.trim())
-      setInputTag('')
-      setIsTagMenuOpen(false)
-    }
+    setIsTagMenuOpen(false)
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,7 +148,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                 onClick={() => handleTagChange('')}
                 className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center ${
                   tag === ''
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm'
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
@@ -172,7 +159,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-2 rounded-full text-sm font-medium flex items-center shadow-sm"
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-2 rounded-full text-sm font-medium flex items-center shadow-sm"
                 >
                   <span>{tag}</span>
                   <button
@@ -190,7 +177,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={toggleTagMenu}
-                  className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 flex items-center gap-1"
+                  className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 flex items-center gap-1"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -217,7 +204,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                             value={searchQuery}
                             onChange={handleSearchChange}
                             placeholder="搜索标签..."
-                            className="w-full px-3 py-2 pl-9 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-600 text-sm"
+                            className="w-full px-3 py-2 pl-9 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm"
                           />
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -235,7 +222,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                                 onClick={() => handleTagChange(tagItem)}
                                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-left truncate ${
                                   tag === tagItem
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
                                     : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                                 }`}
                               >
@@ -252,24 +239,6 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                             暂无可用标签
                           </div>
                         )}
-                      </div>
-
-                      <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-                        <form onSubmit={handleTagSubmit} className="flex">
-                          <input
-                            type="text"
-                            value={inputTag}
-                            onChange={handleTagInput}
-                            placeholder="添加自定义标签"
-                            className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-600 text-sm"
-                          />
-                          <button
-                            type="submit"
-                            className="px-3 py-2 rounded-r-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium transition-colors duration-200 text-sm"
-                          >
-                            添加
-                          </button>
-                        </form>
                       </div>
                     </motion.div>
                   )}

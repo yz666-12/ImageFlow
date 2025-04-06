@@ -23,18 +23,19 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
   const [availableTags, setAvailableTags] = useState<string[]>([])
 
   // 获取可用标签列表
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        const response = await api.get<{ tags: string[] }>('/api/tags')
-        if (response.tags && response.tags.length > 0) {
-          setAvailableTags(response.tags)
-        }
-      } catch (error) {
-        console.error('获取标签失败:', error)
+  const fetchTags = async () => {
+    try {
+      const response = await api.get<{ tags: string[] }>('/api/tags')
+      if (response.tags && response.tags.length > 0) {
+        setAvailableTags(response.tags)
       }
+    } catch (error) {
+      console.error('获取标签失败:', error)
     }
+  }
 
+  // 首次加载时获取标签
+  useEffect(() => {
     fetchTags()
   }, [])
 
@@ -129,6 +130,7 @@ export default function UploadSection({ onUpload, isUploading, maxUploadCount = 
           selectedTags={selectedTags}
           availableTags={availableTags}
           onTagsChange={setSelectedTags}
+          onNewTagCreated={fetchTags}
         />
 
         {exceedsLimit && (
