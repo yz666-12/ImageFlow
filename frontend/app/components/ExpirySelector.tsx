@@ -7,14 +7,12 @@ interface ExpirySelectorProps {
 }
 
 export default function ExpirySelector({ onChange }: ExpirySelectorProps) {
-  const [selectedOption, setSelectedOption] = useState<string>('1h')
+  const [selectedOption, setSelectedOption] = useState<string>('never')
   const [customValue, setCustomValue] = useState<number>(1)
   const [timeUnit, setTimeUnit] = useState<'minutes' | 'hours'>('hours')
 
-  // 组件初始化时设置默认值
   useEffect(() => {
-    // 默认为1小时 (60分钟)
-    onChange(60)
+    onChange(0)
   }, [onChange])
 
   // 处理选项变更
