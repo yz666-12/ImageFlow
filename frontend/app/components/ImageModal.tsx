@@ -34,7 +34,8 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
     try {
       setIsDeleting(true);
       await onDelete(image.id);
-      onClose();
+      setShowDeleteConfirm(false);  
+      onClose();  
     } catch (err) {
       console.error("删除失败:", err);
     } finally {

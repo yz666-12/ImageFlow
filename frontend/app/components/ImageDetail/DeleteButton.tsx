@@ -30,6 +30,7 @@ export function DeleteButton({ image, onDelete }: DeleteButtonProps) {
       }
 
       await onDelete(imageId)
+      setShowDeleteConfirm(false)  
     } catch (err) {
       console.error("删除失败:", err)
     } finally {

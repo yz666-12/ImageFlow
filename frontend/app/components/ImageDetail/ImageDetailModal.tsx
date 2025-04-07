@@ -15,6 +15,17 @@ interface ImageDetailModalProps {
 }
 
 export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: ImageDetailModalProps) {
+  const handleDelete = async (imageId: string) => {
+    if (!onDelete) return;
+    
+    try {
+      await onDelete(imageId);
+      onClose();  
+    } catch (err) {
+      console.error("删除失败:", err);
+    }
+  };
+
   if (!image || image.status !== 'success' || !image.urls) {
     return null
   }
@@ -70,7 +81,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
               className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-between"
             >
               {onDelete && (
-                <DeleteButton image={image} onDelete={onDelete} />
+                <DeleteButton image={image} onDelete={handleDelete} />
               )}
               <button
                 onClick={onClose}
