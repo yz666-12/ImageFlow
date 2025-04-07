@@ -320,8 +320,8 @@ func getImageURLs(id string, orientation string, isGIF bool) map[string]string {
 	// Get the extension of the original file from metadata if available
 	originalExt := ".jpg" // Default extension
 	metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
-	if err == nil && metadata != nil && metadata.Format != "" {
-		originalExt = "." + metadata.Format
+	if err == nil && metadata != nil && metadata.Paths.Original != "" {
+		originalExt = filepath.Ext(metadata.Paths.Original)
 	}
 
 	// Construct original URL

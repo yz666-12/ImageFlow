@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ImageFile } from "../types";
 import { buildMarkdownLink } from "../utils/imageUtils";
 import { copyToClipboard } from "../utils/clipboard";
+import { getFullUrl } from "../utils/baseUrl";
 
 interface ImageUrlsProps {
   image: ImageFile;
@@ -33,9 +34,9 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       });
   };
 
-  const originalUrl = image.urls?.original;
-  const webpUrl = image.urls?.webp;
-  const avifUrl = image.urls?.avif;
+  const originalUrl = getFullUrl(image.urls?.original || "");
+  const webpUrl = getFullUrl(image.urls?.webp || "");
+  const avifUrl = getFullUrl(image.urls?.avif || "");
   const currentFormatUrl =
     image.format.toLowerCase() === "webp"
       ? webpUrl
