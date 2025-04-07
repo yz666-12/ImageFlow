@@ -21,15 +21,16 @@ import (
 
 // ImageInfo represents information about an image
 type ImageInfo struct {
-	ID          string   `json:"id"`          // Filename without extension
-	FileName    string   `json:"filename"`    // Full filename with extension
-	URL         string   `json:"url"`         // URL to access the image
-	Orientation string   `json:"orientation"` // landscape or portrait
-	Format      string   `json:"format"`      // original, webp, avif
-	Size        int64    `json:"size"`        // File size in bytes
-	Path        string   `json:"path"`        // Path relative to storage root
-	StorageType string   `json:"storageType"` // "local" or "s3"
-	Tags        []string `json:"tags"`        // Image tags for categorization
+	ID          string            `json:"id"`          // Filename without extension
+	FileName    string            `json:"filename"`    // Full filename with extension
+	URL         string            `json:"url"`         // URL to access the image
+	URLs        map[string]string `json:"urls"`        // URLs for all available formats
+	Orientation string            `json:"orientation"` // landscape or portrait
+	Format      string            `json:"format"`      // original, webp, avif
+	Size        int64             `json:"size"`        // File size in bytes
+	Path        string            `json:"path"`        // Path relative to storage root
+	StorageType string            `json:"storageType"` // "local" or "s3"
+	Tags        []string          `json:"tags"`        // Image tags for categorization
 }
 
 // PaginatedResponse represents a paginated response with images
@@ -276,19 +277,19 @@ func getDirPathAndExtensions(basePath, orientVal, formatVal string) (string, []s
 func constructImageURL(relPath string) string {
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "local" {
-		return fmt.Sprintf("/images/%s", relPath)
+		return fmt.Sprintf("/images/%s", strings.ReplaceAll(relPath, "\\", "/"))
 	}
 
 	// For S3 storage
 	customDomain := os.Getenv("CUSTOM_DOMAIN")
 	if customDomain != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), relPath)
+		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), strings.ReplaceAll(relPath, "\\", "/"))
 	}
 
 	// Fallback to S3 endpoint with bucket name
 	endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
 	bucket := os.Getenv("S3_BUCKET")
-	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, relPath)
+	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, strings.ReplaceAll(relPath, "\\", "/"))
 }
 
 // hasValidExtension checks if a filename has one of the valid extensions
@@ -302,74 +303,141 @@ func hasValidExtension(fileName string, extensions []string) bool {
 	return false
 }
 
+// getImageURLs returns URLs for all available formats of an image
+func getImageURLs(id string, orientation string, isGIF bool) map[string]string {
+	urls := make(map[string]string)
+
+	// For GIF files, only original format is available
+	if isGIF {
+		originalKey := filepath.Join("gif", id+".gif")
+		urls["original"] = constructImageURL(originalKey)
+		urls["webp"] = urls["original"] // Fallback to original
+		urls["avif"] = urls["original"] // Fallback to original
+		return urls
+	}
+
+	// For regular images, determine paths for all formats
+	// Get the extension of the original file from metadata if available
+	originalExt := ".jpg" // Default extension
+	metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+	if err == nil && metadata != nil && metadata.Format != "" {
+		originalExt = "." + metadata.Format
+	}
+
+	// Construct original URL
+	originalKey := filepath.Join("original", orientation, id+originalExt)
+	urls["original"] = constructImageURL(originalKey)
+
+	// Construct URLs for converted formats
+	webpKey := filepath.Join(orientation, "webp", id+".webp")
+	avifKey := filepath.Join(orientation, "avif", id+".avif")
+
+	urls["webp"] = constructImageURL(webpKey)
+	urls["avif"] = constructImageURL(avifKey)
+
+	return urls
+}
+
 // listLocalImages returns a list of images from the local filesystem
 func listLocalImages(basePath, orientation, format string) ([]ImageInfo, error) {
 	var images []ImageInfo
 	orientations, formats := getOrientationAndFormatSlices(orientation, format)
 
-	for _, orientVal := range orientations {
-		for _, formatVal := range formats {
-			dirPath, extensions := getDirPathAndExtensions(basePath, orientVal, formatVal)
+	// First, collect all original format images
+	var originalImages = make(map[string]ImageInfo)
+	originalOrientations := []string{"landscape", "portrait"}
 
-			// List files in the directory
-			files, err := os.ReadDir(dirPath)
-			if err != nil {
-				// Skip directory if it doesn't exist
-				log.Printf("Warning: Could not read directory %s: %v", dirPath, err)
+	// Get all original format images first
+	for _, orientVal := range originalOrientations {
+		dirPath := filepath.Join(basePath, "original", orientVal)
+		extensions := []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
+
+		// List files in the directory
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			// Skip directory if it doesn't exist
+			log.Printf("Warning: Could not read directory %s: %v", dirPath, err)
+			continue
+		}
+
+		// Process each file in original format
+		for _, file := range files {
+			if file.IsDir() {
 				continue
 			}
 
-			// Process each file
-			for _, file := range files {
-				if file.IsDir() {
-					continue
+			fileName := file.Name()
+			if !hasValidExtension(fileName, extensions) {
+				continue
+			}
+
+			// Get file info for size
+			fileInfo, err := file.Info()
+			if err != nil {
+				log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
+				continue
+			}
+
+			// Construct relative path
+			relPath := filepath.Join("original", orientVal, fileName)
+
+			// Extract ID (filename without extension)
+			id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+			// Get tags from metadata if available
+			var tags []string
+			metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+			if err == nil && metadata != nil {
+				tags = metadata.Tags
+			}
+
+			// Get URLs for all formats
+			urls := getImageURLs(id, orientVal, false)
+
+			// Store image info in map
+			originalImages[id] = ImageInfo{
+				ID:          id,
+				FileName:    fileName,
+				URL:         constructImageURL(relPath),
+				URLs:        urls,
+				Orientation: orientVal,
+				Format:      "original",
+				Size:        fileInfo.Size(),
+				Path:        relPath,
+				StorageType: "local",
+				Tags:        tags,
+			}
+		}
+	}
+
+	// Now filter based on user's requested orientation and format
+	for _, orientVal := range orientations {
+		if format == "original" || formats[0] == "original" {
+			// For original format, use the stored original images
+			for _, img := range originalImages {
+				if orientVal == "all" || img.Orientation == orientVal {
+					images = append(images, img)
 				}
-
-				fileName := file.Name()
-				if !hasValidExtension(fileName, extensions) {
-					continue
+			}
+		} else {
+			// For webp/avif formats, use the original images but update format and URL
+			for _, img := range originalImages {
+				if orientVal == "all" || img.Orientation == orientVal {
+					// Create a new image info with the requested format
+					newImg := img
+					newImg.Format = format
+					newImg.URL = img.URLs[format]
+					// Update filename to match the requested format
+					baseName := strings.TrimSuffix(img.FileName, filepath.Ext(img.FileName))
+					newImg.FileName = baseName + "." + format
+					// Update path to match the requested format
+					if format == "webp" {
+						newImg.Path = filepath.Join(orientVal, "webp", baseName+".webp")
+					} else if format == "avif" {
+						newImg.Path = filepath.Join(orientVal, "avif", baseName+".avif")
+					}
+					images = append(images, newImg)
 				}
-
-				// Get file info for size
-				fileInfo, err := file.Info()
-				if err != nil {
-					log.Printf("Warning: Could not get file info for %s: %v", fileName, err)
-					continue
-				}
-
-				// Construct relative path
-				var firstPart, thirdPart string
-				if formatVal == "original" {
-					firstPart = "original"
-					thirdPart = ""
-				} else {
-					firstPart = ""
-					thirdPart = formatVal
-				}
-				relPath := filepath.Join(firstPart, orientVal, thirdPart, fileName)
-
-				// Extract ID (filename without extension)
-				id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-				// Get tags from metadata if available
-				var tags []string
-				metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
-				if err == nil && metadata != nil {
-					tags = metadata.Tags
-				}
-
-				// Add image info to the result
-				images = append(images, ImageInfo{
-					ID:          id,
-					FileName:    fileName,
-					URL:         constructImageURL(relPath),
-					Orientation: orientVal,
-					Format:      formatVal,
-					Size:        fileInfo.Size(),
-					Path:        relPath,
-					StorageType: "local",
-					Tags:        tags,
-				})
 			}
 		}
 	}
@@ -421,11 +489,15 @@ func listGIFImages(basePath string) ([]ImageInfo, error) {
 			tags = metadata.Tags
 		}
 
+		// Get URLs for all formats (for GIF there's only original)
+		urls := getImageURLs(id, "", true)
+
 		// Add image info to the result
 		images = append(images, ImageInfo{
 			ID:          id,
 			FileName:    fileName,
 			URL:         constructImageURL(relPath),
+			URLs:        urls,
 			Orientation: "gif", // Use "gif" as orientation to mark it as special
 			Format:      "gif",
 			Size:        fileInfo.Size(),
@@ -447,68 +519,98 @@ func listS3Images(orientation, format string) ([]ImageInfo, error) {
 	}
 
 	var images []ImageInfo
-	orientations, formats := getOrientationAndFormatSlices(orientation, format)
 	bucket := os.Getenv("S3_BUCKET")
 
-	for _, orientVal := range orientations {
-		for _, formatVal := range formats {
-			var prefix string
-			var extensions []string
+	// First, collect all original format images
+	var originalImages = make(map[string]ImageInfo)
+	originalOrientations := []string{"landscape", "portrait"}
 
-			// Construct the prefix based on format
-			if formatVal == "original" {
-				prefix = "original/" + orientVal + "/"
-				extensions = []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
-			} else {
-				prefix = orientVal + "/" + formatVal + "/"
-				extension := "." + formatVal
-				extensions = []string{extension}
+	// Get all original format images first
+	for _, orientVal := range originalOrientations {
+		prefix := "original/" + orientVal + "/"
+		extensions := []string{".jpg", ".jpeg", ".png", ".webp", ".avif"}
+
+		// List objects with the prefix
+		paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
+			Bucket: aws.String(bucket),
+			Prefix: aws.String(prefix),
+		})
+
+		// Process each page of results
+		for paginator.HasMorePages() {
+			output, err := paginator.NextPage(context.Background())
+			if err != nil {
+				return nil, err
 			}
 
-			// List objects with the prefix
-			paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
-				Bucket: aws.String(bucket),
-				Prefix: aws.String(prefix),
-			})
+			// Process each object
+			for _, obj := range output.Contents {
+				key := *obj.Key
+				fileName := filepath.Base(key)
 
-			// Process each page of results
-			for paginator.HasMorePages() {
-				output, err := paginator.NextPage(context.Background())
-				if err != nil {
-					return nil, err
+				if !hasValidExtension(fileName, extensions) {
+					continue
 				}
 
-				// Process each object
-				for _, obj := range output.Contents {
-					key := *obj.Key
-					fileName := filepath.Base(key)
+				// Extract ID (filename without extension)
+				id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
-					if !hasValidExtension(fileName, extensions) {
-						continue
+				// Get tags from metadata if available
+				var tags []string
+				metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+				if err == nil && metadata != nil {
+					tags = metadata.Tags
+				}
+
+				// Get URLs for all formats
+				urls := getImageURLs(id, orientVal, false)
+
+				// Store image info in map
+				originalImages[id] = ImageInfo{
+					ID:          id,
+					FileName:    fileName,
+					URL:         constructImageURL(key),
+					URLs:        urls,
+					Orientation: orientVal,
+					Format:      "original",
+					Size:        *obj.Size,
+					Path:        key,
+					StorageType: "s3",
+					Tags:        tags,
+				}
+			}
+		}
+	}
+
+	// Now filter based on user's requested orientation and format
+	orientations, formats := getOrientationAndFormatSlices(orientation, format)
+
+	for _, orientVal := range orientations {
+		if format == "original" || formats[0] == "original" {
+			// For original format, use the stored original images
+			for _, img := range originalImages {
+				if orientVal == "all" || img.Orientation == orientVal {
+					images = append(images, img)
+				}
+			}
+		} else {
+			// For webp/avif formats, use the original images but update format and URL
+			for _, img := range originalImages {
+				if orientVal == "all" || img.Orientation == orientVal {
+					// Create a new image info with the requested format
+					newImg := img
+					newImg.Format = format
+					newImg.URL = img.URLs[format]
+					// Update filename to match the requested format
+					baseName := strings.TrimSuffix(img.FileName, filepath.Ext(img.FileName))
+					newImg.FileName = baseName + "." + format
+					// Update path to match the requested format
+					if format == "webp" {
+						newImg.Path = filepath.Join(orientVal, "webp", baseName+".webp")
+					} else if format == "avif" {
+						newImg.Path = filepath.Join(orientVal, "avif", baseName+".avif")
 					}
-
-					// Extract ID (filename without extension)
-					id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-					// Get tags from metadata if available
-					var tags []string
-					metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
-					if err == nil && metadata != nil {
-						tags = metadata.Tags
-					}
-
-					// Add image info to the result
-					images = append(images, ImageInfo{
-						ID:          id,
-						FileName:    fileName,
-						URL:         constructImageURL(key),
-						Orientation: orientVal,
-						Format:      formatVal,
-						Size:        *obj.Size,
-						Path:        key,
-						StorageType: "s3",
-						Tags:        tags,
-					})
+					images = append(images, newImg)
 				}
 			}
 		}
@@ -555,11 +657,15 @@ func listS3GIFImages() ([]ImageInfo, error) {
 				tags = metadata.Tags
 			}
 
+			// Get URLs for all formats (for GIF there's only original)
+			urls := getImageURLs(id, "", true)
+
 			// Add to results
 			images = append(images, ImageInfo{
 				ID:          id,
 				FileName:    fileName,
 				URL:         constructImageURL(key),
+				URLs:        urls,
 				Orientation: "gif",
 				Format:      "gif",
 				Size:        *obj.Size,
