@@ -45,7 +45,7 @@ RUN mkdir -p /app/static/images/metadata && \
 COPY --from=backend-builder /app/imageflow /app/
 COPY --from=backend-builder /app/config /app/config
 COPY --from=frontend-builder /app/frontend/out /app/static
-COPY --from=frontend-builder /app/frontend/public/favicon.ico /app/static/favicon.ico
+COPY --from=frontend-builder /app/frontend/public/favicon* /app/static/
 
 ENV API_KEY=""
 ENV STORAGE_TYPE="local"
