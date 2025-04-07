@@ -42,13 +42,17 @@ export const buildUrl = (path: string, format: string): string => {
     orientation = "square";
   }
   
-  const fileName = originalPath.split('/').pop()?.split('.')[0] || "";
+  // Get the original file extension from the path
+  const fileNameParts = originalPath.split('/').pop()?.split('.') || [];
+  const fileName = fileNameParts[0] || "";
+  const originalExt = fileNameParts[1]
+  
   const urlParts = originalPath.split('/');
   const domain = urlParts.slice(0, 3).join('/');
   
   let relativePath = '';
   if (format === "original") {
-    relativePath = `original/${orientation}/${fileName}.jpg`;
+    relativePath = `original/${orientation}/${fileName}.${originalExt}`;
   } else if (format === "webp") {
     relativePath = `${orientation}/webp/${fileName}.webp`;
   } else if (format === "avif") {
