@@ -182,8 +182,6 @@ func (sms *S3MetadataStore) GetMetadata(ctx context.Context, id string) (*ImageM
 
 // ListExpiredImages lists all expired images in S3
 func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMetadata, error) {
-	log.Printf("Listing expired images from S3 metadata")
-
 	// Get the S3 bucket name
 	bucket := os.Getenv("S3_BUCKET")
 
@@ -200,6 +198,7 @@ func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMeta
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
+			log.Printf("Error listing metadata objects from S3: %v", err)
 			return nil, fmt.Errorf("failed to list metadata objects from S3: %v", err)
 		}
 
@@ -222,13 +221,16 @@ func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMeta
 
 			// Check if the image has expired
 			if !metadata.ExpiryTime.IsZero() && metadata.ExpiryTime.Before(now) {
-				log.Printf("Found expired image: %s (expired at: %v)", id, metadata.ExpiryTime)
+				// Only log individual expired images when we actually find them
 				expiredImages = append(expiredImages, metadata)
 			}
 		}
 	}
 
-	log.Printf("Found %d expired images in S3", len(expiredImages))
+	// Only log the count if we found expired images
+	if len(expiredImages) > 0 {
+		log.Printf("Found %d expired images in S3", len(expiredImages))
+	}
 	return expiredImages, nil
 }
 

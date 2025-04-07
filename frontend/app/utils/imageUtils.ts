@@ -32,7 +32,7 @@ export const getOrientationLabel = (orientation: string): string => {
 // 构建URL
 export const buildUrl = (path: string, format: string): string => {
   const originalPath = path;
-  
+
   let orientation = "";
   if (originalPath.includes("/landscape/")) {
     orientation = "landscape";
@@ -41,15 +41,13 @@ export const buildUrl = (path: string, format: string): string => {
   } else if (originalPath.includes("/square/")) {
     orientation = "square";
   }
-  
-  // Get the original file extension from the path
+
   const fileNameParts = originalPath.split('/').pop()?.split('.') || [];
   const fileName = fileNameParts[0] || "";
-  const originalExt = fileNameParts[1]
-  
+  const originalExt = fileNameParts[1];
   const urlParts = originalPath.split('/');
   const domain = urlParts.slice(0, 3).join('/');
-  
+
   let relativePath = '';
   if (format === "original") {
     relativePath = `original/${orientation}/${fileName}.${originalExt}`;
@@ -62,7 +60,7 @@ export const buildUrl = (path: string, format: string): string => {
   if (originalPath.startsWith('http')) {
     return `${domain}/${relativePath}`;
   }
-  
+
   return `/images/${relativePath}`;
 };
 
