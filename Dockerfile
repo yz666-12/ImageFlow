@@ -1,8 +1,5 @@
 FROM golang:1.22-alpine AS backend-builder
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-
-ENV GOPROXY=https://goproxy.cn,direct
 ENV GO111MODULE=on
 
 WORKDIR /app
@@ -16,28 +13,18 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
 
-FROM node:18-alpine AS frontend-builder
-
-
-RUN npm config set registry https://registry.npmmirror.com
+FROM oven/bun:1 AS frontend-builder
 
 WORKDIR /app/frontend
 
-COPY frontend/package*.json ./
+COPY frontend/package.json frontend/bun.lockb* ./
 
-
-RUN if [ -f package-lock.json ]; then \
-        npm ci --prefer-offline; \
-    else \
-        npm install; \
-    fi
+RUN bun install --frozen-lockfile
 
 COPY frontend/ ./
-RUN npm run build
+RUN bun run build
 
 FROM alpine:latest
-
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 WORKDIR /app
 
@@ -57,6 +44,7 @@ RUN mkdir -p /app/static/images/metadata && \
 
 COPY --from=backend-builder /app/imageflow /app/
 COPY --from=backend-builder /app/config /app/config
+COPY --from=backend-builder /app/favicon /app/favicon
 COPY --from=frontend-builder /app/frontend/out /app/static
 
 ENV API_KEY=""
