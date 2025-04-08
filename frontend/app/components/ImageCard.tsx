@@ -6,11 +6,6 @@ import { motion } from "framer-motion";
 import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 
-// 获取正确的绝对URL
-const getAbsoluteUrl = (path: string) => {
-  return path;
-};
-
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return bytes + " B";
@@ -96,7 +91,7 @@ export default function ImageCard({
   const copyToClipboard = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const absoluteUrl = getAbsoluteUrl(image.url);
+      const absoluteUrl = getFullUrl(image.url);
       await navigator.clipboard.writeText(absoluteUrl);
       setCopyStatus("copied");
       setTimeout(() => setCopyStatus("idle"), 2000);
