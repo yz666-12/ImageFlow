@@ -7,10 +7,7 @@ import { ImageFile } from "../types";
 
 // 获取正确的绝对URL
 const getAbsoluteUrl = (path: string) => {
-  // 移除开头的斜杠以防止路径重复
-  const relativePath = path.startsWith("/") ? path.substring(1) : path;
-  // 构建完整的URL
-  return `${window.location.origin}/${relativePath}`;
+  return path;
 };
 
 // 格式化文件大小
