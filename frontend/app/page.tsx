@@ -12,7 +12,6 @@ import UploadProgress from './components/UploadProgress'
 import ImageSidebar from './components/ImageSidebar'
 import { motion } from 'framer-motion'
 
-// 默认最大上传数量，将从API获取实际值
 const DEFAULT_MAX_UPLOAD_COUNT = 10;
 
 export default function Home() {
@@ -25,7 +24,6 @@ export default function Home() {
   const [isKeyVerified, setIsKeyVerified] = useState(false)
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
 
-  // 监听上传结果变化，当有新上传结果时自动打开侧边栏
   useEffect(() => {
     if (uploadResults.length > 0 && !showSidebar) {
       setShowSidebar(true)
@@ -33,7 +31,6 @@ export default function Home() {
   }, [uploadResults])
 
   useEffect(() => {
-    // 检查API Key
     const checkApiKey = async () => {
       const apiKey = getApiKey()
       if (!apiKey) {

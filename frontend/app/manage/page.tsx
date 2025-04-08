@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import { motion } from "framer-motion";
 import Masonry from "react-masonry-css";
@@ -26,7 +26,8 @@ export default function Manage() {
   const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<StatusMessage | null>(null);
-  // No longer using pagination
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [totalImages, setTotalImages] = useState(0);
   const [filters, setFilters] = useState<ImageFilterState>({
     format: "webp",
@@ -35,6 +36,21 @@ export default function Manage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKeyVerified, setIsKeyVerified] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastImageElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading || isFetchingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMoreImages();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, isFetchingMore, hasMore]
+  );
   // Check API key
   useEffect(() => {
     checkApiKey();
@@ -77,14 +93,17 @@ export default function Manage() {
     try {
       setIsLoading(true);
       setImages([]);
+      setPage(1);
       const data = await api.get<ImageListResponse>("/api/images", {
-        page: "all",  // 请求所有图片
+        page: "1",
+        limit: "24", 
         format: filters.format,
         orientation: filters.orientation,
         tag: filters.tag,
       });
 
       setImages(data.images);
+      setHasMore(data.page < data.totalPages);
       
       if (data.total) {
         setTotalImages(data.total);
@@ -98,6 +117,36 @@ export default function Manage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMoreImages = async () => {
+    if (!hasMore || isFetchingMore) return;
+    
+    try {
+      setIsFetchingMore(true);
+      const nextPage = page + 1;
+      
+      const data = await api.get<ImageListResponse>("/api/images", {
+        page: nextPage.toString(),
+        limit: "24", 
+        format: filters.format,
+        orientation: filters.orientation,
+        tag: filters.tag,
+      });
+
+      setImages(prevImages => [...prevImages, ...data.images]);
+      setPage(nextPage);
+      setHasMore(data.page < data.totalPages);
+      
+    } catch (error) {
+      console.error("加载更多图片失败:", error);
+      setStatus({
+        type: "error",
+        message: "加载更多图片失败",
+      });
+    } finally {
+      setIsFetchingMore(false);
     }
   };
 
@@ -178,35 +227,56 @@ export default function Manage() {
       ) : (
         <>
           {images.length > 0 ? (
-            <div className="space-y-8">
-              <div
-                className={
-                  filters.orientation === "all"
-                    ? ""
-                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                }
-              >
-                {filters.orientation === "all" ? (
-                  <Masonry
-                    breakpointCols={{
-                      default: 4,
-                      1280: 4,
-                      1024: 3,
-                      768: 2,
-                      640: 1,
-                    }}
-                    className="my-masonry-grid"
-                    columnClassName="my-masonry-grid_column"
-                  >
-                    {images.map((image, index) => (
+            <>
+              <div className="space-y-8">
+                <div
+                  className={
+                    filters.orientation === "all"
+                      ? ""
+                      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  }
+                >
+                  {filters.orientation === "all" ? (
+                    <Masonry
+                      breakpointCols={{
+                        default: 4,
+                        1280: 4,
+                        1024: 3,
+                        768: 2,
+                        640: 1,
+                      }}
+                      className="my-masonry-grid"
+                      columnClassName="my-masonry-grid_column"
+                    >
+                      {images.map((image, index) => (
+                        <motion.div
+                          key={image.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{
+                            duration: 0.3,
+                            delay: (index % 24) * 0.05,
+                          }}
+                          ref={index === images.length - 5 ? lastImageElementRef : null}
+                        >
+                          <ImageCard
+                            image={image}
+                            onClick={() => {
+                              setSelectedImage(image);
+                              setIsModalOpen(true);
+                            }}
+                          />
+                        </motion.div>
+                      ))}
+                    </Masonry>
+                  ) : (
+                    images.map((image, index) => (
                       <motion.div
                         key={image.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{
-                          duration: 0.3,
-                          delay: (index % 24) * 0.05,
-                        }}
+                        transition={{ duration: 0.3, delay: (index % 24) * 0.05 }}
+                        ref={index === images.length - 5 ? lastImageElementRef : null}
                       >
                         <ImageCard
                           image={image}
@@ -216,30 +286,22 @@ export default function Manage() {
                           }}
                         />
                       </motion.div>
-                    ))}
-                  </Masonry>
-                ) : (
-                  images.map((image, index) => (
-                    <motion.div
-                      key={image.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: (index % 24) * 0.05 }}
-                    >
-                      <ImageCard
-                        image={image}
-                        onClick={() => {
-                          setSelectedImage(image);
-                          setIsModalOpen(true);
-                        }}
-                      />
-                    </motion.div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
-
-
-            </div>
+              {isFetchingMore && (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                  <span className="ml-2 text-indigo-500">加载更多图片...</span>
+                </div>
+              )}
+              {!isLoading && !isFetchingMore && images.length > 0 && !hasMore && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  已加载全部图片 ({totalImages}张)
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
               <svg
