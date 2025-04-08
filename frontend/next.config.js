@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
-import fs from 'node:fs';
-import path from 'node:path';
-import dotenv from 'dotenv';
+const fs = require('node:fs');
+const path = require('node:path');
+const dotenv = require('dotenv');
 
 // Load environment variables from parent directory's .env file
 const parentEnvPath = path.resolve(process.cwd(), '../.env');
