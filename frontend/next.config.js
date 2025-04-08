@@ -1,26 +1,31 @@
 /** @type {import('next').NextConfig} */
-const fs = require('fs');
-const path = require('path');
-const dotenv = require('dotenv');
+import fs from 'node:fs';
+import path from 'node:path';
+import dotenv from 'dotenv';
 
 // Load environment variables from parent directory's .env file
-const parentEnvPath = path.resolve(__dirname, '../.env');
-let envConfig = {};
-
+const parentEnvPath = path.resolve(process.cwd(), '../.env');
 if (fs.existsSync(parentEnvPath)) {
-  envConfig = dotenv.parse(fs.readFileSync(parentEnvPath));
+  const parentEnv = dotenv.parse(fs.readFileSync(parentEnvPath));
+  // Merge parent .env variables into process.env
+  for (const [key, value] of Object.entries(parentEnv)) {
+    process.env[key] = value;
+  }
 }
 
+/** @type {boolean} */
+const isStaticExport = !process.env.NEXT_PUBLIC_API_URL;
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  output: 'export',
+  output: isStaticExport ? 'export' : 'standalone',
   images: {
-    unoptimized: true,
+    unoptimized: isStaticExport,
+    domains: [process.env.NEXT_PUBLIC_ALLOW_DOMAINS || 'localhost']
   },
   optimizeFonts: false,
   // We'll get the config from the API instead of environment variables
   env: {}
-}
+};
 
-module.exports = nextConfig
+export default nextConfig;
