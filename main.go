@@ -7,12 +7,65 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/handlers"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 	"github.com/joho/godotenv"
 )
+
+// corsMiddleware adds CORS headers to all responses
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get allowed origins from environment variable or use a default value
+		allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+		if allowedOrigins == "" {
+			allowedOrigins = "*" // Default to allow all origins if not specified
+		}
+
+		// Handle multiple origins if specified
+		origin := r.Header.Get("Origin")
+		if origin != "" && allowedOrigins != "*" {
+			// Check if the request origin is in the allowed origins list
+			allowedList := strings.Split(allowedOrigins, ",")
+			allowed := false
+			for _, allowedOrigin := range allowedList {
+				if strings.TrimSpace(allowedOrigin) == origin {
+					allowed = true
+					break
+				}
+			}
+
+			if allowed {
+				// Set the specific origin instead of the wildcard
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				// Allow credentials when specific origin is set
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			} else {
+				// If origin is not allowed, still set the wildcard for public resources
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			}
+		} else {
+			// Set wildcard for all origins
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
+		}
+
+		// Set other CORS headers
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	// Load environment variables
@@ -140,9 +193,12 @@ func main() {
 		}
 	})
 
+	// Apply CORS middleware to all handlers
+	handler := corsMiddleware(http.DefaultServeMux)
+
 	// Start server
-	log.Printf("Starting server on %s with %s storage", cfg.ServerAddr, storageType)
-	if err := http.ListenAndServe(cfg.ServerAddr, nil); err != nil {
+	log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, storageType)
+	if err := http.ListenAndServe(cfg.ServerAddr, handler); err != nil {
 		log.Fatal(err)
 	}
 }

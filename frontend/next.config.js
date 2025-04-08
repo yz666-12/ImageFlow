@@ -14,9 +14,10 @@ if (fs.existsSync(parentEnvPath)) {
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  output: 'export',
+  output: process.env.NEXT_PUBLIC_API_URL === undefined || process.env.NEXT_PUBLIC_API_URL === '' ? 'export' : 'standalone',
   images: {
-    unoptimized: true,
+    unoptimized: process.env.NEXT_PUBLIC_API_URL === undefined || process.env.NEXT_PUBLIC_API_URL === '',
+    domains: [process.env.NEXT_PUBLIC_ALLOW_DOMAINS || 'localhost']
   },
   optimizeFonts: false,
   // We'll get the config from the API instead of environment variables
