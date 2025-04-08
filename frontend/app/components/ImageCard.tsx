@@ -1,9 +1,9 @@
 "use client";
 
-import Image from 'next/image'
-import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
-import { ImageFile } from '../types'
+import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { ImageFile } from "../types";
 
 // 获取正确的绝对URL
 const getAbsoluteUrl = (path: string) => {
@@ -17,7 +17,8 @@ const getAbsoluteUrl = (path: string) => {
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return bytes + " B";
   else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
-  else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  else if (bytes < 1024 * 1024 * 1024)
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
 };
 
@@ -43,34 +44,20 @@ const getOrientationLabel = (orientation: string): string => {
   return orientationMap[orientation.toLowerCase()] || orientation;
 };
 
-export default function ImageCard({ image, onClick }: { image: ImageFile; onClick: () => void }) {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+export default function ImageCard({
+  image,
+  onClick,
+}: {
+  image: ImageFile;
+  onClick: () => void;
+}) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
-  const isGif = image.format.toLowerCase() === 'gif';
-
-  // Generate blur placeholder
-  useEffect(() => {
-    const generateBlurPlaceholder = async () => {
-      try {
-        // Create a tiny version of the image for blur effect
-        const response = await fetch(image.url);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setBlurDataUrl(reader.result as string);
-        };
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error('Error generating blur placeholder:', error);
-      }
-    };
-
-    if (!isGif) {
-      generateBlurPlaceholder();
-    }
-  }, [image.url, isGif]);
+  const isGif = image.format.toLowerCase() === "gif";
 
   // Image load handler
   const handleImageLoad = useCallback(() => {
@@ -80,30 +67,32 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
   // 根据方向确定高度类和比例
   const getHeightAndAspectRatio = (orientation: string) => {
     switch (orientation.toLowerCase()) {
-      case 'portrait':
+      case "portrait":
         return {
           heightClass: "h-auto",
-          aspectRatio: "aspect-[3/4]"
+          aspectRatio: "aspect-[3/4]",
         };
-      case 'landscape':
+      case "landscape":
         return {
           heightClass: "h-auto",
-          aspectRatio: "aspect-[4/3]"
+          aspectRatio: "aspect-[4/3]",
         };
-      case 'square':
+      case "square":
         return {
           heightClass: "h-auto",
-          aspectRatio: "aspect-square"
+          aspectRatio: "aspect-square",
         };
       default:
         return {
           heightClass: "h-auto",
-          aspectRatio: "aspect-auto"
+          aspectRatio: "aspect-auto",
         };
     }
   };
 
-  const { heightClass, aspectRatio } = getHeightAndAspectRatio(image.orientation);
+  const { heightClass, aspectRatio } = getHeightAndAspectRatio(
+    image.orientation
+  );
 
   // 复制URL到剪贴板
   const copyToClipboard = async (e: React.MouseEvent) => {
@@ -131,7 +120,9 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`relative ${heightClass} ${aspectRatio} overflow-hidden bg-gray-100 dark:bg-gray-900`}>
+      <div
+        className={`relative ${heightClass} ${aspectRatio} overflow-hidden bg-gray-100 dark:bg-gray-900`}
+      >
         {isGif ? (
           // Use img tag for GIFs to ensure animation plays
           <img
@@ -140,7 +131,9 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
             loading="lazy"
             onLoad={handleImageLoad}
             className={`w-full h-full object-cover transition-all duration-500 ${
-              isLoading ? 'scale-110 blur-lg' : 'scale-100 blur-0 group-hover:scale-105'
+              isLoading
+                ? "scale-110 blur-lg"
+                : "scale-100 blur-0 group-hover:scale-105"
             }`}
           />
         ) : (
@@ -154,7 +147,9 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
             placeholder={blurDataUrl ? "blur" : "empty"}
             blurDataURL={blurDataUrl || undefined}
             className={`object-cover w-full h-full transition-all duration-500 ${
-              isLoading ? 'scale-110 blur-lg' : 'scale-100 blur-0 group-hover:scale-105'
+              isLoading
+                ? "scale-110 blur-lg"
+                : "scale-100 blur-0 group-hover:scale-105"
             }`}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             quality={75}
@@ -170,9 +165,17 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
         )}
 
         {/* Image info overlay */}
-        <div className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
+        <div
+          className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent text-white transition-opacity duration-300 ${
+            isLoading ? "opacity-0" : "opacity-100"
+          }`}
+        >
           <div className="flex space-x-1">
-            <span className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm ${isGif ? 'bg-green-500/70' : 'bg-blue-500/70'}`}>
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm ${
+                isGif ? "bg-green-500/70" : "bg-blue-500/70"
+              }`}
+            >
               {getFormatLabel(image.format)}
             </span>
             <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70 backdrop-blur-sm">
@@ -188,28 +191,69 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
             title="复制URL"
           >
             {copyStatus === "idle" && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
             )}
             {copyStatus === "copied" && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             )}
             {copyStatus === "error" && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             )}
           </motion.button>
         </div>
       </div>
 
-      <div className={`p-4 flex-grow flex flex-col justify-between transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
-        <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{image.filename}</div>
+      <div
+        className={`p-4 flex-grow flex flex-col justify-between transition-opacity duration-300 ${
+          isLoading ? "opacity-50" : "opacity-100"
+        }`}
+      >
+        <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
+          {image.filename}
+        </div>
         <div className="flex justify-between items-center mt-3">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(image.size)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {formatFileSize(image.size)}
+          </span>
           {(image as any).width && (image as any).height ? (
             <motion.div
               initial={{ opacity: 0 }}
@@ -223,5 +267,5 @@ export default function ImageCard({ image, onClick }: { image: ImageFile; onClic
         </div>
       </div>
     </motion.div>
-  )
-} 
+  );
+}
