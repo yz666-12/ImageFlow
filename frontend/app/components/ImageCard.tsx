@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ImageFile } from "../types";
+import { getFullUrl } from "../utils/baseUrl";
 
 // 获取正确的绝对URL
 const getAbsoluteUrl = (path: string) => {
@@ -123,7 +124,7 @@ export default function ImageCard({
         {isGif ? (
           // Use img tag for GIFs to ensure animation plays
           <img
-            src={image.url}
+            src={getFullUrl(image.url)}
             alt={image.filename}
             loading="lazy"
             onLoad={handleImageLoad}
@@ -136,7 +137,7 @@ export default function ImageCard({
         ) : (
           // Use Next.js Image for non-GIF images with optimizations
           <Image
-            src={image.url}
+            src={getFullUrl(image.url)}
             alt={image.filename}
             fill
             loading="lazy"
