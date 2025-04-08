@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import Masonry from "react-masonry-css";
-import { getApiKey, validateApiKey } from "../utils/auth";
+import { getApiKey, validateApiKey, setApiKey } from "../utils/auth";
 import { api } from "../utils/request";
 import ApiKeyModal from "../components/ApiKeyModal";
 import ImageFilters from "../components/ImageFilters";
@@ -109,19 +109,29 @@ export default function Manage() {
       return;
     }
 
-    const isValid = await validateApiKey(apiKey);
-    if (!isValid) {
+    try {
+      const isValid = await validateApiKey(apiKey);
+      if (!isValid) {
+        setShowApiKeyModal(true);
+        setIsKeyVerified(false);
+        setStatus({
+          type: "error",
+          message: "API Key无效,请重新验证",
+        });
+        return;
+      }
+
+      setIsKeyVerified(true);
+      fetchImages();
+    } catch (error) {
+      console.error("API Key验证失败:", error);
       setShowApiKeyModal(true);
       setIsKeyVerified(false);
       setStatus({
         type: "error",
-        message: "API Key无效,请重新验证",
+        message: "API Key验证失败,请重试",
       });
-      return;
     }
-
-    setIsKeyVerified(true);
-    fetchImages();
   };
 
   const fetchImages = async () => {
@@ -360,8 +370,10 @@ export default function Manage() {
       <ApiKeyModal
         isOpen={showApiKeyModal}
         onClose={() => setShowApiKeyModal(false)}
-        onSuccess={() => {
+        onSuccess={(apiKey) => {
+          setApiKey(apiKey);
           setIsKeyVerified(true);
+          setShowApiKeyModal(false);
           fetchImages();
         }}
       />

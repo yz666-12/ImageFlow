@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { validateApiKey, getApiKey, removeApiKey } from '../utils/auth';
+import { validateApiKey, getApiKey, removeApiKey, setApiKey } from '../utils/auth';
 import { ApiKeyModalProps } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,10 +47,14 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                 // 显示成功动画
                 setShowSuccess(true);
 
+                // 保存API Key到本地存储
+                setApiKey(apiKey);
+
                 // 等待动画完成后关闭弹窗
                 setTimeout(() => {
                     setShowSuccess(false);
                     onSuccess(apiKey);
+                    onClose();
                 }, 1200);
             } else {
                 setError('API Key无效，请重试');
@@ -284,4 +288,4 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
             )}
         </AnimatePresence>
     );
-} 
+}
