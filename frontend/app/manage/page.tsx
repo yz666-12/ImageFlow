@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
-import { useInView } from 'react-intersection-observer';
-import { motion, AnimatePresence } from 'framer-motion';
-import Masonry from 'react-masonry-css';
-import { getApiKey, validateApiKey, setApiKey } from "../utils/auth";
+import { useState, useEffect } from "react";
+import { useInView } from "react-intersection-observer";
+import { motion } from "framer-motion";
+import Masonry from "react-masonry-css";
+import { getApiKey, validateApiKey } from "../utils/auth";
 import { api } from "../utils/request";
 import ApiKeyModal from "../components/ApiKeyModal";
 import ImageFilters from "../components/ImageFilters";
 import ImageCard from "../components/ImageCard";
 import ImageModal from "../components/ImageModal";
 import { useTheme } from "../hooks/useTheme";
-import { ImageFile, ImageListResponse, StatusMessage, ImageFilterState } from "../types";
+import {
+  ImageFile,
+  ImageListResponse,
+  StatusMessage,
+  ImageFilterState,
+} from "../types";
 import Header from "../components/Header";
 
 export default function Manage() {
@@ -25,7 +29,11 @@ export default function Manage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalImages, setTotalImages] = useState(0);
-  const [filters, setFilters] = useState<ImageFilterState>({ format: "original", orientation: "all", tag: "" });
+  const [filters, setFilters] = useState<ImageFilterState>({
+    format: "original",
+    orientation: "all",
+    tag: "",
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKeyVerified, setIsKeyVerified] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -34,17 +42,17 @@ export default function Manage() {
   // Infinite scroll setup
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.5,
-    delay: 100
+    delay: 100,
   });
-
+  /*
   // Preload images for next page
   const preloadImages = useCallback((imageUrls: string[]) => {
-    imageUrls.forEach(url => {
+    imageUrls.forEach((url) => {
       const img = new Image();
-      img.src = url;
+      img.src = getFullUrl(url);
     });
   }, []);
-
+*/
   // Check API key
   useEffect(() => {
     checkApiKey();
@@ -74,13 +82,13 @@ export default function Manage() {
       if (data.images.length === 0) {
         setHasMore(false);
       } else {
-        setImages(prev => [...prev, ...data.images]);
+        setImages((prev) => [...prev, ...data.images]);
         setTotalPages(data.totalPages);
         setTotalImages(data.total);
 
         // Preload next page images
-        const nextPageUrls = data.images.map(img => img.url);
-        preloadImages(nextPageUrls);
+        const nextPageUrls = data.images.map((img) => img.url);
+        // preloadImages(nextPageUrls);
       }
     } catch (error) {
       console.error("加载更多图片失败:", error);
@@ -138,8 +146,8 @@ export default function Manage() {
 
       // Preload next page
       if (data.images.length === 24) {
-        const nextPageUrls = data.images.map(img => img.url);
-        preloadImages(nextPageUrls);
+        const nextPageUrls = data.images.map((img) => img.url);
+        // preloadImages(nextPageUrls);
       } else {
         setHasMore(false);
       }
@@ -162,7 +170,7 @@ export default function Manage() {
       const response = await api.post<{ success: boolean; message: string }>(
         "/api/delete-image",
         {
-          id: image.id
+          id: image.id,
         }
       );
 
@@ -191,7 +199,11 @@ export default function Manage() {
     fetchImages();
   }, [filters]);
 
-  const handleFilterChange = (format: string, orientation: string, tag: string) => {
+  const handleFilterChange = (
+    format: string,
+    orientation: string,
+    tag: string
+  ) => {
     setFilters({ format, orientation, tag });
   };
 
@@ -228,7 +240,13 @@ export default function Manage() {
         <>
           {images.length > 0 ? (
             <div className="space-y-8">
-              <div className={filters.orientation === "all" ? "" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"}>
+              <div
+                className={
+                  filters.orientation === "all"
+                    ? ""
+                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                }
+              >
                 {filters.orientation === "all" ? (
                   <Masonry
                     breakpointCols={{
@@ -236,7 +254,7 @@ export default function Manage() {
                       1280: 4,
                       1024: 3,
                       768: 2,
-                      640: 1
+                      640: 1,
                     }}
                     className="my-masonry-grid"
                     columnClassName="my-masonry-grid_column"
@@ -246,7 +264,10 @@ export default function Manage() {
                         key={image.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3, delay: index % 24 * 0.05 }}
+                        transition={{
+                          duration: 0.3,
+                          delay: (index % 24) * 0.05,
+                        }}
                       >
                         <ImageCard
                           image={image}
@@ -264,7 +285,7 @@ export default function Manage() {
                       key={image.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: index % 24 * 0.05 }}
+                      transition={{ duration: 0.3, delay: (index % 24) * 0.05 }}
                     >
                       <ImageCard
                         image={image}
@@ -287,14 +308,20 @@ export default function Manage() {
                   {isLoadingMore ? (
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
                   ) : (
-                    <div className="text-gray-400 dark:text-gray-500">向下滚动加载更多</div>
+                    <div className="text-gray-400 dark:text-gray-500">
+                      向下滚动加载更多
+                    </div>
                   )}
                 </div>
               )}
 
               <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  共 <span className="font-medium text-gray-700 dark:text-gray-300">{totalImages}</span> 张图片
+                  共{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {totalImages}
+                  </span>{" "}
+                  张图片
                 </span>
               </div>
             </div>

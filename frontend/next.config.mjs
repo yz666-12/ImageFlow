@@ -15,13 +15,41 @@ if (fs.existsSync(parentEnvPath)) {
 
 /** @type {boolean} */
 const isStaticExport = !process.env.NEXT_PUBLIC_API_URL;
+
+// Parse remote patterns to extract protocol if present
+const parseRemotePatterns = (pattern) => {
+  if (!pattern) return { protocol: 'http', hostname: '' };
+
+  // Check if pattern includes http:// or https://
+  if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
+    const url = new URL(pattern);
+    return {
+      protocol: url.protocol.replace(':', ''),
+      hostname: url.hostname
+    };
+  }
+
+  // Default to http if no protocol specified
+  return {
+    protocol: 'http',
+    hostname: pattern
+  };
+};
+
+const { protocol, hostname } = parseRemotePatterns(process.env.NEXT_PUBLIC_REMOTE_PATTERNS);
+
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   output: isStaticExport ? 'export' : 'standalone',
   images: {
     unoptimized: isStaticExport,
-    domains: [process.env.NEXT_PUBLIC_ALLOW_DOMAINS || 'localhost']
+    remotePatterns: [
+      {
+        protocol,
+        hostname
+      }
+    ]
   },
   optimizeFonts: false,
   // We'll get the config from the API instead of environment variables
