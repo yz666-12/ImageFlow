@@ -108,13 +108,13 @@ export default function ImageCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 flex flex-col h-full"
+      className="rounded-xl shadow-lg overflow-hidden group cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-300 h-full"
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`relative ${heightClass} ${aspectRatio} overflow-hidden bg-gray-100 dark:bg-gray-900`}
+        className={`relative ${heightClass} ${aspectRatio} overflow-hidden bg-gray-100 dark:bg-gray-900 w-full`}
       >
         {isGif ? (
           // Use img tag for GIFs to ensure animation plays
@@ -235,30 +235,7 @@ export default function ImageCard({
         </div>
       </div>
 
-      <div
-        className={`p-4 flex-grow flex flex-col justify-between transition-opacity duration-300 ${
-          isLoading ? "opacity-50" : "opacity-100"
-        }`}
-      >
-        <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
-          {image.filename}
-        </div>
-        <div className="flex justify-between items-center mt-3">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {formatFileSize(image.size)}
-          </span>
-          {(image as any).width && (image as any).height ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-            >
-              {(image as any).width} x {(image as any).height}
-            </motion.div>
-          ) : null}
-        </div>
-      </div>
+      {/* Image card without filename and file size information */}
     </motion.div>
   );
 }
