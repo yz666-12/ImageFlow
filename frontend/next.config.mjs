@@ -17,26 +17,30 @@ if (fs.existsSync(parentEnvPath)) {
 const isStaticExport = !process.env.NEXT_PUBLIC_API_URL;
 
 // Parse remote patterns to extract protocol if present
-const parseRemotePatterns = (pattern) => {
-  if (!pattern) return { protocol: 'http', hostname: '' };
+const parseRemotePatterns = (patterns) => {
+  if (!patterns) return [{ protocol: 'http', hostname: '' }];
 
-  // Check if pattern includes http:// or https://
-  if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
-    const url = new URL(pattern);
+  const patternList = patterns.split(',');
+  return patternList.map(pattern => {
+    pattern = pattern.trim();
+    // Check if pattern includes http:// or https://
+    if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
+      const url = new URL(pattern);
+      return {
+        protocol: url.protocol.replace(':', ''),
+        hostname: url.hostname
+      };
+    }
+
+    // Default to http if no protocol specified
     return {
-      protocol: url.protocol.replace(':', ''),
-      hostname: url.hostname
+      protocol: 'http',
+      hostname: pattern
     };
-  }
-
-  // Default to http if no protocol specified
-  return {
-    protocol: 'http',
-    hostname: pattern
-  };
+  });
 };
 
-const { protocol, hostname } = parseRemotePatterns(process.env.NEXT_PUBLIC_REMOTE_PATTERNS);
+const remotePatterns = parseRemotePatterns(process.env.NEXT_PUBLIC_REMOTE_PATTERNS);
 
 const nextConfig = {
   reactStrictMode: true,
@@ -44,12 +48,7 @@ const nextConfig = {
   output: isStaticExport ? 'export' : 'standalone',
   images: {
     unoptimized: isStaticExport,
-    remotePatterns: [
-      {
-        protocol,
-        hostname
-      }
-    ]
+    remotePatterns: remotePatterns
   },
   optimizeFonts: false,
   // We'll get the config from the API instead of environment variables
