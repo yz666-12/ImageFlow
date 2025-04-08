@@ -7,10 +7,7 @@ export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
  * @returns 完整URL
  */
 export function getFullUrl(url: string): string {
-  console.log(BASE_URL, url);
   if (!url) return "";
-
-  // 如果是完整URL，直接返回
   if (url.startsWith("http://") || url.startsWith("https://")) {
     console.log("完整URL", url);
     return url;
@@ -21,7 +18,6 @@ export function getFullUrl(url: string): string {
     // 在浏览器环境下
     if (typeof window !== "undefined") {
       const nurl = new URL(url, BASE_URL || window.location.origin).toString();
-      console.log(nurl);
       return nurl;
     }
     // 在服务器环境下
