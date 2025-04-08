@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../utils/request";
 
 export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
-  const [format, setFormat] = useState("original");
+  const [format, setFormat] = useState("webp");
   const [orientation, setOrientation] = useState("all");
   const [tag, setTag] = useState("");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -108,7 +108,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
             文件格式
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {["original", "webp", "avif", "gif"].map((item) => (
+            {["webp", "gif"].map((item) => (
               <motion.button
                 key={item}
                 onClick={() => handleFormatChange(item)}
@@ -121,8 +121,8 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               >
                 {item === "all"
                   ? "全部"
-                  : item === "original"
-                  ? "原始"
+                  : item === "webp"
+                  ? "图片"
                   : item.toUpperCase()}
               </motion.button>
             ))}

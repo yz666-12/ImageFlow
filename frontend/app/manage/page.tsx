@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useInView } from "react-intersection-observer";
+
 import { motion } from "framer-motion";
 import Masonry from "react-masonry-css";
 import { getApiKey, validateApiKey, setApiKey } from "../utils/auth";
@@ -20,86 +20,25 @@ import {
 import Header from "../components/Header";
 
 export default function Manage() {
-  const { isDarkMode, toggleTheme } = useTheme();
+  useTheme(); // Initialize theme
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [images, setImages] = useState<ImageFile[]>([]);
   const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<StatusMessage | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // No longer using pagination
   const [totalImages, setTotalImages] = useState(0);
   const [filters, setFilters] = useState<ImageFilterState>({
-    format: "original",
+    format: "webp",
     orientation: "all",
     tag: "",
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKeyVerified, setIsKeyVerified] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  // Infinite scroll setup
-  const { ref: loadMoreRef, inView } = useInView({
-    threshold: 0.5,
-    delay: 100,
-  });
-  /*
-  // Preload images for next page
-  const preloadImages = useCallback((imageUrls: string[]) => {
-    imageUrls.forEach((url) => {
-      const img = new Image();
-      img.src = getFullUrl(url);
-    });
-  }, []);
-*/
   // Check API key
   useEffect(() => {
     checkApiKey();
   }, []);
-
-  // Load more images when scrolling
-  useEffect(() => {
-    if (inView && hasMore && !isLoadingMore) {
-      fetchNextPage();
-    }
-  }, [inView, hasMore]);
-
-  const fetchNextPage = async () => {
-    if (isLoadingMore || !hasMore) return;
-
-    setIsLoadingMore(true);
-    try {
-      const nextPage = Math.floor(images.length / 24) + 1;
-      const data = await api.get<ImageListResponse>("/api/images", {
-        page: nextPage.toString(),
-        limit: "24",
-        format: filters.format,
-        orientation: filters.orientation,
-        tag: filters.tag,
-      });
-
-      if (data.images.length === 0) {
-        setHasMore(false);
-      } else {
-        setImages((prev) => [...prev, ...data.images]);
-        setTotalPages(data.totalPages);
-        setTotalImages(data.total);
-
-        // Preload next page images
-        const nextPageUrls = data.images.map((img) => img.url);
-        // preloadImages(nextPageUrls);
-      }
-    } catch (error) {
-      console.error("加载更多图片失败:", error);
-      setStatus({
-        type: "error",
-        message: "加载更多图片失败",
-      });
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   const checkApiKey = async () => {
     const apiKey = getApiKey();
@@ -138,29 +77,19 @@ export default function Manage() {
     try {
       setIsLoading(true);
       setImages([]);
-      setHasMore(true);
-      setCurrentPage(1);
-
       const data = await api.get<ImageListResponse>("/api/images", {
-        page: "1",
-        limit: "24",
+        page: "all",  // 请求所有图片
         format: filters.format,
         orientation: filters.orientation,
         tag: filters.tag,
       });
 
       setImages(data.images);
-      setTotalPages(data.totalPages);
-      setTotalImages(data.total);
-      setStatus(null);
-
-      // Preload next page
-      if (data.images.length === 24) {
-        const nextPageUrls = data.images.map((img) => img.url);
-        // preloadImages(nextPageUrls);
-      } else {
-        setHasMore(false);
+      
+      if (data.total) {
+        setTotalImages(data.total);
       }
+      setStatus(null);
     } catch (error) {
       console.error("加载图片列表失败:", error);
       setStatus({
@@ -309,31 +238,7 @@ export default function Manage() {
                 )}
               </div>
 
-              {/* Load more trigger */}
-              {hasMore && (
-                <div
-                  ref={loadMoreRef}
-                  className="flex justify-center items-center py-8"
-                >
-                  {isLoadingMore ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-                  ) : (
-                    <div className="text-gray-400 dark:text-gray-500">
-                      向下滚动加载更多
-                    </div>
-                  )}
-                </div>
-              )}
 
-              <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-gray-100 dark:border-gray-700">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  共{" "}
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {totalImages}
-                  </span>{" "}
-                  张图片
-                </span>
-              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
