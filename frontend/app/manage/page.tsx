@@ -18,6 +18,7 @@ import {
   ImageFilterState,
 } from "../types";
 import Header from "../components/Header";
+import ToastContainer from "../components/ToastContainer";
 
 export default function Manage() {
   useTheme(); 
@@ -203,6 +204,8 @@ export default function Manage() {
         isKeyVerified={isKeyVerified}
       />
 
+      <ToastContainer />
+
       {status && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -265,6 +268,7 @@ export default function Manage() {
                               setSelectedImage(image);
                               setIsModalOpen(true);
                             }}
+                            onDelete={handleDelete}
                           />
                         </motion.div>
                       ))}
@@ -284,6 +288,7 @@ export default function Manage() {
                             setSelectedImage(image);
                             setIsModalOpen(true);
                           }}
+                          onDelete={handleDelete}
                         />
                       </motion.div>
                     ))
