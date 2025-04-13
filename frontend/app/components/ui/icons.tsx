@@ -1,56 +1,56 @@
 import {
-  ImageIcon,
-  PlusCircledIcon,
-  Cross1Icon,
-  DotsHorizontalIcon,
-  TrashIcon,
-  ClipboardCopyIcon,
-  CheckIcon,
-  ExternalLinkIcon, 
-  EyeOpenIcon,
-  MagnifyingGlassIcon,
-  LockClosedIcon,
-  LinkBreak2Icon,
-  ArrowRightIcon,
-  ArrowDownIcon,
-  ClockIcon,
-  DashIcon,
-  PlusIcon,
-  InfoCircledIcon,
-  Share1Icon,
-  CaretDownIcon,
-  DownloadIcon,
-  EnterIcon,
-  SizeIcon,
-  ExclamationTriangleIcon,
-  UploadIcon,
-  Cross2Icon,
-  FileIcon,
-  GearIcon,
-  MixerHorizontalIcon,
-  CalendarIcon,
-  ClipboardIcon,
-  CopyIcon,
-  TransformIcon,
-  ReloadIcon,
-  MoonIcon,
-  SunIcon,
-  HamburgerMenuIcon,
-  ChevronRightIcon,
-  ChevronLeftIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  DotsVerticalIcon,
-  EnvelopeClosedIcon,
-  PersonIcon,
-  HeartIcon,
-  HeartFilledIcon,
-  StarIcon,
-  StarFilledIcon,
-  QuestionMarkIcon,
-  Link1Icon,
-  IdCardIcon
-} from '@radix-ui/react-icons';
+  Image as ImageIcon,
+  PlusCircle as PlusCircledIcon,
+  X as Cross1Icon,
+  MoreHorizontal as DotsHorizontalIcon,
+  Trash2 as TrashIcon,
+  Clipboard as ClipboardCopyIcon,
+  Check as CheckIcon,
+  ExternalLink as ExternalLinkIcon,
+  Eye as EyeOpenIcon,
+  Search as MagnifyingGlassIcon,
+  KeyRound as LockClosedIcon,
+  Unlink as LinkBreak2Icon,
+  ArrowRight as ArrowRightIcon,
+  ArrowDown as ArrowDownIcon,
+  Clock as ClockIcon,
+  Tags as TagIcon,
+  Plus as PlusIcon,
+  Info as InfoCircledIcon,
+  Share as Share1Icon,
+  ChevronDown as CaretDownIcon,
+  Download as DownloadIcon,
+  CornerDownRight as EnterIcon,
+  Maximize2 as SizeIcon,
+  AlertTriangle as ExclamationTriangleIcon,
+  Upload as UploadIcon,
+  X as Cross2Icon,
+  File as FileIcon,
+  Settings as GearIcon,
+  SlidersHorizontal as MixerHorizontalIcon,
+  Calendar as CalendarIcon,
+  ClipboardList as ClipboardIcon,
+  Copy as CopyIcon,
+  Move as TransformIcon,
+  RotateCw as ReloadIcon,
+  Moon as MoonIcon,
+  Sun as SunIcon,
+  Menu as HamburgerMenuIcon,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  MoreVertical as DotsVerticalIcon,
+  Mail as EnvelopeClosedIcon,
+  User as PersonIcon,
+  Heart as HeartIcon,
+  Heart as HeartFilledIcon,
+  Star as StarIcon,
+  Star as StarFilledIcon,
+  HelpCircle as QuestionMarkIcon,
+  Link as Link1Icon,
+  CreditCard as IdCardIcon
+} from 'lucide-react';
 
 export {
   ImageIcon, // 图片图标
@@ -70,7 +70,7 @@ export {
   ArrowRightIcon, // 右箭头图标
   ArrowDownIcon, // 下箭头图标
   ClockIcon, // 时钟/计时图标
-  DashIcon as TagIcon, // 标签图标
+  TagIcon, // 标签图标
   InfoCircledIcon, // 信息图标
   Share1Icon, // 分享图标
   CaretDownIcon, // 下拉箭头图标
@@ -90,10 +90,10 @@ export {
   MoonIcon, // 月亮/夜间模式图标
   SunIcon, // 太阳/日间模式图标
   HamburgerMenuIcon, // 菜单图标
-  ChevronRightIcon, // 右箭头
-  ChevronLeftIcon, // 左箭头
-  ChevronDownIcon, // 下箭头
-  ChevronUpIcon, // 上箭头
+  ChevronRight as ChevronRightIcon, // 右箭头
+  ChevronLeft as ChevronLeftIcon, // 左箭头
+  ChevronDown as ChevronDownIcon, // 下箭头
+  ChevronUp as ChevronUpIcon, // 上箭头
   DotsVerticalIcon, // 垂直更多操作图标
   EnvelopeClosedIcon, // 邮件图标
   PersonIcon, // 人物/用户图标
