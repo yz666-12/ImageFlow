@@ -15,7 +15,10 @@ if (fs.existsSync(parentEnvPath)) {
 const isStaticExport = !process.env.NEXT_PUBLIC_API_URL;
 
 const parseRemotePatterns = (patterns) => {
-  if (!patterns) return [{ protocol: 'http', hostname: '' }];
+  if (!patterns || isStaticExport) {
+    console.log('isStaticExport:', isStaticExport);
+    return undefined;
+  }
 
   const patternList = patterns.split(',');
   return patternList.map(pattern => {
