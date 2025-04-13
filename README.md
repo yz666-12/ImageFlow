@@ -175,7 +175,7 @@ S3_REGION=    # S3 region
 S3_ACCESS_KEY=  # Access key
 S3_SECRET_KEY=  # Secret key
 S3_BUCKET=      # Bucket name
-CUSTOM_DOMAIN=  # Custom domain 
+CUSTOM_DOMAIN=  # Custom domain
 
 # Image Processing Configuration
 MAX_UPLOAD_COUNT=20    # Maximum upload count per request
@@ -249,19 +249,38 @@ The system returns the most suitable image based on the device type and browser 
 ImageFlow/
 ├── .github/        # GitHub related configurations
 ├── config/         # Configuration related code
-├── docs/          # Documentation and images
-├── favicon/       # Favicon assets
-├── frontend/      # Next.js frontend application
-│   ├── app/       # Next.js app directory
-│   ├── public/    # Public assets
-│   ├── .next/     # Next.js build output
-│   ├── out/       # Static export output
-│   ├── build.sh   # Build script for Unix
-│   └── build.bat  # Build script for Windows
-├── handlers/      # HTTP request handlers
-├── scripts/       # Utility scripts
-├── static/        # Static files and image storage
-│   └── images/    # Image storage directory
+├── docs/           # Documentation and images
+│   └── img/        # Documentation images
+├── favicon/        # Favicon assets
+├── frontend/       # Next.js frontend application
+│   ├── app/        # Next.js app directory
+│   │   ├── components/  # React components
+│   │   │   ├── ImageDetail/  # Image detail components
+│   │   │   ├── ui/     # UI common components
+│   │   │   └── upload/ # Upload related components
+│   │   ├── hooks/     # React hooks
+│   │   ├── manage/    # Management page
+│   │   ├── types/     # TypeScript type definitions
+│   │   └── utils/     # Frontend utility functions
+│   ├── public/     # Public assets
+│   ├── next.config.mjs  # Next.js configuration file
+│   ├── package.json    # Frontend dependencies
+│   ├── build.sh        # Unix build script
+│   └── build.bat       # Windows build script
+├── handlers/       # HTTP request handlers
+│   ├── auth.go     # Authentication handlers
+│   ├── config.go   # Configuration handlers
+│   ├── delete.go   # Image deletion handlers
+│   ├── image.go    # Image handlers
+│   ├── list.go     # Listing handlers
+│   ├── random.go   # Random image handlers
+│   ├── tags.go     # Tag handlers
+│   └── upload.go   # Upload handlers
+├── scripts/        # Utility scripts
+│   └── convert.go  # Image conversion script
+├── static/         # Static files and image storage
+│   ├── _next/      # Next.js static assets
+│   └── images/     # Image storage directory
 │       ├── landscape/  # Landscape images
 │       │   ├── avif/   # AVIF format
 │       │   └── webp/   # WebP format
@@ -273,33 +292,29 @@ ImageFlow/
 │       │   └── portrait/   # Original portrait
 │       ├── gif/       # GIF format images
 │       └── metadata/  # Image metadata (including expiration information)
-├── utils/         # Utility functions
-├── .env          # Environment variables
-├── .env.example  # Example environment configuration
-├── Dockerfile    # Docker configuration
-├── docker-compose.yaml      # Docker Compose configuration
+├── utils/          # Backend utility functions
+│   ├── cleaner.go  # Expired image cleanup
+│   ├── converter.go # Image conversion
+│   ├── device.go   # Device detection
+│   ├── helpers.go  # Helper functions
+│   ├── image.go    # Image processing
+│   ├── metadata.go # Metadata handling
+│   ├── s3client.go # S3 storage client
+│   └── storage.go  # Storage interface
+├── .env            # Environment variables
+├── .env.example    # Example environment configuration
+├── Dockerfile      # Main Docker configuration
+├── Dockerfile.backend # Backend Docker configuration
+├── Dockerfile.frontend # Frontend Docker configuration
+├── docker-compose.yaml      # Docker Compose configuration (using pre-built image)
 ├── docker-compose-build.yml # Docker Compose build configuration
-├── go.mod        # Go module file
-├── go.sum        # Go module checksum
-├── main.go       # Main application entry
-└── README.md     # Project documentation
+├── docker-compose-separate.yaml # Separate Docker Compose configuration
+├── go.mod          # Go module file
+├── go.sum          # Go module checksum
+├── main.go         # Main application entry
+├── README.md       # English project documentation
+└── README_zh.md    # Chinese project documentation
 ```
-
-## 🆕 Recent Updates
-
-### Version 1.4.1
-
-- **Tag Management**: Added support for tagging images during upload and filtering by tags
-- **Improved UI**: Enhanced tag management interface with modern design
-- **Bug Fixes**:
-  - Fixed image expiration functionality to work properly with both local and S3 storage
-  - Improved PNG image handling with optional lossless compression
-  - Fixed random image API to correctly filter by tags
-  - Optimized device-specific image orientation detection
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to submit code, report issues, or suggest improvements!
 
 ## 📄 License
 

@@ -21,8 +21,7 @@ RUN apk add --no-cache \
     ca-certificates \
     libwebp-tools \
     libavif-apps \
-    wget \
-    curl
+    wget
 
 RUN mkdir -p /app/static/images/metadata && \
     mkdir -p /app/static/images/original/landscape && \
@@ -35,6 +34,21 @@ RUN mkdir -p /app/static/images/metadata && \
 COPY --from=builder /app/imageflow /app/
 COPY --from=builder /app/config /app/config
 
+ENV API_KEY=""
+ENV STORAGE_TYPE="local"
+ENV LOCAL_STORAGE_PATH="/app/static/images"
+ENV S3_ENDPOINT=""
+ENV S3_REGION=""
+ENV S3_ACCESS_KEY=""
+ENV S3_SECRET_KEY=""
+ENV S3_BUCKET=""
+ENV CUSTOM_DOMAIN=""
+ENV MAX_UPLOAD_COUNT="20"
+ENV IMAGE_QUALITY="80"
+ENV WORKER_THREADS="4"
+ENV COMPRESSION_EFFORT="6"
+ENV FORCE_LOSSLESS="false"
+
 EXPOSE 8686
 
-CMD ["./imageflow"] 
+CMD ["./imageflow"]
