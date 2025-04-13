@@ -1,5 +1,5 @@
 import { getFullUrl } from "./baseUrl";
-import { ImageFile } from "../types";
+import type { ImageFile } from "../types";
 
 /**
  * 复制文本到剪贴板
@@ -70,4 +70,4 @@ export const copyHtmlImgTag = async (image: ImageFile): Promise<boolean> => {
   const url = getFullUrl(image.urls?.webp || image.urls?.original || image.url);
   const html = buildHtmlImgTag(url, image.filename);
   return copyToClipboard(html);
-}; 
+};

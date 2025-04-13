@@ -9,12 +9,13 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
 import ContextMenu, { ContextMenuGroup } from "./ContextMenu";
 import { showToast } from "./ToastContainer";
-import { 
-  copyOriginalUrl, 
-  copyWebpUrl, 
-  copyAvifUrl, 
-  copyMarkdownLink, 
-  copyHtmlImgTag 
+import {
+  copyOriginalUrl,
+  copyWebpUrl,
+  copyAvifUrl,
+  copyMarkdownLink,
+  copyHtmlImgTag,
+  copyToClipboard,
 } from "../utils/copyImageUtils";
 
 // 格式化文件大小
@@ -84,28 +85,6 @@ export default function ImageCard({
     image.orientation
   );
 
-  // 复制URL到剪贴板
-  const handleCopyToClipboard = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const absoluteUrl = getFullUrl(image.urls?.webp || image.url);
-      if (!absoluteUrl) {
-        throw new Error("Invalid URL");
-      }
-      const success = await copyTextToClipboard(absoluteUrl);
-      if (success) {
-        setCopyStatus("copied");
-      } else {
-        throw new Error("Copy failed");
-      }
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch (err) {
-      console.error("复制失败:", err);
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    }
-  };
-
   // 处理右键菜单
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -128,25 +107,25 @@ export default function ImageCard({
   const handleCopy = async (type: string) => {
     try {
       let success = false;
-      
+
       switch (type) {
-        case 'original':
+        case "original":
           success = await copyOriginalUrl(image);
           break;
-        case 'webp':
+        case "webp":
           success = await copyWebpUrl(image);
           break;
-        case 'avif':
+        case "avif":
           success = await copyAvifUrl(image);
           break;
-        case 'markdown':
+        case "markdown":
           success = await copyMarkdownLink(image);
           break;
-        case 'html':
+        case "html":
           success = await copyHtmlImgTag(image);
           break;
       }
-      
+
       if (success) {
         showToast("复制成功", "success");
       } else {
@@ -180,8 +159,19 @@ export default function ImageCard({
           label: `复制原始链接 (${image.format.toUpperCase()})`,
           onClick: () => handleCopy("original"),
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
             </svg>
           ),
         },
@@ -190,8 +180,19 @@ export default function ImageCard({
           label: "复制WebP链接",
           onClick: () => handleCopy("webp"),
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
             </svg>
           ),
           disabled: !image.urls?.webp,
@@ -201,8 +202,19 @@ export default function ImageCard({
           label: "复制AVIF链接",
           onClick: () => handleCopy("avif"),
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
             </svg>
           ),
           disabled: !image.urls?.avif,
@@ -217,8 +229,19 @@ export default function ImageCard({
           label: "复制Markdown标签",
           onClick: () => handleCopy("markdown"),
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+              />
             </svg>
           ),
         },
@@ -227,8 +250,19 @@ export default function ImageCard({
           label: "复制HTML标签",
           onClick: () => handleCopy("html"),
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+              />
             </svg>
           ),
         },
@@ -242,9 +276,25 @@ export default function ImageCard({
           label: "预览图片",
           onClick: onClick,
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
             </svg>
           ),
         },
@@ -254,8 +304,19 @@ export default function ImageCard({
           onClick: handleDelete,
           danger: true,
           icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           ),
         },
@@ -330,7 +391,10 @@ export default function ImageCard({
             <motion.button
               initial={{ opacity: 0 }}
               animate={{ opacity: isHovered ? 1 : 0 }}
-              onClick={copyToClipboard}
+              onClick={(e) => {
+                e.stopPropagation();
+                copyToClipboard(getFullUrl(image.urls?.webp || image.url));
+              }}
               className="p-1.5 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
               title="复制URL"
             >
@@ -388,7 +452,7 @@ export default function ImageCard({
       </motion.div>
 
       {/* 右键菜单 */}
-      <ContextMenu 
+      <ContextMenu
         items={menuGroups}
         isOpen={contextMenu.isOpen}
         x={contextMenu.x}
