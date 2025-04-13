@@ -16,7 +16,8 @@ interface UploadSectionProps {
   isPreviewOpen?: boolean
   fileCount?: number
   existingFiles?: { id: string, file: File }[]
-  onExpiryChange?: (minutes: number) => void
+  expiryMinutes: number
+  setExpiryMinutes: React.Dispatch<React.SetStateAction<number>>
   onTagsChange?: (tags: string[]) => void
 }
 
@@ -29,14 +30,14 @@ export default function UploadSection({
   isPreviewOpen,
   fileCount = 0,
   existingFiles = [],
-  onExpiryChange,
+  expiryMinutes,
+  setExpiryMinutes,
   onTagsChange
 }: UploadSectionProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
   const [wasUploading, setWasUploading] = useState(false)
   const [exceedsLimit, setExceedsLimit] = useState(false)
-  const [expiryMinutes, setExpiryMinutes] = useState<number>(0)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [availableTags, setAvailableTags] = useState<string[]>([])
 
@@ -85,16 +86,6 @@ export default function UploadSection({
       setFileDetails(existingFiles);
     }
   }, [existingFiles]);
-
-  // 处理过期时间变化
-  const handleExpiryChange = (minutes: number) => {
-    setExpiryMinutes(minutes);
-    
-    // 通知父组件
-    if (onExpiryChange) {
-      onExpiryChange(minutes);
-    }
-  };
 
   // 处理标签变化
   const handleTagsChange = (tags: string[]) => {
@@ -180,7 +171,7 @@ export default function UploadSection({
             maxUploadCount={maxUploadCount}
           />
 
-          <ExpirySelector onChange={handleExpiryChange} />
+          <ExpirySelector onChange={setExpiryMinutes} />
 
           <TagSelector
             selectedTags={selectedTags}

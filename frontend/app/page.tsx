@@ -260,11 +260,7 @@ export default function Home() {
     setShowPreviewSidebar(false);
   }
 
-  // 更新标签和过期时间
-  const handleExpiryChange = (minutes: number) => {
-    setExpiryMinutes(minutes);
-  }
-
+  // 更新标签
   const handleTagsChange = (tags: string[]) => {
     setSelectedTags(tags);
   }
@@ -290,11 +286,12 @@ export default function Home() {
         isPreviewOpen={showPreviewSidebar}
         fileCount={fileDetails.length}
         existingFiles={fileDetails}
-        onExpiryChange={handleExpiryChange}
+        expiryMinutes={expiryMinutes}
+        setExpiryMinutes={setExpiryMinutes}
         onTagsChange={handleTagsChange}
       />
 
-      {/* 添加一个查看已上传图片按钮，只有在有上传结果且结果侧边栏关闭时显示 */}
+      {/* 只有在有上传结果且结果侧边栏关闭时显示 */}
       {uploadResults.length > 0 && !showResultSidebar && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
@@ -311,7 +308,7 @@ export default function Home() {
         </motion.button>
       )}
 
-      {/* 添加一个查看待上传图片按钮，只有在有待上传图片且预览侧边栏关闭时显示 */}
+      {/* 只有在有待上传图片且预览侧边栏关闭时显示 */}
       {fileDetails.length > 0 && !showPreviewSidebar && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}

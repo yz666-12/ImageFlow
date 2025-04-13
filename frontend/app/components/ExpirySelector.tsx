@@ -46,7 +46,6 @@ export default function ExpirySelector({ onChange }: ExpirySelectorProps) {
         minutes = timeUnit === 'minutes' ? customValue : customValue * 60
         break
     }
-
     onChange(minutes)
   }
 
