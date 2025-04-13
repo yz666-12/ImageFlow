@@ -2,8 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
+body {
+    font-family: Inter, "Noto Sans SC", system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+}
 /* Masonry Grid Styles */
 .my-masonry-grid {
     display: flex;
@@ -80,7 +82,8 @@ html {
 
 @layer base {
     body {
-        font-family: 'Poppins', sans-serif;
+        font-family: Inter, "Noto Sans SC", system-ui, -apple-system, sans-serif;
+        font-weight: 700;
         @apply bg-light-bg-primary text-light-text-primary transition-colors duration-300;
     }
 

@@ -3,11 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 
-// Load environment variables from parent directory's .env file
 const parentEnvPath = path.resolve(process.cwd(), '../.env');
 if (fs.existsSync(parentEnvPath)) {
   const parentEnv = dotenv.parse(fs.readFileSync(parentEnvPath));
-  // Merge parent .env variables into process.env
   for (const [key, value] of Object.entries(parentEnv)) {
     process.env[key] = value;
   }
@@ -16,14 +14,12 @@ if (fs.existsSync(parentEnvPath)) {
 /** @type {boolean} */
 const isStaticExport = !process.env.NEXT_PUBLIC_API_URL;
 
-// Parse remote patterns to extract protocol if present
 const parseRemotePatterns = (patterns) => {
   if (!patterns) return [{ protocol: 'http', hostname: '' }];
 
   const patternList = patterns.split(',');
   return patternList.map(pattern => {
     pattern = pattern.trim();
-    // Check if pattern includes http:// or https://
     if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
       const url = new URL(pattern);
       return {
@@ -32,7 +28,6 @@ const parseRemotePatterns = (patterns) => {
       };
     }
 
-    // Default to http if no protocol specified
     return {
       protocol: 'http',
       hostname: pattern
@@ -50,8 +45,7 @@ const nextConfig = {
     unoptimized: isStaticExport,
     remotePatterns: remotePatterns
   },
-  optimizeFonts: false,
-  // We'll get the config from the API instead of environment variables
+  optimizeFonts: true,
   env: {}
 };
 

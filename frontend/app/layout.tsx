@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 
-// Configure font with display: swap to avoid FOIT (Flash of Invisible Text)
+// Configure Inter font
 const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  preload: false, // Don't preload the font
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+});
+
+// Configure Noto Sans SC font with bold weight
+const notoSansSC = Noto_Sans_SC({
+  subsets: ['latin'],
+  weight: ['700'],  // Only use bold weight
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -33,9 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" className="light">
-      <body
-        className={`${inter.className} page-bg py-10 transition-colors duration-300 light-mode`}
-      >
+      <body className={`${inter.className} ${notoSansSC.className} page-bg py-10 transition-colors duration-300 light-mode font-bold`}>
         {/* 动态背景 */}
         <div className="animated-bg">
           <div className="bubble"></div>
