@@ -1,0 +1,40 @@
+FROM golang:1.22-alpine AS builder
+
+ENV GO111MODULE=on
+
+WORKDIR /app
+
+RUN apk add --no-cache git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
+
+FROM alpine:latest
+
+WORKDIR /app
+
+RUN apk add --no-cache \
+    ca-certificates \
+    libwebp-tools \
+    libavif-apps \
+    wget \
+    curl
+
+RUN mkdir -p /app/static/images/metadata && \
+    mkdir -p /app/static/images/original/landscape && \
+    mkdir -p /app/static/images/original/portrait && \
+    mkdir -p /app/static/images/landscape/webp && \
+    mkdir -p /app/static/images/landscape/avif && \
+    mkdir -p /app/static/images/portrait/webp && \
+    mkdir -p /app/static/images/portrait/avif
+
+COPY --from=builder /app/imageflow /app/
+COPY --from=builder /app/config /app/config
+
+EXPOSE 8686
+
+CMD ["./imageflow"] 

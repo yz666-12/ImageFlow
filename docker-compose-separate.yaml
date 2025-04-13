@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8686:8686"
+    environment:
+      # API Configuration
+      - API_KEY=${API_KEY:-default_api_key}
+      
+      # Storage Configuration
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - LOCAL_STORAGE_PATH=/app/static/images
+      
+      # S3 Configuration
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_REGION=${S3_REGION:-}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - CUSTOM_DOMAIN=${CUSTOM_DOMAIN:-}
+      
+      # Image Processing Configuration
+      - MAX_UPLOAD_COUNT=${MAX_UPLOAD_COUNT:-20}
+      - IMAGE_QUALITY=${IMAGE_QUALITY:-80}
+      - WORKER_THREADS=${WORKER_THREADS:-4}
+      - COMPRESSION_EFFORT=${COMPRESSION_EFFORT:-6}
+      - FORCE_LOSSLESS=${FORCE_LOSSLESS:-false}
+    volumes:
+      - ./static/images:/app/static/images
+      - ./config:/app/config
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686/", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8686
+    depends_on:
+      - backend
+    restart: unless-stopped 
