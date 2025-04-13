@@ -13,16 +13,15 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
 
-FROM oven/bun:1 AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-COPY frontend/package.json frontend/bun.lockb* ./
-
-RUN bun install --frozen-lockfile
+COPY frontend/package*.json ./
+RUN npm install
 
 COPY frontend/ ./
-RUN bun run build
+RUN npm run build
 
 FROM alpine:latest
 

@@ -162,7 +162,9 @@ func main() {
 	faviconServer := http.FileServer(http.Dir("favicon"))
 	http.Handle("/favicon-16.png", faviconServer)
 	http.Handle("/favicon-32.png", faviconServer)
+	http.Handle("/favicon-48.png", faviconServer)
 	http.Handle("/favicon.ico", faviconServer)
+	http.Handle("/favicon.svg", faviconServer)
 
 	// Text files
 	http.HandleFunc("/index.txt", func(w http.ResponseWriter, r *http.Request) {
