@@ -10,6 +10,7 @@ import UploadSection from './components/UploadSection'
 import StatusMessage from './components/StatusMessage'
 import UploadProgress from './components/UploadProgress'
 import ImageSidebar from './components/ImageSidebar'
+import PreviewSidebar from './components/upload/PreviewSidebar'
 import { motion } from 'framer-motion'
 
 const DEFAULT_MAX_UPLOAD_COUNT = 10;
@@ -20,15 +21,30 @@ export default function Home() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [status, setStatus] = useState<StatusMessageType | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
-  const [showSidebar, setShowSidebar] = useState(false)
+  const [showResultSidebar, setShowResultSidebar] = useState(false)
+  const [showPreviewSidebar, setShowPreviewSidebar] = useState(false)
   const [isKeyVerified, setIsKeyVerified] = useState(false)
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
+  const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [expiryMinutes, setExpiryMinutes] = useState<number>(0)
 
   useEffect(() => {
-    if (uploadResults.length > 0 && !showSidebar) {
-      setShowSidebar(true)
+    if (uploadResults.length > 0 && !showResultSidebar) {
+      setShowResultSidebar(true)
+      // 上传完成后关闭预览侧边栏
+      setShowPreviewSidebar(false)
     }
   }, [uploadResults])
+
+  // 监听文件选择，当有文件选择时，打开预览侧边栏
+  useEffect(() => {
+    if (fileDetails.length > 0 && !showPreviewSidebar) {
+      setShowPreviewSidebar(true)
+    } else if (fileDetails.length === 0) {
+      setShowPreviewSidebar(false)
+    }
+  }, [fileDetails])
 
   useEffect(() => {
     const checkApiKey = async () => {
@@ -73,7 +89,11 @@ export default function Home() {
     fetchConfig()
   }, [])
 
-  const handleUpload = async (selectedFiles: File[], expiryMinutes: number, tags: string[]) => {
+  const handleUpload = async () => {
+    const selectedFiles = fileDetails.map(item => item.file)
+    
+    if (selectedFiles.length === 0) return
+
     const apiKey = getApiKey()
     if (!apiKey) {
       setShowApiKeyModal(true)
@@ -105,8 +125,8 @@ export default function Home() {
       formData.append('expiryMinutes', expiryMinutes.toString())
 
       // 添加标签参数
-      if (tags.length > 0) {
-        formData.append('tags', tags.join(','))
+      if (selectedTags.length > 0) {
+        formData.append('tags', selectedTags.join(','))
       }
 
       // 使用自定义上传方法
@@ -148,6 +168,9 @@ export default function Home() {
         type: errorCount === 0 ? 'success' : 'warning',
         message: `上传完成：共${totalCount}张，${successCount}张成功，${errorCount}张失败`
       })
+      
+      // 重置文件详情，清空上传队列
+      setFileDetails([])
     } catch (error) {
       let errorMessage = '上传失败，请重试'
 
@@ -194,7 +217,7 @@ export default function Home() {
 
         // If after deletion no images are left, close the sidebar
         if (uploadResults.length <= 1) {
-          setShowSidebar(false);
+          setShowResultSidebar(false);
         }
 
         setStatus({
@@ -216,25 +239,67 @@ export default function Home() {
     }
   }
 
+  // 文件选择、删除和清空处理函数
+  const handleFilesSelected = (files: { id: string, file: File }[]) => {
+    setFileDetails(files);
+  }
+
+  const handleRemoveFile = (id: string) => {
+    const updatedFiles = fileDetails.filter(item => item.id !== id);
+    setFileDetails(updatedFiles);
+    
+    // 如果没有文件了，可以选择关闭侧边栏
+    if (updatedFiles.length === 0) {
+      setShowPreviewSidebar(false);
+    }
+  }
+
+  const handleRemoveAllFiles = () => {
+    setFileDetails([]);
+    setShowPreviewSidebar(false);
+  }
+
+  // 更新标签和过期时间
+  const handleExpiryChange = (minutes: number) => {
+    setExpiryMinutes(minutes);
+  }
+
+  const handleTagsChange = (tags: string[]) => {
+    setSelectedTags(tags);
+  }
+
+  // 切换侧边栏状态
+  const togglePreviewSidebar = () => {
+    setShowPreviewSidebar(!showPreviewSidebar);
+  }
+
+  // 计算主内容的样式，根据侧边栏是否打开调整内容区域
+  const mainContentStyle = { margin: '0 auto' };
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
+    <div className="max-w-4xl mx-auto px-6 py-8" style={mainContentStyle}>
       <Header onApiKeyClick={() => setShowApiKeyModal(true)} isKeyVerified={isKeyVerified} />
 
       <UploadSection
         onUpload={handleUpload}
         isUploading={isUploading}
         maxUploadCount={maxUploadCount}
+        onFilesSelected={handleFilesSelected}
+        onTogglePreview={togglePreviewSidebar}
+        isPreviewOpen={showPreviewSidebar}
+        fileCount={fileDetails.length}
+        existingFiles={fileDetails}
+        onExpiryChange={handleExpiryChange}
+        onTagsChange={handleTagsChange}
       />
 
-      {status && <StatusMessage type={status.type} message={status.message} />}
-
-      {/* 添加一个查看图片按钮，只有在有上传结果且侧边栏关闭时显示 */}
-      {uploadResults.length > 0 && !showSidebar && (
+      {/* 添加一个查看已上传图片按钮，只有在有上传结果且结果侧边栏关闭时显示 */}
+      {uploadResults.length > 0 && !showResultSidebar && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           whileHover={{ scale: 1.1 }}
-          onClick={() => setShowSidebar(true)}
+          onClick={() => setShowResultSidebar(true)}
           className="fixed bottom-6 right-6 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all z-20 flex items-center justify-center"
           title="查看已上传图片"
         >
@@ -247,14 +312,44 @@ export default function Home() {
         </motion.button>
       )}
 
+      {/* 添加一个查看待上传图片按钮，只有在有待上传图片且预览侧边栏关闭时显示 */}
+      {fileDetails.length > 0 && !showPreviewSidebar && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          onClick={() => setShowPreviewSidebar(true)}
+          className="fixed bottom-20 right-6 bg-indigo-500 dark:bg-indigo-400 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all z-20 flex items-center justify-center"
+          title="查看待上传图片"
+        >
+          <div className="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+            </svg>
+            <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{fileDetails.length}</span>
+          </div>
+        </motion.button>
+      )}
+
       {isUploading && <UploadProgress progress={uploadProgress} />}
 
-      {/* 图片侧边栏 */}
+      {/* 上传结果侧边栏 */}
       <ImageSidebar
-        isOpen={showSidebar}
+        isOpen={showResultSidebar}
         results={uploadResults}
-        onClose={() => setShowSidebar(false)}
+        onClose={() => setShowResultSidebar(false)}
         onDelete={handleDeleteImage}
+      />
+
+      {/* 待上传图片预览侧边栏 */}
+      <PreviewSidebar
+        files={fileDetails}
+        onRemoveFile={handleRemoveFile}
+        onRemoveAll={handleRemoveAllFiles}
+        isOpen={showPreviewSidebar}
+        onClose={() => setShowPreviewSidebar(false)}
+        onUpload={handleUpload}
+        isUploading={isUploading}
       />
 
       <ApiKeyModal
