@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
+import { LoadingSpinner } from "./LoadingSpinner";
+import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
@@ -13,28 +15,6 @@ const formatFileSize = (bytes: number): string => {
   else if (bytes < 1024 * 1024 * 1024)
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-};
-
-// 获取格式标签
-const getFormatLabel = (format: string): string => {
-  const formatMap: { [key: string]: string } = {
-    png: "PNG",
-    jpg: "JPG",
-    jpeg: "JPEG",
-    webp: "WebP",
-    gif: "GIF",
-  };
-  return formatMap[format.toLowerCase()] || format.toUpperCase();
-};
-
-// 获取方向标签
-const getOrientationLabel = (orientation: string): string => {
-  const orientationMap: { [key: string]: string } = {
-    landscape: "横向",
-    portrait: "纵向",
-    square: "方形",
-  };
-  return orientationMap[orientation.toLowerCase()] || orientation;
 };
 
 export default function ImageCard({
@@ -140,16 +120,7 @@ export default function ImageCard({
           />
         )}
 
-        {/* Loading overlay */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/30 dark:bg-slate-900/50 backdrop-blur-[2px]">
-            <div className="relative w-10 h-10">
-              <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 dark:border-indigo-400/20"></div>
-              <div className="absolute inset-[2px] rounded-full border-2 border-indigo-500 dark:border-indigo-400 border-t-transparent animate-spin"></div>
-              <div className="absolute inset-0 rounded-full border-2 border-transparent animate-pulse"></div>
-            </div>
-          </div>
-        )}
+        {isLoading && <LoadingSpinner />}
 
         {/* Image info overlay */}
         <div

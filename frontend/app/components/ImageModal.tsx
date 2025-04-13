@@ -19,7 +19,6 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // 当模态框关闭时重置状态
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteConfirm(false);
@@ -27,7 +26,6 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
     }
   }, [isOpen]);
 
-  // 处理删除
   const handleDelete = async () => {
     if (!image) return;
 

@@ -3,6 +3,7 @@ import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { useState, useEffect, useCallback } from "react";
 import { imageQueue } from "../utils/imageQueue";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 interface ImagePreviewProps {
   image: ImageFile;
@@ -20,9 +21,8 @@ export const ImagePreview = ({
   const [isLoading, setIsLoading] = useState(true);
   const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const imageUrl = getFullUrl(image.url);
+  const imageUrl = getFullUrl(image.urls?.webp || image.url);
 
-  // Memoize the load handler
   const handleLoadComplete = useCallback(() => {
     setIsLoading(false);
     onLoad?.();
@@ -51,8 +51,6 @@ export const ImagePreview = ({
     };
 
     loadImage();
-
-    // Clean up on unmount
     return () => {
       setBlurDataUrl(null);
     };
@@ -73,7 +71,7 @@ export const ImagePreview = ({
 
   if (error) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-500">
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
         <span>Failed to load image</span>
       </div>
     );
@@ -83,7 +81,7 @@ export const ImagePreview = ({
     return (
       <div className="h-full w-full flex items-center justify-center">
         <img
-          src={imageUrl}
+          src={getFullUrl(image.url)}
           alt={image.filename}
           className={`max-h-full max-w-full object-contain transition-opacity duration-300 ${
             isLoading ? "opacity-0" : "opacity-100"
@@ -93,7 +91,7 @@ export const ImagePreview = ({
           onError={() => setError("Failed to load GIF")}
         />
         <a
-          href={imageUrl}
+          href={getFullUrl(image.url)}
           download={image.filename}
           className="absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors duration-300"
           onClick={(e) => e.stopPropagation()}
@@ -136,11 +134,7 @@ export const ImagePreview = ({
         onLoadingComplete={handleLoadComplete}
         onError={() => setError("Failed to load image")}
       />
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      )}
+      {isLoading && <LoadingSpinner />}
     </div>
   );
 };
