@@ -5,11 +5,6 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
-export interface PaginationParams {
-  page: number;
-  pageSize: number;
-}
-
 export interface PaginatedResponse<T> extends ApiResponse {
   data?: {
     items: T[];
@@ -63,12 +58,6 @@ export interface ImageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDelete: (id: string) => Promise<void>;
-}
-
-export interface PaginationProps {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
 }
 
 export interface ApiKeyModalProps {
