@@ -59,12 +59,176 @@ func determineImageOrientation(img image.Config) string {
 	return "portrait"
 }
 
+// processImage handles the processing of a single image file
+func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadResult {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error opening file: %v", err),
+		}
+	}
+	defer file.Close()
+
+	// Read image configuration to determine orientation
+	img, _, err := image.DecodeConfig(file)
+	if err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error reading image configuration: %v", err),
+		}
+	}
+	orientation := determineImageOrientation(img)
+
+	// Reset file pointer
+	if _, err := file.Seek(0, 0); err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error resetting file pointer: %v", err),
+		}
+	}
+
+	// Read file content
+	data := make([]byte, fileHeader.Size)
+	if _, err := file.Read(data); err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error reading file: %v", err),
+		}
+	}
+
+	// Generate unique filename
+	timestamp := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("%s_%d", timestamp, time.Now().UnixNano()%10000)
+	imageID := filename
+
+	// Detect image format
+	imgFormat, err := utils.DetectImageFormat(data)
+	if err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error detecting image format: %v", err),
+		}
+	}
+
+	var originalKey string
+	if imgFormat.Format == "gif" {
+		originalKey = filepath.Join("gif", filename+imgFormat.Extension)
+	} else {
+		originalKey = filepath.Join("original", orientation, filename+imgFormat.Extension)
+	}
+
+	if err := utils.Storage.Store(ctx.r.Context(), originalKey, data); err != nil {
+		return UploadResult{
+			Filename: fileHeader.Filename,
+			Status:   "error",
+			Message:  fmt.Sprintf("Error storing original file: %v", err),
+		}
+	}
+	log.Printf("Original image stored: %s", originalKey)
+
+	var webpURL, avifURL string
+	var wg sync.WaitGroup
+
+	if imgFormat.Format != "gif" {
+		// WebP conversion
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if webpData, err := utils.ConvertToWebP(data); err == nil {
+				webpKey := filepath.Join(orientation, "webp", filename+".webp")
+				if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err == nil {
+					webpURL = getPublicURL(webpKey)
+				}
+			}
+		}()
+
+		// AVIF conversion
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if avifData, err := utils.ConvertToAVIF(data); err == nil {
+				avifKey := filepath.Join(orientation, "avif", filename+".avif")
+				if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err == nil {
+					avifURL = getPublicURL(avifKey)
+				}
+			}
+		}()
+
+		wg.Wait()
+	}
+
+	// Get URL for original image
+	originalURL := getPublicURL(originalKey)
+
+	// Set WebP and AVIF URLs with defaults if conversion failed
+	if webpURL == "" {
+		webpURL = originalURL
+	}
+	if avifURL == "" {
+		avifURL = originalURL
+	}
+
+	var expiryTimeStr string
+	if !ctx.expiryTime.IsZero() {
+		expiryTimeStr = ctx.expiryTime.Format(time.RFC3339)
+	}
+
+	metadata := &utils.ImageMetadata{
+		ID:           imageID,
+		OriginalName: fileHeader.Filename,
+		UploadTime:   time.Now(),
+		Format:       imgFormat.Format,
+		Orientation:  orientation,
+		Tags:         ctx.tags,
+	}
+
+	if !ctx.expiryTime.IsZero() {
+		metadata.ExpiryTime = ctx.expiryTime
+	}
+
+	metadata.Paths.Original = originalKey
+	if webpURL != originalURL {
+		metadata.Paths.WebP = filepath.Join(orientation, "webp", imageID+".webp")
+	}
+	if avifURL != originalURL {
+		metadata.Paths.AVIF = filepath.Join(orientation, "avif", imageID+".avif")
+	}
+
+	if err := utils.MetadataManager.SaveMetadata(ctx.r.Context(), metadata); err != nil {
+		log.Printf("Warning: Failed to save metadata for image %s: %v", imageID, err)
+	}
+
+	return UploadResult{
+		Filename:    fileHeader.Filename,
+		Status:      "success",
+		Message:     "File uploaded and converted successfully",
+		Orientation: orientation,
+		Format:      imgFormat.Format,
+		ExpiryTime:  expiryTimeStr,
+		Tags:        ctx.tags,
+		URLs: map[string]string{
+			"original": originalURL,
+			"webp":     webpURL,
+			"avif":     avifURL,
+		},
+	}
+}
+
+type uploadContext struct {
+	r          *http.Request
+	expiryTime time.Time
+	tags       []string
+}
+
 // UploadHandler handles image uploads, converting them to multiple formats
 func UploadHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		workerSemaphore := make(chan struct{}, cfg.WorkerThreads)
-		log.Printf("Using %d parallel worker threads for image processing", cfg.WorkerThreads)
-
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -99,6 +263,13 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			}
 		}
 
+		// Calculate expiry time
+		var expiryTime time.Time
+		if expiryMinutes > 0 {
+			expiryTime = time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
+			log.Printf("Images will expire at: %v", expiryTime)
+		}
+
 		// Get tags parameter
 		var tags []string
 		if tagsParam := r.FormValue("tags"); tagsParam != "" {
@@ -112,300 +283,41 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			log.Printf("Image tags: %v", tags)
 		}
 
-		// Create result array and wait group
-		results := make([]UploadResult, 0, len(files))
-		resultsMutex := sync.Mutex{}
-		var wgFiles sync.WaitGroup
-
-		for _, fileHeader := range files {
-			// Add each file to wait group
-			wgFiles.Add(1)
-
-			// Start goroutine to process each file
-			go func(fileHeader *multipart.FileHeader) {
-				defer wgFiles.Done()
-
-				// Acquire worker slot
-				workerSemaphore <- struct{}{}
-				defer func() { <-workerSemaphore }()
-
-				// Calculate expiry time
-				var expiryTime time.Time
-				if expiryMinutes > 0 {
-					expiryTime = time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
-					log.Printf("Image will expire at: %v", expiryTime)
-				}
-
-				file, err := fileHeader.Open()
-				if err != nil {
-					log.Printf("Error opening file: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error opening file: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-				defer file.Close()
-
-				// Read image configuration to determine orientation
-				img, _, err := image.DecodeConfig(file)
-				if err != nil {
-					log.Printf("Error reading image configuration: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error reading image configuration: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-				orientation := determineImageOrientation(img)
-
-				// Reset file pointer
-				if _, err := file.Seek(0, 0); err != nil {
-					log.Printf("Error resetting file pointer: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error resetting file pointer: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-
-				// Read file content
-				data := make([]byte, fileHeader.Size)
-				if _, err := file.Read(data); err != nil {
-					log.Printf("Error reading file: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error reading file: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-
-				// Generate unique filename
-				timestamp := time.Now().Format("20060102_150405")
-				filename := fmt.Sprintf("%s_%d", timestamp, time.Now().UnixNano()%10000)
-				imageID := filename
-
-				// Detect image format
-				imgFormat, err := utils.DetectImageFormat(data)
-				if err != nil {
-					log.Printf("Error detecting image format: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error detecting image format: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-
-				// Check if it's a GIF file
-				var originalKey string
-				if imgFormat.Format == "gif" {
-					// Store GIF in special directory
-					originalKey = filepath.Join("gif", filename+imgFormat.Extension)
-				} else {
-					// Store other formats in original directory
-					originalKey = filepath.Join("original", orientation, filename+imgFormat.Extension)
-				}
-
-				if err := utils.Storage.Store(r.Context(), originalKey, data); err != nil {
-					log.Printf("Error storing original image: %v", err)
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename: fileHeader.Filename,
-						Status:   "error",
-						Message:  fmt.Sprintf("Error storing original file: %v", err),
-					})
-					resultsMutex.Unlock()
-					return
-				}
-				log.Printf("Original image stored: %s", originalKey)
-
-				// Check if it's a GIF file
-				var wg sync.WaitGroup
-				var webpURL, avifURL string
-
-				if imgFormat.Format == "gif" {
-					// GIF files are not converted, only store original format
-					log.Printf("GIF file stored in special directory: %s", originalKey)
-
-					var expiryTimeStr string
-					if !expiryTime.IsZero() {
-						expiryTimeStr = expiryTime.Format(time.RFC3339)
-					}
-
-					metadata := &utils.ImageMetadata{
-						ID:           imageID,
-						OriginalName: fileHeader.Filename,
-						UploadTime:   time.Now(),
-						Format:       imgFormat.Format,
-						Tags:         tags,
-					}
-
-					if !expiryTime.IsZero() {
-						metadata.ExpiryTime = expiryTime
-					}
-
-					metadata.Paths.Original = originalKey
-
-					if err := utils.MetadataManager.SaveMetadata(r.Context(), metadata); err != nil {
-						log.Printf("Warning: Failed to save metadata for GIF image %s: %v", imageID, err)
-					}
-
-					// Add success result to results array
-					resultsMutex.Lock()
-					results = append(results, UploadResult{
-						Filename:   fileHeader.Filename,
-						Status:     "success",
-						Message:    "GIF file uploaded successfully",
-						Format:     imgFormat.Format,
-						ExpiryTime: expiryTimeStr,
-						Tags:       tags,
-						URLs: map[string]string{
-							"original": getPublicURL(originalKey),
-							"webp":     "",
-							"avif":     "",
-						},
-					})
-					resultsMutex.Unlock()
-					return
-				}
-
-				// For non-GIF files, proceed with normal conversion
-				// Create channels to store conversion results
-				webpResultCh := make(chan []byte, 1)
-				avifResultCh := make(chan []byte, 1)
-
-				// WebP conversion
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					webpData, err := utils.ConvertToWebP(data)
-					if err != nil {
-						log.Printf("WebP conversion error: %v", err)
-						webpResultCh <- nil
-						return
-					}
-					webpResultCh <- webpData
-				}()
-
-				// AVIF conversion
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					avifData, err := utils.ConvertToAVIF(data)
-					if err != nil {
-						log.Printf("AVIF conversion error: %v", err)
-						avifResultCh <- nil
-						return
-					}
-					avifResultCh <- avifData
-				}()
-
-				// Wait for all conversions to complete
-				wg.Wait()
-
-				// Process WebP result
-				webpData := <-webpResultCh
-				if webpData != nil {
-					webpKey := filepath.Join(orientation, "webp", filename+".webp")
-					if err := utils.Storage.Store(r.Context(), webpKey, webpData); err != nil {
-						log.Printf("Error storing WebP image: %v", err)
-					} else {
-						log.Printf("WebP image stored: %s", webpKey)
-						webpURL = getPublicURL(webpKey)
-					}
-				}
-
-				// Process AVIF result
-				avifData := <-avifResultCh
-				if avifData != nil {
-					avifKey := filepath.Join(orientation, "avif", filename+".avif")
-					if err := utils.Storage.Store(r.Context(), avifKey, avifData); err != nil {
-						log.Printf("Error storing AVIF image: %v", err)
-					} else {
-						log.Printf("AVIF image stored: %s", avifKey)
-						avifURL = getPublicURL(avifKey)
-					}
-				}
-
-				// Get URL for original image
-				originalURL := getPublicURL(originalKey)
-
-				// Set WebP and AVIF URLs with defaults if conversion failed
-				if webpURL == "" {
-					webpURL = originalURL // Fallback to original when conversion fails
-				}
-				if avifURL == "" {
-					avifURL = originalURL // Fallback to original when conversion fails
-				}
-
-				var expiryTimeStr string
-				if !expiryTime.IsZero() {
-					expiryTimeStr = expiryTime.Format(time.RFC3339)
-				}
-
-				metadata := &utils.ImageMetadata{
-					ID:           imageID,
-					OriginalName: fileHeader.Filename,
-					UploadTime:   time.Now(),
-					Format:       imgFormat.Format,
-					Orientation:  orientation,
-					Tags:         tags,
-				}
-
-				if !expiryTime.IsZero() {
-					metadata.ExpiryTime = expiryTime
-				}
-
-				metadata.Paths.Original = originalKey
-				if webpURL != originalURL {
-					metadata.Paths.WebP = filepath.Join(orientation, "webp", imageID+".webp")
-				}
-				if avifURL != originalURL {
-					metadata.Paths.AVIF = filepath.Join(orientation, "avif", imageID+".avif")
-				}
-
-				// Save Metadata
-				if err := utils.MetadataManager.SaveMetadata(r.Context(), metadata); err != nil {
-					log.Printf("Warning: Failed to save metadata for image %s: %v", imageID, err)
-				}
-
-				// Add success result to results array
-				resultsMutex.Lock()
-				results = append(results, UploadResult{
-					Filename:    fileHeader.Filename,
-					Status:      "success",
-					Message:     "File uploaded and converted successfully",
-					Orientation: orientation,
-					Format:      imgFormat.Format,
-					ExpiryTime:  expiryTimeStr,
-					Tags:        tags,
-					URLs: map[string]string{
-						"original": originalURL,
-						"webp":     webpURL,
-						"avif":     avifURL,
-					},
-				})
-				resultsMutex.Unlock()
-			}(fileHeader) // Pass fileHeader to goroutine
+		ctx := &uploadContext{
+			r:          r,
+			expiryTime: expiryTime,
+			tags:       tags,
 		}
 
-		// Wait for all files to be processed
-		wgFiles.Wait()
+		// Create a buffered channel to limit concurrent processing
+		semaphore := make(chan struct{}, cfg.WorkerThreads)
+		resultsChan := make(chan UploadResult, len(files))
+
+		// Process each file concurrently with limited concurrency
+		var wg sync.WaitGroup
+		for _, fileHeader := range files {
+			wg.Add(1)
+			go func(fh *multipart.FileHeader) {
+				defer wg.Done()
+				semaphore <- struct{}{} // Acquire a slot
+				result := processImage(ctx, fh)
+				<-semaphore // Release the slot
+				resultsChan <- result
+			}(fileHeader)
+		}
+
+		// Start a goroutine to close results channel after all processing is done
+		go func() {
+			wg.Wait()
+			close(resultsChan)
+		}()
+
+		// Collect and send results as they come in
+		results := make([]UploadResult, 0, len(files))
+		for result := range resultsChan {
+			results = append(results, result)
+			// Optionally flush partial results to client here if needed
+		}
 
 		// Return JSON response
 		w.Header().Set("Content-Type", "application/json")
