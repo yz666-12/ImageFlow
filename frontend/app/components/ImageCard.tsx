@@ -7,6 +7,7 @@ import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
+import { copyToClipboard as copyTextToClipboard } from "../utils/clipboard";
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
@@ -66,12 +67,19 @@ export default function ImageCard({
   );
 
   // 复制URL到剪贴板
-  const copyToClipboard = async (e: React.MouseEvent) => {
+  const handleCopyToClipboard = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const absoluteUrl = getFullUrl(image.urls?.webp || image.url);
-      await navigator.clipboard.writeText(absoluteUrl);
-      setCopyStatus("copied");
+      if (!absoluteUrl) {
+        throw new Error("Invalid URL");
+      }
+      const success = await copyTextToClipboard(absoluteUrl);
+      if (success) {
+        setCopyStatus("copied");
+      } else {
+        throw new Error("Copy failed");
+      }
       setTimeout(() => setCopyStatus("idle"), 2000);
     } catch (err) {
       console.error("复制失败:", err);
@@ -144,7 +152,7 @@ export default function ImageCard({
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: isHovered ? 1 : 0 }}
-            onClick={copyToClipboard}
+            onClick={handleCopyToClipboard}
             className="p-1.5 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
             title="复制URL"
           >
