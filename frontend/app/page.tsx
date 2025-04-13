@@ -12,6 +12,7 @@ import UploadProgress from './components/UploadProgress'
 import ImageSidebar from './components/ImageSidebar'
 import PreviewSidebar from './components/upload/PreviewSidebar'
 import { motion } from 'framer-motion'
+import { ImageIcon, PlusCircledIcon } from './components/ui/icons'
 
 const DEFAULT_MAX_UPLOAD_COUNT = 10;
 
@@ -259,11 +260,7 @@ export default function Home() {
     setShowPreviewSidebar(false);
   }
 
-  // 更新标签和过期时间
-  const handleExpiryChange = (minutes: number) => {
-    setExpiryMinutes(minutes);
-  }
-
+  // 更新标签
   const handleTagsChange = (tags: string[]) => {
     setSelectedTags(tags);
   }
@@ -289,11 +286,12 @@ export default function Home() {
         isPreviewOpen={showPreviewSidebar}
         fileCount={fileDetails.length}
         existingFiles={fileDetails}
-        onExpiryChange={handleExpiryChange}
+        expiryMinutes={expiryMinutes}
+        setExpiryMinutes={setExpiryMinutes}
         onTagsChange={handleTagsChange}
       />
 
-      {/* 添加一个查看已上传图片按钮，只有在有上传结果且结果侧边栏关闭时显示 */}
+      {/* 只有在有上传结果且结果侧边栏关闭时显示 */}
       {uploadResults.length > 0 && !showResultSidebar && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
@@ -304,15 +302,13 @@ export default function Home() {
           title="查看已上传图片"
         >
           <div className="relative">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-            </svg>
+            <ImageIcon className="h-6 w-6" />
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{uploadResults.length}</span>
           </div>
         </motion.button>
       )}
 
-      {/* 添加一个查看待上传图片按钮，只有在有待上传图片且预览侧边栏关闭时显示 */}
+      {/* 只有在有待上传图片且预览侧边栏关闭时显示 */}
       {fileDetails.length > 0 && !showPreviewSidebar && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
@@ -323,9 +319,7 @@ export default function Home() {
           title="查看待上传图片"
         >
           <div className="relative">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-            </svg>
+            <PlusCircledIcon className="h-6 w-6" />
             <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{fileDetails.length}</span>
           </div>
         </motion.button>

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { ImageData, CopyStatus } from '../../types/image'
 import { getFullUrl } from '../../utils/baseUrl'
 import { copyToClipboard } from '../../utils/clipboard'
+import { CheckIcon, CopyIcon, ImageIcon, FileIcon, Link1Icon } from '../ui/icons'
 
 interface ImageUrlsProps {
   image: ImageData
@@ -42,13 +43,9 @@ function UrlItem({ title, url, icon, iconColor, copyType, copyStatus, onCopy }: 
           title="复制链接"
         >
           {copyStatus && copyStatus.type === copyType ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
+            <CheckIcon className="h-5 w-5 text-green-500" />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            <CopyIcon className="h-5 w-5" />
           )}
           {copyStatus && copyStatus.type === copyType && (
             <span className="absolute -top-8 right-0 bg-black/70 text-white text-xs rounded px-2 py-1">
@@ -92,11 +89,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
       <UrlItem
         title="原始图片"
         url={originalUrl}
-        icon={
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-          </svg>
-        }
+        icon={<ImageIcon className="h-5 w-5" />}
         iconColor="text-blue-500"
         copyType="original"
         copyStatus={copyStatus}
@@ -107,11 +100,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
         <UrlItem
           title="WebP 格式"
           url={webpUrl}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          }
+          icon={<FileIcon className="h-5 w-5" />}
           iconColor="text-purple-500"
           copyType="webp"
           copyStatus={copyStatus}
@@ -123,11 +112,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
         <UrlItem
           title="AVIF 格式"
           url={avifUrl}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          }
+          icon={<FileIcon className="h-5 w-5" />}
           iconColor="text-green-500"
           copyType="avif"
           copyStatus={copyStatus}
@@ -138,11 +123,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
       <UrlItem
         title="Markdown 格式"
         url={`![${image.filename}](${originalUrl})`}
-        icon={
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-          </svg>
-        }
+        icon={<Link1Icon className="h-5 w-5" />}
         iconColor="text-amber-500"
         copyType="markdown"
         copyStatus={copyStatus}

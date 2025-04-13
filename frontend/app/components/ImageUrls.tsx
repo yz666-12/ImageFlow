@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ImageFile } from "../types";
 import { buildMarkdownLink } from "../utils/imageUtils";
 import { copyToClipboard } from "../utils/clipboard";
 import { getFullUrl } from "../utils/baseUrl";
+import { CheckIcon, CopyIcon, ImageIcon } from "./ui/icons";
 
 interface ImageUrlsProps {
   image: ImageFile;
@@ -10,6 +11,7 @@ interface ImageUrlsProps {
 
 export const ImageUrls = ({ image }: ImageUrlsProps) => {
   const [copyStatus, setCopyStatus] = useState<{ type: string } | null>(null);
+  const [copyStates, setCopyStates] = useState<Record<string, boolean>>({});
 
   const handleCopy = (
     text: string,
@@ -22,8 +24,10 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       .then((success) => {
         if (success) {
           setCopyStatus({ type });
+          setCopyStates({ [type]: true });
           setTimeout(() => {
             setCopyStatus(null);
+            setCopyStates({ [type]: false });
           }, 2000);
         } else {
           console.error("复制失败");
@@ -47,40 +51,15 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
 
   const CopyButton = ({ type, text }: { type: string; text: string }) => (
     <button
+      type="button"
+      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-r-lg px-2 py-1 flex items-center justify-center"
       onClick={(e) => handleCopy(text, type, e)}
-      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-r-lg transition-colors relative"
-      title="复制链接"
+      aria-label="复制链接"
     >
-      {copyStatus && copyStatus.type === type ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-green-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
+      {copyStates[type] ? (
+        <CheckIcon className="h-3 w-3" />
       ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-gray-500 dark:text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-          />
-        </svg>
+        <CopyIcon className="h-3 w-3" />
       )}
     </button>
   );
@@ -98,20 +77,7 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
   }) => (
     <div className="mb-1">
       <div className="flex items-center gap-1 mb-1">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className={`h-3 w-3 ${icon}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"
-          />
-        </svg>
+        <ImageIcon className={`h-3 w-3 ${icon}`} />
         <div className="text-xs font-medium">{label}</div>
       </div>
 

@@ -19,6 +19,7 @@ import {
 } from "../types";
 import Header from "../components/Header";
 import ToastContainer from "../components/ToastContainer";
+import { ImageIcon, Spinner } from "../components/ui/icons";
 
 export default function Manage() {
   useTheme(); 
@@ -225,7 +226,7 @@ export default function Manage() {
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+          <Spinner className="h-12 w-12 text-indigo-500" />
         </div>
       ) : (
         <>
@@ -297,7 +298,7 @@ export default function Manage() {
               </div>
               {isFetchingMore && (
                 <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                  <Spinner className="h-8 w-8 text-indigo-500" />
                   <span className="ml-2 text-indigo-500">加载更多图片...</span>
                 </div>
               )}
@@ -309,19 +310,7 @@ export default function Manage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
-              <svg
-                className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+              <ImageIcon className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
               <p className="text-lg font-medium">暂无图片</p>
               <p className="mt-2 text-sm">请上传图片或调整筛选条件</p>
             </div>

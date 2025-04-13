@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { TagIcon, PlusIcon, Cross1Icon } from '../ui/icons'
 
 interface TagSelectorProps {
   selectedTags: string[]
@@ -56,9 +57,7 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
     <div className="mb-6">
       <div className="flex items-center space-x-4 mb-2">
         <div className="flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-          </svg>
+          <TagIcon className="h-5 w-5 mr-2 text-indigo-500" />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">标签：</span>
         </div>
 
@@ -90,9 +89,7 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
               onClick={handleAddTag}
               className="px-3 py-2 rounded-r-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-medium transition-colors duration-200 text-sm flex items-center"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
+              <PlusIcon className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -111,9 +108,7 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
                 onClick={() => handleRemoveTag(tag)}
                 className="ml-1.5 rounded-full p-0.5 hover:bg-white/20 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Cross1Icon className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
