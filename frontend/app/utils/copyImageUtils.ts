@@ -6,8 +6,35 @@ import type { ImageFile } from "../types";
  */
 export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    // 优先使用 Clipboard API
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    // 后备方案：使用传统的 document.execCommand 方法
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    
+    // 防止滚动
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return successful;
+    } catch (err) {
+      document.body.removeChild(textArea);
+      console.error("复制失败:", err);
+      return false;
+    }
   } catch (err) {
     console.error("复制失败:", err);
     return false;
