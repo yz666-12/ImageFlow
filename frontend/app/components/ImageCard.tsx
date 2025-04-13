@@ -49,10 +49,8 @@ export default function ImageCard({
   );
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const isGif = image.format.toLowerCase() === "gif";
 
-  // Image load handler
   const handleImageLoad = useCallback(() => {
     setIsLoading(false);
   }, []);
@@ -91,7 +89,7 @@ export default function ImageCard({
   const copyToClipboard = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const absoluteUrl = getFullUrl(image.url);
+      const absoluteUrl = getFullUrl(image.urls?.webp || image.url);
       await navigator.clipboard.writeText(absoluteUrl);
       setCopyStatus("copied");
       setTimeout(() => setCopyStatus("idle"), 2000);
@@ -121,39 +119,35 @@ export default function ImageCard({
           <img
             src={getFullUrl(image.url)}
             alt={image.filename}
-            loading="lazy"
             onLoad={handleImageLoad}
             className={`w-full h-full object-cover transition-all duration-500 ${
-              isLoading
-                ? "scale-110 blur-lg"
-                : "scale-100 blur-0 group-hover:scale-105"
+              isLoading ? "opacity-0" : "opacity-100 group-hover:scale-105"
             }`}
           />
         ) : (
           // Use Next.js Image for non-GIF images with optimizations
           <Image
-            src={getFullUrl(image.url)}
+            src={getFullUrl(image.urls?.webp || image.url)}
             alt={image.filename}
             fill
             loading="lazy"
             onLoad={handleImageLoad}
-            placeholder={blurDataUrl ? "blur" : "empty"}
-            blurDataURL={blurDataUrl || undefined}
             className={`object-cover w-full h-full transition-all duration-500 ${
-              isLoading
-                ? "scale-110 blur-lg"
-                : "scale-100 blur-0 group-hover:scale-105"
+              isLoading ? "opacity-0" : "opacity-100 group-hover:scale-105"
             }`}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             quality={75}
-            priority={false}
           />
         )}
 
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/30 dark:bg-slate-900/50 backdrop-blur-[2px]">
+            <div className="relative w-10 h-10">
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 dark:border-indigo-400/20"></div>
+              <div className="absolute inset-[2px] rounded-full border-2 border-indigo-500 dark:border-indigo-400 border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-transparent animate-pulse"></div>
+            </div>
           </div>
         )}
 

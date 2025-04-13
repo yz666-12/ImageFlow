@@ -20,7 +20,7 @@ import {
 import Header from "../components/Header";
 
 export default function Manage() {
-  useTheme(); // Initialize theme
+  useTheme(); 
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [images, setImages] = useState<ImageFile[]>([]);
   const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null);
@@ -51,7 +51,7 @@ export default function Manage() {
     },
     [isLoading, isFetchingMore, hasMore]
   );
-  // Check API key
+
   useEffect(() => {
     checkApiKey();
   }, []);
