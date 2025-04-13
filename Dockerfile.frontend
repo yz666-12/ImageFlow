@@ -6,7 +6,11 @@ COPY frontend/package*.json ./
 RUN npm install
 
 COPY frontend/ ./
-COPY .env ../
+
+ARG NEXT_PUBLIC_API_URL=http://backend:8686
+ARG NEXT_PUBLIC_REMOTE_PATTERNS=https://backend:8686
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_REMOTE_PATTERNS=$NEXT_PUBLIC_REMOTE_PATTERNS
 
 RUN npm install dotenv
 RUN npm run build
@@ -21,8 +25,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/next.config.mjs ./
 
-COPY .env ../
-
+ARG NEXT_PUBLIC_API_URL=http://backend:8686
+ARG NEXT_PUBLIC_REMOTE_PATTERNS=http://backend:8686
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_REMOTE_PATTERNS=$NEXT_PUBLIC_REMOTE_PATTERNS
 ENV NODE_ENV=production
 
 EXPOSE 3000
