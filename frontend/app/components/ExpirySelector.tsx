@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ClockIcon } from './ui/icons'
 
 interface ExpirySelectorProps {
   onChange: (minutes: number) => void
@@ -76,9 +77,7 @@ export default function ExpirySelector({ onChange }: ExpirySelectorProps) {
   return (
     <div className="mb-6 flex items-center space-x-4">
       <div className="flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <ClockIcon className="h-5 w-5 mr-2 text-indigo-500" />
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">过期时间：</span>
       </div>
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { validateApiKey, getApiKey, removeApiKey, setApiKey } from '../utils/auth';
 import { ApiKeyModalProps } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CheckIcon, LockClosedIcon, InfoCircledIcon, Spinner } from '../components/ui/icons';
 
 export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalProps) {
     const [apiKey, setApiKey] = useState('');
@@ -102,9 +103,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                     >
                         <div className="flex items-center mb-6">
                             <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full mr-4 relative">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
+                                <CheckIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
                             </div>
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">API 密钥管理</h2>
                         </div>
@@ -176,9 +175,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                         <div className="flex items-center mb-6">
                             <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-full mr-4 relative">
                                 {!showSuccess && (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                    </svg>
+                                    <LockClosedIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                                 )}
 
                                 {showSuccess && (
@@ -196,14 +193,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                                         }}
                                         className="absolute inset-0 flex items-center justify-center"
                                     >
-                                        <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={3}
-                                                d="M5 13l4 4L19 7"
-                                            />
-                                        </svg>
+                                        <CheckIcon className="h-6 w-6 text-green-500" />
                                     </motion.div>
                                 )}
                             </div>
@@ -217,9 +207,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                         <form onSubmit={handleSubmit}>
                             <div className="relative mb-6">
                                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
+                                    <LockClosedIcon className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
                                     type="password"
@@ -240,9 +228,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                                         className="p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm"
                                     >
                                         <div className="flex">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
+                                            <InfoCircledIcon className="h-5 w-5 mr-2 flex-shrink-0" />
                                             {error}
                                         </div>
                                     </motion.div>
@@ -266,17 +252,12 @@ export default function ApiKeyModal({ isOpen, onClose, onSuccess }: ApiKeyModalP
                                 >
                                     {isValidating ? (
                                         <div className="flex items-center">
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
+                                            <Spinner className="-ml-1 mr-2 h-4 w-4 text-white" />
                                             验证中
                                         </div>
                                     ) : showSuccess ? (
                                         <div className="flex items-center">
-                                            <svg className="mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
+                                            <CheckIcon className="mr-2 h-4 w-4 text-white" />
                                             验证成功
                                         </div>
                                     ) : '验证'}

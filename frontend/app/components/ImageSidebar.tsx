@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import ImageDetailModal from "./ImageDetail/ImageDetailModal";
 import { getFullUrl } from "../utils/baseUrl";
+import { ImageIcon, Cross1Icon, ExclamationTriangleIcon } from "./ui/icons";
 
 interface ImageSidebarProps {
   isOpen: boolean;
@@ -83,38 +84,14 @@ export default function ImageSidebar({
             {/* 侧边栏头部 */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
               <h2 className="text-lg font-semibold flex items-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2 text-white opacity-90"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <ImageIcon className="h-5 w-5 mr-2 text-white opacity-90" />
                 媒体库 ({results.length})
               </h2>
               <button
                 onClick={onClose}
                 className="p-2 rounded-full hover:bg-white/10 transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <Cross1Icon className="h-5 w-5" />
               </button>
             </div>
 
@@ -174,20 +151,7 @@ export default function ImageSidebar({
             <div className="flex-1 overflow-y-auto p-4">
               {displayResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 dark:text-slate-400 p-6">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
+                  <ImageIcon className="h-16 w-16 mb-4 text-slate-300 dark:text-slate-600" />
                   <p className="text-lg font-medium mb-2">暂无图片</p>
                   <p className="text-sm">
                     {tab === "all"
@@ -258,18 +222,7 @@ export default function ImageSidebar({
                         ) : (
                           <div className="p-3 h-full flex flex-col">
                             <div className="flex items-start space-x-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
+                              <ExclamationTriangleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                               <div>
                                 <p className="font-medium text-sm text-red-600 dark:text-red-400">
                                   {result.filename}

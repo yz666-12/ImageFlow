@@ -6,6 +6,7 @@ import { ImagePreview } from './ImagePreview'
 import { ImageInfo } from './ImageInfo'
 import { ImageUrls } from './ImageUrls'
 import { DeleteButton } from './DeleteButton'
+import { Cross1Icon } from '../ui/icons'
 
 interface ImageDetailModalProps {
   isOpen: boolean
@@ -54,9 +55,7 @@ export default function ImageDetailModal({ isOpen, onClose, image, onDelete }: I
                 onClick={onClose}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Cross1Icon className="h-6 w-6" />
               </button>
             </div>
 

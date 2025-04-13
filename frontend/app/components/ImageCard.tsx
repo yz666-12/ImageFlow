@@ -17,6 +17,15 @@ import {
   copyHtmlImgTag,
   copyToClipboard,
 } from "../utils/copyImageUtils";
+import { 
+  ClipboardCopyIcon, 
+  EyeOpenIcon, 
+  TrashIcon,
+  FileIcon,
+  CheckIcon,
+  Cross1Icon,
+  CopyIcon
+} from './ui/icons';
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
@@ -158,65 +167,20 @@ export default function ImageCard({
           id: "copy-original",
           label: `复制原始链接 (${image.format.toUpperCase()})`,
           onClick: () => handleCopy("original"),
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-              />
-            </svg>
-          ),
+          icon: <ClipboardCopyIcon className="h-4 w-4" />,
         },
         {
           id: "copy-webp",
           label: "复制WebP链接",
           onClick: () => handleCopy("webp"),
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-              />
-            </svg>
-          ),
+          icon: <ClipboardCopyIcon className="h-4 w-4" />,
           disabled: !image.urls?.webp,
         },
         {
           id: "copy-avif",
           label: "复制AVIF链接",
           onClick: () => handleCopy("avif"),
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-              />
-            </svg>
-          ),
+          icon: <ClipboardCopyIcon className="h-4 w-4" />,
           disabled: !image.urls?.avif,
         },
       ],
@@ -228,43 +192,13 @@ export default function ImageCard({
           id: "copy-markdown",
           label: "复制Markdown标签",
           onClick: () => handleCopy("markdown"),
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-              />
-            </svg>
-          ),
+          icon: <FileIcon className="h-4 w-4" />,
         },
         {
           id: "copy-html",
           label: "复制HTML标签",
           onClick: () => handleCopy("html"),
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-              />
-            </svg>
-          ),
+          icon: <FileIcon className="h-4 w-4" />,
         },
       ],
     },
@@ -275,50 +209,14 @@ export default function ImageCard({
           id: "preview",
           label: "预览图片",
           onClick: onClick,
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-              />
-            </svg>
-          ),
+          icon: <EyeOpenIcon className="h-4 w-4" />,
         },
         {
           id: "delete",
           label: "删除图片",
           onClick: handleDelete,
           danger: true,
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          ),
+          icon: <TrashIcon className="h-4 w-4" />,
         },
       ],
     },
@@ -399,52 +297,13 @@ export default function ImageCard({
               title="复制URL"
             >
               {copyStatus === "idle" && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
+                <CopyIcon className="h-4 w-4" />
               )}
               {copyStatus === "copied" && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <CheckIcon className="h-4 w-4 text-green-400" />
               )}
               {copyStatus === "error" && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-red-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <Cross1Icon className="h-4 w-4 text-red-400" />
               )}
             </motion.button>
           </div>

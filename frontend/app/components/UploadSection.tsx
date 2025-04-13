@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import UploadDropzone from './upload/UploadDropzone'
 import ExpirySelector from './ExpirySelector'
 import TagSelector from './upload/TagSelector'
 import { api } from '../utils/request'
+import { UploadIcon, ExclamationTriangleIcon, ImageIcon } from '../components/ui/icons'
 
 interface UploadSectionProps {
   onUpload: (files: File[], expiryMinutes: number, tags: string[]) => Promise<void>
@@ -169,9 +170,7 @@ export default function UploadSection({
     <>
       <div className="card p-8 mb-8">
         <h2 className="text-2xl font-semibold mb-6 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+          <UploadIcon className="h-6 w-6 mr-2 text-indigo-500" />
           上传图片
         </h2>
 
@@ -194,9 +193,7 @@ export default function UploadSection({
             <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800 shadow-sm">
               <div className="flex items-start">
                 <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full mr-3 flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
+                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
                   <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">超出上传限制</p>
@@ -219,9 +216,7 @@ export default function UploadSection({
                   onClick={onTogglePreview}
                   className="px-4 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg transition-colors duration-200 flex items-center font-medium"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6v8l4-2 4 2V6z" clipRule="evenodd" />
-                  </svg>
+                  <ImageIcon className="h-4 w-4 mr-1.5" />
                   {isPreviewOpen ? '隐藏文件列表' : '查看文件列表'}
                 </button>
               )}
