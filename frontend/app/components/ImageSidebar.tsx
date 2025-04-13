@@ -222,7 +222,7 @@ export default function ImageSidebar({
                             <div className="aspect-square relative bg-slate-50 dark:bg-slate-900">
                               {result.urls?.original && (
                                 <Image
-                                  src={getFullUrl(result.urls.original)}
+                                  src={getFullUrl(result.urls.webp)}
                                   alt={result.filename}
                                   fill
                                   className="object-cover group-hover:scale-105 transition-transform duration-300"

@@ -10,7 +10,7 @@ interface ImagePreviewProps {
 }
 
 export function ImagePreview({ image }: ImagePreviewProps) {
-  const originalUrl = getFullUrl(image.urls?.original || '')
+  const originalUrl = getFullUrl(image.urls?.webp || '')
 
   return (
     <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700 flex items-center">
