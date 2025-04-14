@@ -37,6 +37,7 @@ type MetadataStore interface {
 	GetMetadata(ctx context.Context, id string) (*ImageMetadata, error)
 	ListExpiredImages(ctx context.Context) ([]*ImageMetadata, error)
 	DeleteMetadata(ctx context.Context, id string) error
+	GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error)
 }
 
 // LocalMetadataStore implements metadata storage for local filesystem
@@ -131,6 +132,39 @@ func (lms *LocalMetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageM
 func (lms *LocalMetadataStore) DeleteMetadata(ctx context.Context, id string) error {
 	metadataPath := filepath.Join(lms.BasePath, "metadata", id+".json")
 	return os.Remove(metadataPath)
+}
+
+// GetAllMetadata retrieves all image metadata from local storage
+func (lms *LocalMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
+	var allMetadata []*ImageMetadata
+	metadataDir := filepath.Join(lms.BasePath, "metadata")
+
+	// Read all files in the metadata directory
+	files, err := os.ReadDir(metadataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read metadata directory: %v", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+
+		// Extract ID from filename
+		id := strings.TrimSuffix(file.Name(), ".json")
+
+		// Get metadata for this ID
+		metadata, err := lms.GetMetadata(ctx, id)
+		if err != nil {
+			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			continue
+		}
+
+		allMetadata = append(allMetadata, metadata)
+	}
+
+	log.Printf("Retrieved %d metadata entries from local storage", len(allMetadata))
+	return allMetadata, nil
 }
 
 // S3MetadataStore implements metadata storage for S3
@@ -239,6 +273,47 @@ func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMeta
 func (sms *S3MetadataStore) DeleteMetadata(ctx context.Context, id string) error {
 	key := sms.prefix + id + ".json"
 	return sms.client.Delete(ctx, key)
+}
+
+// GetAllMetadata retrieves all image metadata from S3
+func (s3ms *S3MetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
+	var allMetadata []*ImageMetadata
+
+	// List all metadata objects
+	metadataPrefix := "metadata/"
+
+	// Get S3 storage instance
+	s3Storage, ok := Storage.(*S3Storage)
+	if !ok {
+		return nil, fmt.Errorf("failed to get S3 storage instance")
+	}
+
+	objects, err := s3Storage.ListObjects(ctx, metadataPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list metadata objects: %v", err)
+	}
+
+	for _, obj := range objects {
+		// Skip if not a JSON file
+		if !strings.HasSuffix(obj.Key, ".json") {
+			continue
+		}
+
+		// Extract ID from key
+		id := strings.TrimSuffix(filepath.Base(obj.Key), ".json")
+
+		// Get metadata for this ID
+		metadata, err := s3ms.GetMetadata(ctx, id)
+		if err != nil {
+			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			continue
+		}
+
+		allMetadata = append(allMetadata, metadata)
+	}
+
+	log.Printf("Retrieved %d metadata entries from S3", len(allMetadata))
+	return allMetadata, nil
 }
 
 // Global metadata storage instance
