@@ -754,60 +754,56 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 		// For regular images
 		formatProcessed := false
 		for _, formatVal := range formats {
-			if formatVal == "original" || formatVal == metadata.Format {
-				// Get appropriate path based on format
-				var path string
-				var url string
-				fileName := metadata.ID
+			// Get appropriate path based on format
+			var path string
+			var url string
+			fileName := metadata.ID
 
-				if formatVal == "original" {
-					path = metadata.Paths.Original
-					if path == "" {
-						// Construct default path if not stored
-						path = filepath.Join("original", metadata.Orientation, metadata.ID+"."+metadata.Format)
-					}
-					fileName += "." + metadata.Format
-				} else if formatVal == "webp" {
-					path = metadata.Paths.WebP
-					if path == "" {
-						path = filepath.Join(metadata.Orientation, "webp", metadata.ID+".webp")
-					}
-					fileName += ".webp"
-				} else if formatVal == "avif" {
-					path = metadata.Paths.AVIF
-					if path == "" {
-						path = filepath.Join(metadata.Orientation, "avif", metadata.ID+".avif")
-					}
-					fileName += ".avif"
+			if formatVal == "original" {
+				path = metadata.Paths.Original
+				if path == "" {
+					// Construct default path if not stored
+					path = filepath.Join("original", metadata.Orientation, metadata.ID+"."+metadata.Format)
 				}
-
-				// Get URLs for all formats
-				urls := getImageURLs(metadata.ID, metadata.Orientation, false)
-				url = urls[formatVal]
-
-				log.Printf("DEBUG - Processing format %s, ID: %s, Path: %s, Filename: %s",
-					formatVal, metadata.ID, path, fileName)
-
-				// Add to results
-				images = append(images, ImageInfo{
-					ID:          metadata.ID,
-					FileName:    fileName,
-					URL:         url,
-					URLs:        urls,
-					Orientation: metadata.Orientation,
-					Format:      formatVal,
-					Size:        0, // We don't have size info in metadata, can't get without file access
-					Path:        path,
-					StorageType: os.Getenv("STORAGE_TYPE"),
-					Tags:        metadata.Tags,
-				})
-				imageCount++
-				formatProcessed = true
-				log.Printf("DEBUG - Added image: ID %s, Orientation %s, Format %s, Total count: %d",
-					metadata.ID, metadata.Orientation, formatVal, imageCount)
-			} else {
-				log.Printf("DEBUG - Skipping format %s (doesn't match requested format %s)", formatVal, format)
+				fileName += "." + metadata.Format
+			} else if formatVal == "webp" {
+				path = metadata.Paths.WebP
+				if path == "" {
+					path = filepath.Join(metadata.Orientation, "webp", metadata.ID+".webp")
+				}
+				fileName += ".webp"
+			} else if formatVal == "avif" {
+				path = metadata.Paths.AVIF
+				if path == "" {
+					path = filepath.Join(metadata.Orientation, "avif", metadata.ID+".avif")
+				}
+				fileName += ".avif"
 			}
+
+			// Get URLs for all formats
+			urls := getImageURLs(metadata.ID, metadata.Orientation, false)
+			url = urls[formatVal]
+
+			log.Printf("DEBUG - Processing format %s, ID: %s, Path: %s, Filename: %s",
+				formatVal, metadata.ID, path, fileName)
+
+			// Add to results
+			images = append(images, ImageInfo{
+				ID:          metadata.ID,
+				FileName:    fileName,
+				URL:         url,
+				URLs:        urls,
+				Orientation: metadata.Orientation,
+				Format:      formatVal,
+				Size:        0, // We don't have size info in metadata, can't get without file access
+				Path:        path,
+				StorageType: os.Getenv("STORAGE_TYPE"),
+				Tags:        metadata.Tags,
+			})
+			imageCount++
+			formatProcessed = true
+			log.Printf("DEBUG - Added image: ID %s, Orientation %s, Format %s, Total count: %d",
+				metadata.ID, metadata.Orientation, formatVal, imageCount)
 		}
 
 		if !formatProcessed {
