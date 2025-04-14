@@ -384,3 +384,35 @@ func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStor
 	log.Printf("Migrated %d metadata entries from S3 to Redis", migratedCount)
 	return nil
 }
+
+// GetAllMetadata retrieves all image metadata from Redis
+func (rms *RedisMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
+	if !RedisEnabled {
+		return nil, fmt.Errorf("redis is not enabled")
+	}
+
+	// Get all keys matching the metadata prefix pattern
+	pattern := rms.prefix + "*"
+	keys, err := RedisClient.Keys(ctx, pattern).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metadata keys from Redis: %v", err)
+	}
+
+	var allMetadata []*ImageMetadata
+	for _, key := range keys {
+		// Extract ID from key
+		id := strings.TrimPrefix(key, rms.prefix)
+
+		// Get metadata for this ID
+		metadata, err := rms.GetMetadata(ctx, id)
+		if err != nil {
+			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			continue
+		}
+
+		allMetadata = append(allMetadata, metadata)
+	}
+
+	log.Printf("Retrieved %d metadata entries from Redis", len(allMetadata))
+	return allMetadata, nil
+}

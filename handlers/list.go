@@ -60,20 +60,26 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		var allImages []ImageInfo
 		var err error
 
-		// Handle image listing based on format and storage type
-		if params.format == "gif" {
-			// For GIF files, orientation doesn't matter
-			if storageType == "s3" {
-				allImages, err = listS3GIFImages()
-			} else {
-				allImages, err = listGIFImages(cfg.ImageBasePath)
-			}
+		// Check if Redis is enabled
+		if utils.RedisEnabled {
+			// Get all images from Redis metadata
+			allImages, err = listImagesFromRedis(params.orientation, params.format, params.tag)
 		} else {
-			// Handle regular image formats
-			if storageType == "s3" {
-				allImages, err = listS3Images(params.orientation, params.format)
+			// Fall back to traditional file/S3 listing if Redis is not available
+			if params.format == "gif" {
+				// For GIF files, orientation doesn't matter
+				if storageType == "s3" {
+					allImages, err = listS3GIFImages()
+				} else {
+					allImages, err = listGIFImages(cfg.ImageBasePath)
+				}
 			} else {
-				allImages, err = listLocalImages(cfg.ImageBasePath, params.orientation, params.format)
+				// Handle regular image formats
+				if storageType == "s3" {
+					allImages, err = listS3Images(params.orientation, params.format)
+				} else {
+					allImages, err = listLocalImages(cfg.ImageBasePath, params.orientation, params.format)
+				}
 			}
 		}
 
@@ -87,52 +93,6 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		sort.Slice(allImages, func(i, j int) bool {
 			return allImages[i].FileName > allImages[j].FileName
 		})
-
-		// Filter by tag if specified
-		if params.tag != "" {
-			redisFilterApplied := false
-
-			// Try to use Redis for tag filtering if enabled
-			if utils.RedisEnabled {
-				// Get all image IDs with the specified tag from Redis
-				imageIDs, err := utils.GetImagesByTag(context.Background(), params.tag)
-				if err == nil && len(imageIDs) > 0 {
-					log.Printf("Found %d images with tag %s from Redis", len(imageIDs), params.tag)
-
-					// Create a map for quick lookup
-					idMap := make(map[string]bool)
-					for _, id := range imageIDs {
-						idMap[id] = true
-					}
-
-					// Filter images by ID
-					filteredImages := []ImageInfo{}
-					for _, img := range allImages {
-						if idMap[img.ID] {
-							filteredImages = append(filteredImages, img)
-						}
-					}
-
-					allImages = filteredImages
-					redisFilterApplied = true
-				}
-			}
-
-			// Only use traditional filtering if Redis filtering was not applied
-			if !redisFilterApplied {
-				filteredImages := []ImageInfo{}
-				for _, img := range allImages {
-					// Check if the image has the requested tag
-					for _, tag := range img.Tags {
-						if tag == params.tag {
-							filteredImages = append(filteredImages, img)
-							break
-						}
-					}
-				}
-				allImages = filteredImages
-			}
-		}
 
 		// Generate paginated response
 		sendPaginatedResponse(w, allImages, params.page, params.limit)
@@ -704,6 +664,130 @@ func listS3GIFImages() ([]ImageInfo, error) {
 				StorageType: "s3",
 				Tags:        tags,
 			})
+		}
+	}
+
+	return images, nil
+}
+
+// listImagesFromRedis retrieves images from Redis metadata
+func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
+	var images []ImageInfo
+	ctx := context.Background()
+
+	// Get all metadata from Redis
+	allMetadata, err := utils.MetadataManager.GetAllMetadata(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metadata from Redis: %v", err)
+	}
+
+	log.Printf("Got %d total metadata entries from Redis", len(allMetadata))
+
+	// Filter by tag if specified
+	if tag != "" {
+		imageIDs, err := utils.GetImagesByTag(ctx, tag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get images by tag from Redis: %v", err)
+		}
+
+		// Create a map for quick lookup
+		idMap := make(map[string]bool)
+		for _, id := range imageIDs {
+			idMap[id] = true
+		}
+
+		// Filter metadata by tag
+		filteredMetadata := []*utils.ImageMetadata{}
+		for _, metadata := range allMetadata {
+			if idMap[metadata.ID] {
+				filteredMetadata = append(filteredMetadata, metadata)
+			}
+		}
+		allMetadata = filteredMetadata
+		log.Printf("Filtered to %d images with tag: %s", len(allMetadata), tag)
+	}
+
+	// Determine formats to include
+	_, formats := getOrientationAndFormatSlices(orientation, format)
+
+	// Convert metadata to ImageInfo objects
+	for _, metadata := range allMetadata {
+		// Skip if not matching orientation
+		if orientation != "all" && metadata.Orientation != orientation {
+			continue
+		}
+
+		// For GIF format, special handling
+		if format == "gif" && metadata.Format == "gif" {
+			fileName := metadata.ID + ".gif"
+			relPath := filepath.Join("gif", fileName)
+
+			// Get URLs for all formats (for GIF there's only original)
+			urls := getImageURLs(metadata.ID, "", true)
+
+			// Add to results
+			images = append(images, ImageInfo{
+				ID:          metadata.ID,
+				FileName:    fileName,
+				URL:         constructImageURL(relPath),
+				URLs:        urls,
+				Orientation: "gif",
+				Format:      "gif",
+				Size:        0, // We don't have size info in metadata, can't get without file access
+				Path:        relPath,
+				StorageType: os.Getenv("STORAGE_TYPE"),
+				Tags:        metadata.Tags,
+			})
+			continue
+		}
+
+		// For regular images
+		for _, formatVal := range formats {
+			if formatVal == "original" || formatVal == metadata.Format {
+				// Get appropriate path based on format
+				var path string
+				var url string
+				fileName := metadata.ID
+
+				if formatVal == "original" {
+					path = metadata.Paths.Original
+					if path == "" {
+						// Construct default path if not stored
+						path = filepath.Join("original", metadata.Orientation, metadata.ID+"."+metadata.Format)
+					}
+					fileName += "." + metadata.Format
+				} else if formatVal == "webp" {
+					path = metadata.Paths.WebP
+					if path == "" {
+						path = filepath.Join(metadata.Orientation, "webp", metadata.ID+".webp")
+					}
+					fileName += ".webp"
+				} else if formatVal == "avif" {
+					path = metadata.Paths.AVIF
+					if path == "" {
+						path = filepath.Join(metadata.Orientation, "avif", metadata.ID+".avif")
+					}
+					fileName += ".avif"
+				}
+
+				// Get URLs for all formats
+				urls := getImageURLs(metadata.ID, metadata.Orientation, false)
+				url = urls[formatVal]
+
+				// Add to results
+				images = append(images, ImageInfo{
+					ID:          metadata.ID,
+					FileName:    fileName,
+					URL:         url,
+					URLs:        urls,
+					Orientation: metadata.Orientation,
+					Format:      formatVal,
+					Size:        0, // We don't have size info in metadata, can't get without file access
+					Path:        path,
+					StorageType: os.Getenv("STORAGE_TYPE"),
+					Tags:        metadata.Tags,
+				})
+			}
 		}
 	}
 
