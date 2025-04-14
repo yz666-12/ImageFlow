@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  backend:
     image: imageflow-backend
     container_name: imageflow-backend
     ports:
@@ -41,7 +42,6 @@ services:
       start_period: 10s
     networks:
       - imageflow-network
-
   frontend:
     image: imageflow-frontend
     container_name: imageflow-frontend
