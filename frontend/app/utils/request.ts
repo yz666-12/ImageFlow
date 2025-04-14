@@ -4,13 +4,35 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, string>;
 }
 
-// 从环境变量获取后端地址,默认为相对路径
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+interface ConfigResponse {
+  apiUrl: string;
+  remotePatterns: string;
+}
+
+let BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+let hasInitialized = false;
+
+async function initializeBaseUrl() {
+  try {
+    const response = await fetch("/api/config");
+    const config: ConfigResponse = await response.json();
+    if (config.apiUrl) {
+      BASE_URL = config.apiUrl;
+    }
+  } catch (error) {
+    console.error("Failed to fetch API config:", error);
+  }
+}
 
 export async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
+  if (!hasInitialized) {
+    await initializeBaseUrl();
+    hasInitialized = true;
+  }
+
   const apiKey = getApiKey();
 
   const { params, ...restOptions } = options;
@@ -19,9 +41,9 @@ export async function request<T>(
   const url: URL = new URL(endpoint, BASE_URL || window.location.origin);
   console.log(BASE_URL, url.toString());
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(params)) {
       url.searchParams.append(key, value);
-    });
+    }
   }
 
   // 添加认证头
@@ -45,7 +67,7 @@ export async function request<T>(
 
 // 获取静态文件目录列表
 export async function fetchDirectoryListing(
-  path: string = "/images/"
+  path = "/images/"
 ): Promise<string[]> {
   const response = await api.get<{ files: string[] }>("/directory", { path });
   return response.files;
@@ -70,9 +92,9 @@ export const api = {
 
   upload: <T>(endpoint: string, files: File[]) => {
     const formData = new FormData();
-    files.forEach((file) => {
+    for (const file of files) {
       formData.append("images[]", file);
-    });
+    }
     return request<T>(endpoint, {
       method: "POST",
       body: formData,

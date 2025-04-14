@@ -1,4 +1,5 @@
-FROM node:20-alpine AS builder
+FROM node:slim
+
 WORKDIR /app
 
 COPY frontend/package*.json ./
@@ -12,24 +13,17 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_REMOTE_PATTERNS=$NEXT_PUBLIC_REMOTE_PATTERNS
 
 RUN npm install dotenv
-RUN npm run build
 
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/next.config.mjs ./
-
-ARG NEXT_PUBLIC_API_URL=http://backend:8686
-ARG NEXT_PUBLIC_REMOTE_PATTERNS=http://backend:8686
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_REMOTE_PATTERNS=$NEXT_PUBLIC_REMOTE_PATTERNS
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+COPY <<EOF /app/start.sh
+#!/bin/sh
+npm run build
+npm start
+EOF
+
+RUN chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]
