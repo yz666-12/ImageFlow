@@ -90,17 +90,48 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Filter by tag if specified
 		if params.tag != "" {
-			filteredImages := []ImageInfo{}
-			for _, img := range allImages {
-				// Check if the image has the requested tag
-				for _, tag := range img.Tags {
-					if tag == params.tag {
-						filteredImages = append(filteredImages, img)
-						break
+			redisFilterApplied := false
+
+			// Try to use Redis for tag filtering if enabled
+			if utils.RedisEnabled {
+				// Get all image IDs with the specified tag from Redis
+				imageIDs, err := utils.GetImagesByTag(context.Background(), params.tag)
+				if err == nil && len(imageIDs) > 0 {
+					log.Printf("Found %d images with tag %s from Redis", len(imageIDs), params.tag)
+
+					// Create a map for quick lookup
+					idMap := make(map[string]bool)
+					for _, id := range imageIDs {
+						idMap[id] = true
 					}
+
+					// Filter images by ID
+					filteredImages := []ImageInfo{}
+					for _, img := range allImages {
+						if idMap[img.ID] {
+							filteredImages = append(filteredImages, img)
+						}
+					}
+
+					allImages = filteredImages
+					redisFilterApplied = true
 				}
 			}
-			allImages = filteredImages
+
+			// Only use traditional filtering if Redis filtering was not applied
+			if !redisFilterApplied {
+				filteredImages := []ImageInfo{}
+				for _, img := range allImages {
+					// Check if the image has the requested tag
+					for _, tag := range img.Tags {
+						if tag == params.tag {
+							filteredImages = append(filteredImages, img)
+							break
+						}
+					}
+				}
+				allImages = filteredImages
+			}
 		}
 
 		// Generate paginated response

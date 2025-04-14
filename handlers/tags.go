@@ -49,6 +49,13 @@ func TagsHandler(cfg *config.Config) http.HandlerFunc {
 
 // getAllUniqueTags retrieves all unique tags from image metadata
 func getAllUniqueTags(storageType, basePath string) ([]string, error) {
+	// Check if Redis is enabled
+	if utils.RedisEnabled {
+		// Use Redis to get all unique tags
+		return utils.GetAllUniqueTags(context.Background())
+	}
+
+	// Fall back to file-based storage
 	// Use a map to store unique tags
 	uniqueTags := make(map[string]struct{})
 	var mu sync.Mutex
@@ -66,7 +73,7 @@ func getAllUniqueTags(storageType, basePath string) ([]string, error) {
 // getLocalUniqueTags retrieves unique tags from local metadata files
 func getLocalUniqueTags(basePath string, uniqueTags map[string]struct{}, mu *sync.Mutex) ([]string, error) {
 	metadataDir := filepath.Join(basePath, "metadata")
-	
+
 	// Read all files in the metadata directory
 	files, err := os.ReadDir(metadataDir)
 	if err != nil {
@@ -106,7 +113,7 @@ func getS3UniqueTags(uniqueTags map[string]struct{}, mu *sync.Mutex) ([]string, 
 	// Get all metadata from S3
 	// This is a simplified approach - in a real implementation,
 	// you might want to paginate through results for large datasets
-	
+
 	// List all metadata objects
 	s3Storage, ok := utils.Storage.(*utils.S3Storage)
 	if !ok {
