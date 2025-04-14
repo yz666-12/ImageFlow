@@ -108,55 +108,94 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 
 		// Get tag parameter for filtering
 		tag := r.URL.Query().Get("tag")
+		log.Printf("Random image request with tag: %s, orientation: %s", tag, orientation)
 
-		// Build the prefix for original images directory
-		prefix := fmt.Sprintf("original/%s/", orientation)
-
-		// List objects in the directory
-		output, err := s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-			Bucket: &bucket,
-			Prefix: aws.String(prefix),
-		})
-
-		if err != nil {
-			log.Printf("Error listing objects: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		// Filter image files
+		// Declare variables used throughout the function
 		var imageObjects []string
-		for _, obj := range output.Contents {
-			if utils.IsImageFile(*obj.Key) {
-				// If tag filtering is requested, check metadata
-				if tag != "" {
-					// Extract ID from key
-					fileBaseName := filepath.Base(*obj.Key)
-					id := strings.TrimSuffix(fileBaseName, filepath.Ext(fileBaseName))
+		var err error
+		var useRedisResults bool = false
 
-					// Get metadata to check tags
-					metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
-					if err != nil || metadata == nil {
-						// Skip if metadata not found or error
-						continue
-					}
+		// Filter by tag if specified
+		if tag != "" && utils.RedisEnabled {
+			// Use Redis to get all images with the specified tag
+			imageIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
+			if redisErr != nil {
+				log.Printf("Error getting images by tag from Redis: %v", redisErr)
+				// Fall back to traditional filtering
+			} else {
+				log.Printf("Found %d images with tag %s from Redis", len(imageIDs), tag)
 
-					// Check if image has the requested tag
-					hasTag := false
-					for _, imgTag := range metadata.Tags {
-						if imgTag == tag {
-							hasTag = true
-							break
-						}
-					}
-
-					if !hasTag {
-						// Skip if image doesn't have the tag
-						continue
+				// Filter images by orientation
+				var filteredIDs []string
+				for _, id := range imageIDs {
+					metadata, metaErr := utils.MetadataManager.GetMetadata(context.Background(), id)
+					if metaErr == nil && metadata != nil && metadata.Orientation == orientation {
+						// Add the original image path to the list
+						filteredIDs = append(filteredIDs, id)
+						imageObjects = append(imageObjects, metadata.Paths.Original)
 					}
 				}
 
-				imageObjects = append(imageObjects, *obj.Key)
+				log.Printf("Filtered to %d images with orientation: %s", len(imageObjects), orientation)
+
+				// If we found images with Redis, skip the traditional filtering
+				if len(imageObjects) > 0 {
+					useRedisResults = true
+				}
+			}
+		}
+
+		// If we didn't get results from Redis, use traditional filtering
+		if !useRedisResults {
+			// Build the prefix for original images directory
+			prefix := fmt.Sprintf("original/%s/", orientation)
+
+			// Traditional filtering if Redis is not enabled or no results from Redis
+			// List objects in the directory
+			output, err := s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+				Bucket: &bucket,
+				Prefix: aws.String(prefix),
+			})
+
+			if err != nil {
+				log.Printf("Error listing objects: %v", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			// Filter image files
+			for _, obj := range output.Contents {
+				if utils.IsImageFile(*obj.Key) {
+					// If tag filtering is requested, check metadata
+					if tag != "" {
+						// Extract ID from key
+						fileBaseName := filepath.Base(*obj.Key)
+						id := strings.TrimSuffix(fileBaseName, filepath.Ext(fileBaseName))
+
+						// Get metadata to check tags
+						metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
+						if err != nil || metadata == nil {
+							// Skip if metadata not found or error
+							continue
+						}
+
+						// Check if image has the requested tag
+						hasTag := false
+						for _, imgTag := range metadata.Tags {
+							if imgTag == tag {
+								hasTag = true
+								break
+							}
+						}
+
+						if !hasTag {
+							// Skip if image doesn't have the tag
+							continue
+						}
+					}
+
+					imageObjects = append(imageObjects, *obj.Key)
+				}
 			}
 		}
 
@@ -285,12 +324,29 @@ func LocalRandomImageHandler() http.HandlerFunc {
 
 		if tag != "" {
 			// When filtering by tag, get all images with that tag
-			// First get the image IDs with the tag
-			imageIDs, err := findImagesWithTagDebug(tag, "local", localPath)
-			if err != nil {
-				log.Printf("Error finding images with tag %s: %v", tag, err)
-				http.Error(w, "Error finding images", http.StatusInternalServerError)
-				return
+			var imageIDs []string
+
+			// Try to use Redis first if enabled
+			if utils.RedisEnabled {
+				redisIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
+				if redisErr != nil {
+					log.Printf("Error getting images by tag from Redis: %v", redisErr)
+					// Fall back to file-based lookup
+				} else {
+					log.Printf("Found %d images with tag %s from Redis", len(redisIDs), tag)
+					imageIDs = redisIDs
+				}
+			}
+
+			// Fall back to file-based lookup if Redis is not enabled or failed
+			if len(imageIDs) == 0 {
+				fileIDs, fileErr := findImagesWithTagDebug(tag, "local", localPath)
+				if fileErr != nil {
+					log.Printf("Error finding images with tag %s: %v", tag, fileErr)
+					http.Error(w, "Error finding images", http.StatusInternalServerError)
+					return
+				}
+				imageIDs = fileIDs
 			}
 
 			// Convert image IDs to metadata objects

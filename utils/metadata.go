@@ -12,6 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/redis/go-redis/v9"
 )
 
 // ImageMetadata stores metadata information for images
@@ -245,6 +246,37 @@ var MetadataManager MetadataStore
 
 // InitMetadataStore initializes the metadata storage
 func InitMetadataStore() error {
+	// Initialize Redis client if enabled
+	if err := InitRedisClient(); err != nil {
+		log.Printf("Warning: Failed to initialize Redis client: %v", err)
+		log.Printf("Falling back to file-based metadata storage")
+	}
+
+	// Use Redis metadata store if enabled
+	if RedisEnabled {
+		MetadataManager = NewRedisMetadataStore()
+		log.Printf("Redis metadata store initialized")
+
+		// Migrate existing metadata to Redis if needed
+		if _, err := RedisClient.Get(context.Background(), RedisPrefix+"migration_completed").Result(); err == redis.Nil {
+			log.Printf("Starting metadata migration to Redis...")
+			if err := MigrateMetadataToRedis(context.Background()); err != nil {
+				log.Printf("Warning: Failed to migrate metadata to Redis: %v", err)
+			} else {
+				// Mark migration as completed
+				RedisClient.Set(context.Background(), RedisPrefix+"migration_completed", time.Now().Format(time.RFC3339), 0)
+				log.Printf("Metadata migration to Redis completed successfully")
+			}
+		} else if err != nil {
+			log.Printf("Warning: Failed to check migration status: %v", err)
+		} else {
+			log.Printf("Metadata migration to Redis already completed")
+		}
+
+		return nil
+	}
+
+	// Fall back to file-based storage if Redis is not enabled
 	storageType := os.Getenv("STORAGE_TYPE")
 
 	if storageType == "s3" {
