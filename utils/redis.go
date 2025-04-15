@@ -25,6 +25,7 @@ var (
 )
 
 // InitRedisClient initializes the Redis client
+// Read environment variables and initialize the Redis client (with TLS support). Sets RedisEnabled if connection is successful.
 func InitRedisClient() error {
 	// Check if Redis is enabled
 	redisEnabled := os.Getenv("REDIS_ENABLED")
@@ -35,32 +36,11 @@ func InitRedisClient() error {
 	}
 
 	// Get Redis configuration from environment variables
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
-
+	redisHost := getEnvOrDefault("REDIS_HOST", "localhost")
+	redisPort := getEnvOrDefault("REDIS_PORT", "6379")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
-
-	redisDB := 0
-	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
-		var err error
-		redisDB, err = strconv.Atoi(dbStr)
-		if err != nil {
-			log.Printf("Invalid REDIS_DB value: %s, using default 0", dbStr)
-			redisDB = 0
-		}
-	}
-
-	RedisPrefix = os.Getenv("REDIS_PREFIX")
-	if RedisPrefix == "" {
-		RedisPrefix = "imageflow:"
-	}
+	redisDB := parseEnvInt("REDIS_DB", 0)
+	RedisPrefix = getEnvOrDefault("REDIS_PREFIX", "imageflow:")
 
 	// Create Redis client
 	// Check if TLS is enabled for Redis
@@ -90,8 +70,32 @@ func InitRedisClient() error {
 }
 
 // RedisMetadataStore implements metadata storage using Redis
+// RedisMetadataStore is the structure for metadata operations using Redis.
 type RedisMetadataStore struct {
 	prefix string
+}
+
+// getEnvOrDefault returns the value of the environment variable or the default value if not set.
+func getEnvOrDefault(key, defaultVal string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	return v
+}
+
+// parseEnvInt parses an environment variable as int, or returns defaultVal on error.
+func parseEnvInt(key string, defaultVal int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		log.Printf("Invalid %s value: %s, using default %d", key, v, defaultVal)
+		return defaultVal
+	}
+	return i
 }
 
 // NewRedisMetadataStore creates a new Redis metadata store
