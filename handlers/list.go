@@ -19,6 +19,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+var debugMode = (os.Getenv("DEBUG_MODE") == "true")
+
+func DebugLog(format string, args ...interface{}) {
+	if debugMode {
+		log.Printf("[DEBUG] "+format, args...)
+	}
+}
+
+
 // ImageInfo represents information about an image
 type ImageInfo struct {
 	ID          string            `json:"id"`          // Filename without extension
@@ -681,7 +690,7 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 		return nil, fmt.Errorf("failed to get metadata from Redis: %v", err)
 	}
 
-	log.Printf("DEBUG - Retrieved %d metadata entries from Redis", len(allMetadata))
+	DebugLog("Retrieved %d metadata entries from Redis", len(allMetadata))
 
 	// Filter by tag if specified
 	if tag != "" {
@@ -704,23 +713,23 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 			}
 		}
 		allMetadata = filteredMetadata
-		log.Printf("DEBUG - Filtered to %d metadata entries with tag: %s", len(allMetadata), tag)
+		DebugLog("Filtered to %d metadata entries with tag: %s", len(allMetadata), tag)
 	}
 
 	// Determine formats to include
 	_, formats := getOrientationAndFormatSlices(orientation, format)
-	log.Printf("DEBUG - Requested orientation: %s, format: %s", orientation, format)
-	log.Printf("DEBUG - Formats to process: %v", formats)
+	DebugLog("Requested orientation: %s, format: %s", orientation, format)
+	DebugLog("Formats to process: %v", formats)
 
 	imageCount := 0
 	// Convert metadata to ImageInfo objects
 	for i, metadata := range allMetadata {
-		log.Printf("DEBUG - Processing metadata %d/%d, ID: %s, Orientation: %s, Format: %s",
+		DebugLog("Processing metadata %d/%d, ID: %s, Orientation: %s, Format: %s",
 			i+1, len(allMetadata), metadata.ID, metadata.Orientation, metadata.Format)
 
 		// Skip if not matching orientation
 		if orientation != "all" && metadata.Orientation != orientation {
-			log.Printf("DEBUG - Skipping non-matching orientation: ID %s has orientation %s, requested %s",
+			DebugLog("Skipping non-matching orientation: ID %s has orientation %s, requested %s",
 				metadata.ID, metadata.Orientation, orientation)
 			continue
 		}
@@ -747,7 +756,7 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 				Tags:        metadata.Tags,
 			})
 			imageCount++
-			log.Printf("DEBUG - Added GIF image: ID %s, filename %s", metadata.ID, fileName)
+			DebugLog("Added GIF image: ID %s, filename %s", metadata.ID, fileName)
 			continue
 		}
 
@@ -784,7 +793,7 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 			urls := getImageURLs(metadata.ID, metadata.Orientation, false)
 			url = urls[formatVal]
 
-			log.Printf("DEBUG - Processing format %s, ID: %s, Path: %s, Filename: %s",
+			DebugLog("Processing format %s, ID: %s, Path: %s, Filename: %s",
 				formatVal, metadata.ID, path, fileName)
 
 			// Add to results
@@ -802,15 +811,15 @@ func listImagesFromRedis(orientation, format, tag string) ([]ImageInfo, error) {
 			})
 			imageCount++
 			formatProcessed = true
-			log.Printf("DEBUG - Added image: ID %s, Orientation %s, Format %s, Total count: %d",
+			DebugLog("Added image: ID %s, Orientation %s, Format %s, Total count: %d",
 				metadata.ID, metadata.Orientation, formatVal, imageCount)
 		}
 
 		if !formatProcessed {
-			log.Printf("DEBUG - Warning: No formats processed for metadata ID %s", metadata.ID)
+			DebugLog("Warning: No formats processed for metadata ID %s", metadata.ID)
 		}
 	}
 
-	log.Printf("DEBUG - Final result: Retrieved %d images from Redis", len(images))
+	DebugLog("Final result: Retrieved %d images from Redis", len(images))
 	return images, nil
 }

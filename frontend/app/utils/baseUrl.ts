@@ -9,7 +9,7 @@ export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 export function getFullUrl(url: string): string {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://")) {
-    console.log("完整URL", url);
+    // console.log("完整URL", url);
     return url;
   }
 
@@ -21,7 +21,7 @@ export function getFullUrl(url: string): string {
       return nurl;
     }
     // 在服务器环境下
-    console.log(`${BASE_URL}${url.startsWith("/") ? url : `/${url}`}`);
+    // console.log(`${BASE_URL}${url.startsWith("/") ? url : `/${url}`}`);
     return `${BASE_URL}${url.startsWith("/") ? url : `/${url}`}`;
   } catch (error) {
     console.error("URL格式错误:", error);
