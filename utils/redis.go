@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -62,11 +63,17 @@ func InitRedisClient() error {
 	}
 
 	// Create Redis client
-	RedisClient = redis.NewClient(&redis.Options{
+	// Check if TLS is enabled for Redis
+	tlsEnabled := strings.ToLower(os.Getenv("REDIS_TLS_ENABLED")) == "true"
+	redisOptions := &redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
 		Password: redisPassword,
 		DB:       redisDB,
-	})
+	}
+	if tlsEnabled {
+		redisOptions.TLSConfig = &tls.Config{}
+	}
+	RedisClient = redis.NewClient(redisOptions)
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
