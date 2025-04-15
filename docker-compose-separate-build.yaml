@@ -11,7 +11,6 @@ services:
     volumes:
       - ./static/images:/app/static/images
       - ./config:/app/config
-      - ./.env:/app/.env:ro
     environment:
       - API_KEY=${API_KEY:-default_api_key}
       - STORAGE_TYPE=${STORAGE_TYPE:-local}
@@ -50,10 +49,6 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: imageflow-frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./.env:/app/.env:ro
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_REMOTE_PATTERNS=${NEXT_PUBLIC_REMOTE_PATTERNS}

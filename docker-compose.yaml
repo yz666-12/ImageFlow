@@ -29,7 +29,6 @@ services:
     volumes:
       - ./static/images:/app/static/images
       - ./config:/app/config
-      - ./.env:/app/.env:ro
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8686/", "||", "exit", "1" ]
