@@ -10,9 +10,8 @@ nextjs-frontend/
 
 .idea/
 .vscode/
-
+.cursor
 vendor/
-
 
 *.log
 

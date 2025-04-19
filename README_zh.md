@@ -28,6 +28,7 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 - **高性能**：优化的网络性能以减少加载时间
 - **易于部署**：简单的配置和部署流程
 - **多存储支持**：支持本地存储和 S3 兼容存储（如 R2）
+- **Redis 支持**：可选的 Redis 集成，用于元数据和标签存储，提高性能
 
 ## 🚀 技术优势
 
@@ -42,6 +43,7 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 9. **响应式设计**：完美适配桌面端和移动端设备
 10. **暗黑模式支持**：自动适应系统主题，支持手动切换
 11. **灵活存储**：支持本地和 S3 兼容存储，通过 .env 文件轻松配置
+12. **高性能元数据**：可选的 Redis 集成，用于更快的元数据和标签操作
 
 ## 📸 界面预览
 
@@ -65,6 +67,7 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 - Node.js 18 或更高版本（用于构建前端）
 - WebP 工具（`libwebp-tools`）
 - AVIF 工具（`libavif-apps`）
+- Redis（可选，用于元数据和标签存储）
 - Docker 和 Docker Compose（可选，用于容器化部署）
 
 ### 安装
@@ -169,6 +172,15 @@ API_KEY=your_api_key_here  # 设置您的 API 密钥
 STORAGE_TYPE=local  # 存储类型：local（本地存储）或 s3（S3 兼容存储）
 LOCAL_STORAGE_PATH=static/images  # 本地存储路径
 
+# Redis 配置
+REDIS_ENABLED=true  # 启用 Redis 存储元数据和标签
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+REDIS_PREFIX=imageflow:
+REDIS_TLS_ENABLED=false  # 启用 Redis TLS 连接
+
 # S3 存储配置（当 STORAGE_TYPE=s3 时需要）
 S3_ENDPOINT=  # S3 端点地址
 S3_REGION=    # S3 区域
@@ -185,6 +197,20 @@ COMPRESSION_EFFORT=6  # 压缩级别（1-10）
 FORCE_LOSSLESS=false  # 是否强制无损压缩
 ```
 
+### 元数据迁移
+
+如果您在之前使用基于文件的元数据存储后启用了 Redis，可以将元数据迁移到 Redis：
+
+```bash
+# 运行迁移工具
+bash migrate.sh
+
+# 强制迁移（即使之前已完成）
+bash migrate.sh --force
+
+# 指定自定义 .env 文件
+bash migrate.sh --env /path/to/.env
+```
 
 ## 📝 使用方法
 
@@ -242,12 +268,15 @@ GET http://localhost:8686/api/random?tag=nature
 | `/api/config` | GET | 获取系统配置 | 无 | 需要 API 密钥 |
 | `/api/trigger-cleanup` | POST | 手动触发清理过期图片 | 无 | 需要 API 密钥 |
 | `/api/tags` | GET | 获取所有可用标签 | 无 | 需要 API 密钥 |
+| `/api/debug/tags` | GET | 获取详细标签信息 | 无 | 需要 API 密钥 |
 
 ### 项目结构
 
 ```
 ImageFlow/
 ├── .github/        # GitHub 相关配置
+├── cmd/            # 命令行工具
+│   └── migrate/    # 元数据迁移工具
 ├── config/         # 配置相关代码
 ├── docs/           # 文档和图片
 │   └── img/        # 文档图片
@@ -299,6 +328,7 @@ ImageFlow/
 │   ├── helpers.go  # 辅助函数
 │   ├── image.go    # 图片处理
 │   ├── metadata.go # 元数据处理
+│   ├── redis.go    # Redis 客户端和操作
 │   ├── s3client.go # S3 存储客户端
 │   └── storage.go  # 存储接口
 ├── .env            # 环境变量
@@ -309,6 +339,7 @@ ImageFlow/
 ├── docker-compose-separate.yaml # 分离式 Docker Compose 配置
 ├── docker-compose.yaml      # Docker Compose 配置（使用预构建镜像）
 ├── docker-compose-build.yml # Docker Compose 构建配置
+├── migrate.sh     # 元数据迁移脚本
 ├── go.mod          # Go 模块文件
 ├── go.sum          # Go 模块校验和
 ├── main.go         # 主程序入口

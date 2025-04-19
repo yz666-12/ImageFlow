@@ -29,6 +29,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - **High Performance**: Optimized for network performance to reduce loading time
 - **Easy Deployment**: Simple configuration and deployment process
 - **Multiple Storage Support**: Supports local storage and S3-compatible storage (like R2)
+- **Redis Support**: Optional Redis integration for metadata and tags storage with improved performance
 
 ## 🚀 Technical Advantages
 
@@ -43,6 +44,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 9. **Responsive Design**: Perfect adaptation for desktop and mobile devices
 10. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
 11. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
+12. **High-Performance Metadata**: Optional Redis integration for faster metadata and tag operations
 
 ## 📸 Interface Preview
 
@@ -66,6 +68,7 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - Node.js 18 or higher (for frontend build)
 - WebP tools (`libwebp-tools`)
 - AVIF tools (`libavif-apps`)
+- Redis (optional, for metadata and tags storage)
 - Docker and Docker Compose (optional, for containerized deployment)
 
 ### Installation
@@ -169,6 +172,15 @@ API_KEY=your_api_key_here  # Set your API key
 STORAGE_TYPE=local  # Storage type: local or s3 (S3-compatible storage)
 LOCAL_STORAGE_PATH=static/images  # Local storage path
 
+# Redis Configuration
+REDIS_ENABLED=true  # Enable Redis for metadata and tags storage
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+REDIS_PREFIX=imageflow:
+REDIS_TLS_ENABLED=false  # Enable TLS for Redis connection
+
 # S3 Storage Configuration (required when STORAGE_TYPE=s3)
 S3_ENDPOINT=  # S3 endpoint address
 S3_REGION=    # S3 region
@@ -185,6 +197,20 @@ COMPRESSION_EFFORT=6  # Compression level (1-10)
 FORCE_LOSSLESS=false  # Force lossless compression
 ```
 
+### Metadata Migration
+
+If you enable Redis after previously using file-based metadata storage, you can migrate your metadata to Redis:
+
+```bash
+# Run the migration tool
+bash migrate.sh
+
+# Force migration even if it was already completed
+bash migrate.sh --force
+
+# Specify a custom .env file
+bash migrate.sh --env /path/to/.env
+```
 
 ## 📝 Usage
 
@@ -242,12 +268,15 @@ The system returns the most suitable image based on the device type and browser 
 | `/api/config` | GET | Get system configuration | None | API key required |
 | `/api/trigger-cleanup` | POST | Manually trigger cleanup of expired images | None | API key required |
 | `/api/tags` | GET | Get all available tags | None | API key required |
+| `/api/debug/tags` | GET | Get detailed tag information | None | API key required |
 
 ### Project Structure
 
 ```
 ImageFlow/
 ├── .github/        # GitHub related configurations
+├── cmd/            # Command-line tools
+│   └── migrate/    # Metadata migration tool
 ├── config/         # Configuration related code
 ├── docs/           # Documentation and images
 │   └── img/        # Documentation images
@@ -299,6 +328,7 @@ ImageFlow/
 │   ├── helpers.go  # Helper functions
 │   ├── image.go    # Image processing
 │   ├── metadata.go # Metadata handling
+│   ├── redis.go    # Redis client and operations
 │   ├── s3client.go # S3 storage client
 │   └── storage.go  # Storage interface
 ├── .env            # Environment variables
@@ -309,6 +339,7 @@ ImageFlow/
 ├── docker-compose.yaml      # Docker Compose configuration (using pre-built image)
 ├── docker-compose-build.yml # Docker Compose build configuration
 ├── docker-compose-separate.yaml # Separate Docker Compose configuration
+├── migrate.sh     # Metadata migration script
 ├── go.mod          # Go module file
 ├── go.sum          # Go module checksum
 ├── main.go         # Main application entry
