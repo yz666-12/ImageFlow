@@ -12,6 +12,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install --frozen-lockfile
 COPY frontend/. .
+ENV NEXT_FONT_IGNORE_DOWNLOAD_ERRORS=1
 RUN npm run build
 
 FROM alpine:latest AS release
