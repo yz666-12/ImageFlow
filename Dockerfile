@@ -18,8 +18,7 @@ FROM alpine:latest AS release
 WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
-    libwebp-tools \
-    libavif-apps \
+    libvips-dev \
     wget
 
 RUN mkdir -p /app/static/images/metadata \

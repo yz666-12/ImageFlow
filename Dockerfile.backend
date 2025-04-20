@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
 
 FROM alpine:latest
 WORKDIR /app
-RUN apk add --no-cache ca-certificates libwebp-tools libavif-apps wget && \
+RUN apk add --no-cache ca-certificates libvips-dev wget && \
     mkdir -p /app/static/images/original/landscape /app/static/images/original/portrait /app/static/images/landscape/webp /app/static/images/landscape/avif /app/static/images/portrait/webp /app/static/images/portrait/avif
 COPY --from=builder /app/imageflow /app/
 COPY --from=builder /app/config /app/config

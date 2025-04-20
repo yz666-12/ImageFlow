@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	_ "image/gif"  // Register GIF format
-	_ "image/jpeg" // Register JPEG format
-	_ "image/png"  // Register PNG format
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -140,7 +140,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if webpData, err := utils.ConvertToWebP(data); err == nil {
+			if webpData, err := utils.ConvertToWebPWithBimg(data); err == nil {
 				webpKey := filepath.Join(orientation, "webp", filename+".webp")
 				if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err == nil {
 					webpURL = getPublicURL(webpKey)
@@ -152,7 +152,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if avifData, err := utils.ConvertToAVIF(data); err == nil {
+			if avifData, err := utils.ConvertToAVIFWithBimg(data); err == nil {
 				avifKey := filepath.Join(orientation, "avif", filename+".avif")
 				if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err == nil {
 					avifURL = getPublicURL(avifKey)
