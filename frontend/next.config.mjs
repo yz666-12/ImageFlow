@@ -48,7 +48,7 @@ const nextConfig = {
     unoptimized: isStaticExport,
     remotePatterns: remotePatterns
   },
-  optimizeFonts: true,
+  optimizeFonts: false,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '',
     NEXT_PUBLIC_REMOTE_PATTERNS: process.env.NEXT_PUBLIC_REMOTE_PATTERNS || '',
