@@ -28,10 +28,17 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: Install libvips
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvips-dev
+
       - name: Build binary
         env:
           GOOS: linux
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig
         run: |
           go build -o imageflow-${{ matrix.binary_suffix }} main.go
 
