@@ -18,9 +18,7 @@ FROM alpine:latest AS release
 WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
-    vips \
-    vips-dev \
-    wget
+    vips
 
 RUN mkdir -p /app/static/images/metadata \
     /app/static/images/original/landscape \
