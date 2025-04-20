@@ -1,11 +1,11 @@
 FROM golang:1.22-alpine AS backend-builder
 ENV GO111MODULE=on
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev vips-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o imageflow
+RUN CGO_ENABLED=1 GOOS=linux go build -o imageflow
 
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
@@ -18,7 +18,8 @@ FROM alpine:latest AS release
 WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
-    libvips-dev \
+    vips \
+    vips-dev \
     wget
 
 RUN mkdir -p /app/static/images/metadata \
