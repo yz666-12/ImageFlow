@@ -1,7 +1,7 @@
 FROM golang:1.22-alpine AS backend-builder
 ENV GO111MODULE=on
 WORKDIR /app
-RUN apk add --no-cache git gcc musl-dev vips-dev
+RUN apk add --no-cache git gcc musl-dev vips-dev libheif-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
@@ -18,7 +18,8 @@ FROM alpine:latest AS release
 WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
-    vips
+    vips \
+    libheif
 
 RUN mkdir -p /app/static/images/metadata \
     /app/static/images/original/landscape \

@@ -1,7 +1,7 @@
 FROM golang:1.22-alpine AS builder
 ENV GO111MODULE=on
 WORKDIR /app
-RUN apk add --no-cache git gcc musl-dev vips-dev
+RUN apk add --no-cache git gcc musl-dev vips-dev libheif-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
@@ -9,7 +9,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o imageflow
 
 FROM alpine:latest
 WORKDIR /app
-RUN apk add --no-cache ca-certificates vips && \
+RUN apk add --no-cache ca-certificates vips libheif && \
     mkdir -p /app/static/images/original/landscape /app/static/images/original/portrait /app/static/images/landscape/webp /app/static/images/landscape/avif /app/static/images/portrait/webp /app/static/images/portrait/avif
 COPY --from=builder /app/imageflow /app/
 COPY --from=builder /app/config /app/config
