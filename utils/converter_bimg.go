@@ -5,37 +5,24 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/h2non/bimg"
 )
 
-var (
-	vipsOnce sync.Once
-)
-
 // InitVips initializes libvips and sets concurrency parameters.
-// This function is thread-safe and will only execute once.
-func InitVips(threads int) {
-	vipsOnce.Do(func() {
-		// Set thread limit for image processing via environment variable
-		os.Setenv("VIPS_CONCURRENCY", strconv.Itoa(threads))
+func InitVips(cfg *config.Config) {
+	os.Setenv("VIPS_CONCURRENCY", strconv.Itoa(cfg.WorkerThreads))
+	log.Printf("Setting libvips concurrency to %d threads", cfg.WorkerThreads)
 
-		log.Printf("Initialized libvips with %d threads", threads)
-	})
+	bimg.Initialize()
 }
 
 // ConvertToWebPWithBimg converts image data to WebP format using bimg/libvips
-func ConvertToWebPWithBimg(data []byte) ([]byte, error) {
-	quality := getImageQuality()
-	effort := getCompressionEffort()
-	threads := getThreadCount()
+func ConvertToWebPWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
 
-	// Initialize libvips
-	InitVips(threads)
-
-	log.Printf("Starting WebP conversion with bimg, input size: %d bytes, quality: %s, effort: %d",
-		len(data), quality, effort)
+	log.Printf("Starting WebP conversion with bimg, input size: %d bytes, quality: %d, speed: %d",
+		len(data), cfg.ImageQuality, cfg.Speed)
 
 	// Detect image format
 	imgFormat, err := DetectImageFormat(data)
@@ -52,14 +39,10 @@ func ConvertToWebPWithBimg(data []byte) ([]byte, error) {
 	// Create bimg image object
 	img := bimg.NewImage(data)
 
-	// Set conversion parameters
-	qualityInt, _ := strconv.Atoi(quality)
 	options := bimg.Options{
 		Type:    bimg.WEBP,
-		Quality: qualityInt,
-		// Note: bimg doesn't support direct effort control for WebP
-		// It uses internal optimization
-		Lossless: shouldUseLossless(imgFormat.Format),
+		Quality: cfg.ImageQuality,
+		Speed:   cfg.Speed,
 	}
 
 	// Perform conversion
@@ -76,16 +59,10 @@ func ConvertToWebPWithBimg(data []byte) ([]byte, error) {
 }
 
 // ConvertToAVIFWithBimg converts image data to AVIF format using bimg/libvips
-func ConvertToAVIFWithBimg(data []byte) ([]byte, error) {
-	quality := getImageQuality()
-	effort := getCompressionEffort()
-	threads := getThreadCount()
+func ConvertToAVIFWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
 
-	// Initialize libvips
-	InitVips(threads)
-
-	log.Printf("Starting AVIF conversion with bimg, input size: %d bytes, quality: %s, effort: %d",
-		len(data), quality, effort)
+	log.Printf("Starting AVIF conversion with bimg, input size: %d bytes, quality: %d, speed: %d",
+		len(data), cfg.ImageQuality, cfg.Speed)
 
 	// Detect image format
 	imgFormat, err := DetectImageFormat(data)
@@ -102,14 +79,10 @@ func ConvertToAVIFWithBimg(data []byte) ([]byte, error) {
 	// Create bimg image object
 	img := bimg.NewImage(data)
 
-	// Set conversion parameters
-	qualityInt, _ := strconv.Atoi(quality)
 	options := bimg.Options{
 		Type:    bimg.AVIF,
-		Quality: qualityInt,
-		// Note: bimg uses internal optimization for AVIF
-		// Effort parameter is not directly supported
-		Lossless: shouldUseLossless(imgFormat.Format),
+		Quality: cfg.ImageQuality,
+		Speed:   cfg.Speed,
 	}
 
 	// Perform conversion

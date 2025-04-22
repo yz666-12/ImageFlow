@@ -5,6 +5,8 @@
 [中文文档](README_zh.md)
 |
 [部署说明](https://catcat.blog/imageflow-install.html)
+|
+[贡献指南](contributing.md)
 </div>
 
 <div align="center">
@@ -12,7 +14,8 @@
   <h3>高效智能的图像管理和分发系统</h3>
 </div>
 
-ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系统。它能根据设备类型自动提供最合适的图像，并支持 WebP 和 AVIF 等现代图像格式，显著提升网站性能和用户体验。
+ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系统。
+它能根据设备类型自动提供最合适的图像，自适应提供 WebP 和 AVIF 等图像格式，显著提升网站性能和用户体验。
 
 ## ✨ 主要特性
 
@@ -27,36 +30,17 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 - **异步处理**：图像转换在后台进行，不影响主服务
 - **高性能**：优化的网络性能以减少加载时间
 - **易于部署**：简单的配置和部署流程
-- **多存储支持**：支持本地存储和 S3 兼容存储（如 R2）
+- **多存储支持**：支持本地存储和 S3 兼容存储
 - **Redis 支持**：可选的 Redis 集成，用于元数据和标签存储，提高性能
-
-## 🚀 技术优势
-
-1. **安全性**：API 密钥验证机制确保图片上传和管理功能的安全访问
-2. **格式转换**：自动将上传的图片转换为 WebP 和 AVIF 格式，减少 30-50% 的文件大小
-3. **设备适配**：为不同设备提供最合适的图片方向
-4. **图片生命周期管理**：支持设置图片过期时间，在所有存储类型中自动清理过期图片
-5. **热重载**：上传的图片无需重启服务即可立即可用
-6. **并发处理**：使用 Go 的并发特性高效处理图像转换
-7. **一致性管理**：删除图片时，所有相关格式（原始、WebP、AVIF）会同时被移除
-8. **可扩展性**：模块化设计便于扩展和定制
-9. **响应式设计**：完美适配桌面端和移动端设备
-10. **暗黑模式支持**：自动适应系统主题，支持手动切换
-11. **灵活存储**：支持本地和 S3 兼容存储，通过 .env 文件轻松配置
-12. **高性能元数据**：可选的 Redis 集成，用于更快的元数据和标签操作
 
 ## 📸 界面预览
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow1.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow2.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow3.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow4.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow5.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow6.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow7.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow8.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow9.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image1.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image2.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image3.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image4.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image5.webp" alt="ImageFlow">
 </div>
 
 ## 🔧 快速开始
@@ -65,10 +49,9 @@ ImageFlow 是一个为现代网站和应用程序设计的高效图像服务系�
 
 - Go 1.22 或更高版本
 - Node.js 18 或更高版本（用于构建前端）
-- WebP 工具（`libwebp-tools`）
-- AVIF 工具（`libavif-apps`）
+- libvips 库（用于图片转换）
 - Redis（可选，用于元数据和标签存储）
-- Docker 和 Docker Compose（可选，用于容器化部署）
+- Docker（可选，用于容器化部署）
 
 ### 安装
 
@@ -130,6 +113,7 @@ sudo systemctl start imageflow
 
 #### 方法二：Docker 部署
 
+##### 前后端分离版本 部署（优化图片的加载，缺点占用大）
 1. 使用预构建镜像（推荐）
 
 ```bash
@@ -142,7 +126,7 @@ cp .env.example .env
 # 编辑 .env 文件
 
 # 3. 启动服务
-docker compose up -d
+docker compose -f docker-compose-separate.yaml up -d
 ```
 
 2. 本地构建部署
@@ -157,8 +141,23 @@ cp .env.example .env
 # 编辑 .env 文件
 
 # 3. 构建并启动
-docker compose -f docker-compose-build.yml up --build -d
+docker compose -f docker-compose-separate-build.yaml up --build -d
 ```
+##### 纯后端部署（由于原生html的问题，存在图片加载缓慢的问题）
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
+cd ImageFlow
+
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件
+
+# 3. 启动服务
+docker compose -f docker-compose.yaml up -d
+```
+
 
 ### 配置说明
 
@@ -187,14 +186,20 @@ S3_REGION=    # S3 区域
 S3_ACCESS_KEY=  # 访问密钥
 S3_SECRET_KEY=  # 访问密钥密文
 S3_BUCKET=      # 存储桶名称
-CUSTOM_DOMAIN=  # 自定义域名
+CUSTOM_DOMAIN=  # S3自定义域名
 
 # 图像处理配置
 MAX_UPLOAD_COUNT=20    # 单次最大上传数量
 IMAGE_QUALITY=80      # 图像质量（1-100）
 WORKER_THREADS=4      # 并行处理线程数
-COMPRESSION_EFFORT=6  # 压缩级别（1-10）
-FORCE_LOSSLESS=false  # 是否强制无损压缩
+SPEED=5               # 编码速度（0-8）
+
+# 部署前后端分离才需要的参数
+#NEXT_PUBLIC_API_URL=http://localhost:8686 后端地址
+NEXT_PUBLIC_API_URL=
+# 后端地址和图片域名（如果使用本地存储，则不需要）
+NEXT_PUBLIC_REMOTE_PATTERNS=
+
 ```
 
 ### 元数据迁移
@@ -213,37 +218,6 @@ bash migrate.sh --env /path/to/.env
 ```
 
 ## 📝 使用方法
-
-### API 密钥认证
-
-图片上传功能需要 API 密钥认证。您可以：
-
-1. 在 `.env` 文件中设置 API 密钥
-2. 通过网页界面输入 API 密钥
-3. API 密钥在验证成功后将被保存
-
-### 上传图片
-
-访问 `http://localhost:8686/` 的上传界面。您可以：
-
-1. 将图片拖拽到上传区域
-2. 点击选择要上传的图片
-3. 选择图片的过期时间（可选）
-4. 添加标签对图片进行分类（可选）
-4. 实时预览选中的图片
-5. 系统自动检测图片是横向还是纵向
-6. 上传后，图片会自动转换为 WebP 和 AVIF 格式
-7. 如果设置了过期时间，图片将在过期后自动删除
-
-### 管理图片
-
-访问 `http://localhost:8686/manage.html` 的管理界面。您可以：
-
-1. 查看所有已上传的图片，并可按格式、方向和标签进行筛选
-2. 点击任意图片查看详细信息
-3. 复制图片的直接URL以方便分享
-4. 删除不再需要的图片（需要API密钥认证）
-5. 当删除图片时，所有相关格式（原始、WebP、AVIF）将同时被移除
 
 ### 获取随机图片
 
@@ -323,7 +297,7 @@ ImageFlow/
 │       └── metadata/  # 图片元数据（包含过期时间信息）
 ├── utils/          # 后端工具函数
 │   ├── cleaner.go  # 清理过期图片
-│   ├── converter.go # 图片转换
+│   ├── converter_bimg.go # 图片转换
 │   ├── device.go   # 设备检测
 │   ├── helpers.go  # 辅助函数
 │   ├── image.go    # 图片处理
@@ -346,7 +320,6 @@ ImageFlow/
 ├── README.md       # 英文项目文档
 └── README_zh.md    # 中文项目文档
 ```
-
 
 ## 📄 许可证
 

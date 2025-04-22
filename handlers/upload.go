@@ -140,7 +140,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if webpData, err := utils.ConvertToWebPWithBimg(data); err == nil {
+			if webpData, err := utils.ConvertToWebPWithBimg(data, ctx.cfg); err == nil {
 				webpKey := filepath.Join(orientation, "webp", filename+".webp")
 				if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err == nil {
 					webpURL = getPublicURL(webpKey)
@@ -152,7 +152,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if avifData, err := utils.ConvertToAVIFWithBimg(data); err == nil {
+			if avifData, err := utils.ConvertToAVIFWithBimg(data, ctx.cfg); err == nil {
 				avifKey := filepath.Join(orientation, "avif", filename+".avif")
 				if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err == nil {
 					avifURL = getPublicURL(avifKey)
@@ -224,6 +224,7 @@ type uploadContext struct {
 	r          *http.Request
 	expiryTime time.Time
 	tags       []string
+	cfg        *config.Config
 }
 
 // UploadHandler handles image uploads, converting them to multiple formats
@@ -287,6 +288,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			r:          r,
 			expiryTime: expiryTime,
 			tags:       tags,
+			cfg:        cfg,
 		}
 
 		// Create a buffered channel to limit concurrent processing

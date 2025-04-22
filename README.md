@@ -5,6 +5,8 @@
 [中文文档](README_zh.md)
 |
 [部署说明](https://catcat.blog/imageflow-install.html)
+|
+[贡献指南](contributing.md)
 </div>
 
 <div align="center">
@@ -31,34 +33,16 @@ ImageFlow is an efficient image service system designed for modern websites and 
 - **Multiple Storage Support**: Supports local storage and S3-compatible storage (like R2)
 - **Redis Support**: Optional Redis integration for metadata and tags storage with improved performance
 
-## 🚀 Technical Advantages
-
-1. **Security**: API key verification mechanism ensures secure access to image upload and management functionality
-2. **Format Conversion**: Automatically converts uploaded images to WebP and AVIF formats, reducing file size by 30-50%
-3. **Device Adaptation**: Provides the most suitable image orientation for different devices
-4. **Image Lifecycle Management**: Set expiration times for images with automatic cleanup when expired across all storage types
-5. **Hot Reload**: Uploaded images are immediately available without service restart
-6. **Concurrent Processing**: Efficiently handles image conversion using Go's concurrency features
-7. **Consistent Management**: When deleting an image, all related formats (original, WebP, AVIF) are removed simultaneously
-8. **Scalability**: Modular design for easy extension and customization
-9. **Responsive Design**: Perfect adaptation for desktop and mobile devices
-10. **Dark Mode Support**: Automatically adapts to system theme with manual toggle option
-11. **Flexible Storage**: Supports local and S3-compatible storage, easily configured via .env file
-12. **High-Performance Metadata**: Optional Redis integration for faster metadata and tag operations
 
 ## 📸 Interface Preview
-
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow1.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow2.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow3.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow4.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow5.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow6.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow7.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow8.png" alt="ImageFlow">
-  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/imageflow9.png" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image1.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image2.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image3.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image4.webp" alt="ImageFlow">
+  <img src="https://raw.githubusercontent.com/Yuri-NagaSaki/ImageFlow/main/docs/img/image5.webp" alt="ImageFlow">
 </div>
+
 
 ## 🔧 Quick Start
 
@@ -130,6 +114,7 @@ sudo systemctl start imageflow
 
 #### Method 2: Docker Deployment
 
+##### Frontend-Backend Separated Version (Optimized image loading, higher resource usage)
 1. Using pre-built image (recommended)
 
 ```bash
@@ -142,7 +127,7 @@ cp .env.example .env
 # Edit the .env file
 
 # 3. Start service
-docker compose up -d
+docker compose -f docker-compose-separate.yaml up -d
 ```
 
 2. Local build deployment
@@ -157,7 +142,22 @@ cp .env.example .env
 # Edit the .env file
 
 # 3. Build and start
-docker compose -f docker-compose-build.yml up --build -d
+docker compose -f docker-compose-separate-build.yaml up --build -d
+```
+
+##### Backend-Only Deployment (May have slower image loading due to native HTML)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Yuri-NagaSaki/ImageFlow.git
+cd ImageFlow
+
+# 2. Configure environment
+cp .env.example .env
+# Edit the .env file
+
+# 3. Start service
+docker compose -f docker-compose.yaml up -d
 ```
 
 ### Configuration Guide
@@ -193,8 +193,13 @@ CUSTOM_DOMAIN=  # Custom domain
 MAX_UPLOAD_COUNT=20    # Maximum upload count per request
 IMAGE_QUALITY=80      # Image quality (1-100)
 WORKER_THREADS=4      # Number of parallel processing threads
-COMPRESSION_EFFORT=6  # Compression level (1-10)
-FORCE_LOSSLESS=false  # Force lossless compression
+SPEED=5              # Encoding speed (0-8)
+
+# Parameters needed only for frontend-backend separation
+#NEXT_PUBLIC_API_URL=http://localhost:8686 # Backend URL
+NEXT_PUBLIC_API_URL=
+# Backend URL and image domain (not needed if using local storage)
+NEXT_PUBLIC_REMOTE_PATTERNS=
 ```
 
 ### Metadata Migration
@@ -213,37 +218,6 @@ bash migrate.sh --env /path/to/.env
 ```
 
 ## 📝 Usage
-
-### API Key Authentication
-
-Image upload functionality requires API key authentication. You can:
-
-1. Set the API key in the `.env` file
-2. Enter the API key through the web interface
-3. The API key will be saved after successful verification
-
-### Uploading Images
-
-Access the upload interface at `http://localhost:8686/`. You can:
-
-1. Drag and drop images to the upload area
-2. Click to select images for upload
-3. Set an expiration time for images (optional)
-4. Add tags to categorize your images (optional)
-4. Preview selected images in real-time
-5. System automatically detects if images are landscape or portrait
-6. After upload, images are automatically converted to WebP and AVIF formats
-7. If an expiration time is set, images will be automatically deleted after expiration
-
-### Managing Images
-
-Access the management interface at `http://localhost:8686/manage.html`. You can:
-
-1. View all uploaded images with filtering options by format, orientation, and tags
-2. Click on any image to view detailed information
-3. Copy the direct URL to the image for easy sharing
-4. Delete images when no longer needed (requires API key authentication)
-5. When an image is deleted, all associated formats (original, WebP, AVIF) are removed simultaneously
 
 ### Getting Random Images
 
@@ -359,9 +333,9 @@ Project Link: [https://github.com/Yuri-NagaSaki/ImageFlow](https://github.com/Yu
 
 ---
 ## ❤️ Thanks
-[YXVM](https://support.nodeget.com/page/promotion?id=80)赞助了本项目
+[YXVM](https://support.nodeget.com/page/promotion?id=80) sponsored this project
 
-[NodeSupport](https://github.com/NodeSeekDev/NodeSupport)赞助了本项目
+[NodeSupport](https://github.com/NodeSeekDev/NodeSupport) sponsored this project
 
 <div align="center">
   <p>⭐ If you like this project, please give it a star! ⭐</p>

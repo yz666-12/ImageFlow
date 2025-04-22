@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -24,15 +23,6 @@ func main() {
 		log.Printf("Warning: Error loading .env file: %v", err)
 		log.Printf("Continuing with environment variables from the system")
 	}
-
-	// Initialize configuration
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	// Set the config in the utils package
-	utils.SetConfig(cfg)
 
 	// Check if Redis is enabled
 	redisEnabled := os.Getenv("REDIS_ENABLED")

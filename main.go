@@ -79,9 +79,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Set the config in the utils package
-	utils.SetConfig(cfg)
-
 	// Initialize S3 client only when using S3 storage
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "s3" {
@@ -228,8 +225,8 @@ func ensureDirectories(cfg *config.Config) {
 		filepath.Join(cfg.ImageBasePath, "landscape", "avif"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "webp"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "avif"),
-		filepath.Join(cfg.ImageBasePath, "gif"),      // Directory for GIF files
-		filepath.Join(cfg.ImageBasePath, "metadata"), // Directory for image metadata
+		filepath.Join(cfg.ImageBasePath, "gif"),
+		filepath.Join(cfg.ImageBasePath, "metadata"),
 	}
 
 	for _, dir := range dirs {

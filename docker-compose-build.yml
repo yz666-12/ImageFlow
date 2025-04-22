@@ -24,8 +24,7 @@ services:
       - MAX_UPLOAD_COUNT=${MAX_UPLOAD_COUNT:-20}
       - IMAGE_QUALITY=${IMAGE_QUALITY:-80}
       - WORKER_THREADS=${WORKER_THREADS:-4}
-      - COMPRESSION_EFFORT=${COMPRESSION_EFFORT:-6}
-      - FORCE_LOSSLESS=${FORCE_LOSSLESS:-false}
+      - SPEED=${SPEED:-5}
     depends_on:
       - redis
     volumes:
