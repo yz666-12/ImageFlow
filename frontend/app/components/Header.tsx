@@ -30,7 +30,7 @@ export default function Header({ onApiKeyClick, title, isKeyVerified = false }: 
             <ImageIcon className="h-8 w-8 text-white" />
           </div>
         </Link>
-        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-primary">
+        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-primary pb-1">
           {getTitle()}
         </h1>
       </div>
