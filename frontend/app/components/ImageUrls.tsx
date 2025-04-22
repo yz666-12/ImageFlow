@@ -1,12 +1,15 @@
 import { useState, useCallback } from "react";
 import { ImageFile } from "../types";
+import { ImageData } from "../types/image";
 import { buildMarkdownLink } from "../utils/imageUtils";
 import { copyToClipboard } from "../utils/clipboard";
 import { getFullUrl } from "../utils/baseUrl";
 import { CheckIcon, CopyIcon, ImageIcon } from "./ui/icons";
 
+type ImageType = ImageFile | (ImageData & { status: 'success' });
+
 interface ImageUrlsProps {
-  image: ImageFile;
+  image: ImageType;
 }
 
 export const ImageUrls = ({ image }: ImageUrlsProps) => {
@@ -38,15 +41,24 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       });
   };
 
-  const originalUrl = getFullUrl(image.urls?.original || "");
+  // 判断图片类型
+  const isImageFile = 'url' in image;
+  
+  // 获取URL
+  const originalUrl = getFullUrl(image.urls?.original || (isImageFile ? (image as ImageFile).url : ""));
   const webpUrl = getFullUrl(image.urls?.webp || "");
   const avifUrl = getFullUrl(image.urls?.avif || "");
+  
+  // 获取当前格式
+  const format = (image.format || "").toLowerCase();
+  
   const currentFormatUrl =
-    image.format.toLowerCase() === "webp"
+    format === "webp"
       ? webpUrl
-      : image.format.toLowerCase() === "avif"
+      : format === "avif"
       ? avifUrl
       : originalUrl;
+      
   const markdownLink = buildMarkdownLink(currentFormatUrl!, image.filename);
 
   const CopyButton = ({ type, text }: { type: string; text: string }) => (
@@ -101,13 +113,13 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       {/* 原始格式链接 */}
       <UrlBox
         icon="text-blue-500"
-        label={image.format.toLowerCase() === "gif" ? "GIF 动图" : "原始格式"}
+        label={format === "gif" ? "GIF 动图" : "原始格式"}
         url={originalUrl!}
         type="original"
       />
 
       {/* 仅在非GIF图片时显示WebP和AVIF格式 */}
-      {image.format.toLowerCase() !== "gif" && (
+      {format !== "gif" && (
         <>
           <UrlBox
             icon="text-purple-500"

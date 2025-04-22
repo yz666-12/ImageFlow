@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import ImageDetailModal from "./ImageDetail/ImageDetailModal";
+import ImageModal from "../components/ImageModal";
 import { getFullUrl } from "../utils/baseUrl";
 import { ImageIcon, Cross1Icon, ExclamationTriangleIcon } from "./ui/icons";
 
@@ -245,8 +245,8 @@ export default function ImageSidebar({
       </AnimatePresence>
 
       {/* 图片详情模态框 */}
-      <ImageDetailModal
-        image={selectedImage}
+      <ImageModal
+        image={selectedImage && selectedImage.status === "success" ? selectedImage as any : null}
         isOpen={showModal}
         onClose={handleCloseModal}
         onDelete={onDelete}

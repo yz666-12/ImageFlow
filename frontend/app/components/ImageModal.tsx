@@ -3,17 +3,21 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageFile } from "../types";
+import { ImageData } from "../types/image";
 import { ImagePreview } from "./ImagePreview";
 import { ImageInfo } from "./ImageInfo";
 import { ImageUrls } from "./ImageUrls";
 import { DeleteConfirm } from "./DeleteConfirm";
 import { Cross1Icon, TrashIcon } from "./ui/icons";
 
+// 统一的图片类型，可以接受管理界面和上传界面的两种不同图片对象
+type ImageType = ImageFile | (ImageData & { status: 'success' });
+
 interface ImageModalProps {
-  image: ImageFile | null;
+  image: ImageType | null;
   isOpen: boolean;
   onClose: () => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
 }
 
 export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageModalProps) {
@@ -28,7 +32,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
   }, [isOpen]);
 
   const handleDelete = async () => {
-    if (!image) return;
+    if (!image || !onDelete || !image.id) return;
 
     try {
       setIsDeleting(true);
@@ -43,6 +47,9 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
   };
 
   if (!image) return null;
+
+  // 判断是否有可删除的功能
+  const canDelete = onDelete && image.id;
 
   return (
     <AnimatePresence>
@@ -79,35 +86,37 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
               {/* 图片预览区域 */}
               <div className="relative w-full md:w-1/2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center p-4">
                 <div className="relative w-full" style={{ height: '380px' }}>
-                  <ImagePreview image={image} />
+                  <ImagePreview image={image as any} />
                 </div>
               </div>
 
               {/* 图片信息区域 */}
               <div className="w-full md:w-1/2 p-4 flex flex-col h-full md:h-[380px]">
                 <div className="flex flex-col h-full">
-                  <ImageInfo image={image} />
-                  <ImageUrls image={image} />
+                  <ImageInfo image={image as any} />
+                  <ImageUrls image={image as any} />
                 </div>
 
                 {/* 底部删除区域 */}
-                <div className="pt-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                  {!showDeleteConfirm ? (
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="flex items-center justify-center w-full p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      <TrashIcon className="h-4 w-4 mr-1" />
-                      删除图片
-                    </button>
-                  ) : (
-                    <DeleteConfirm
-                      isDeleting={isDeleting}
-                      onCancel={() => setShowDeleteConfirm(false)}
-                      onConfirm={handleDelete}
-                    />
-                  )}
-                </div>
+                {canDelete && (
+                  <div className="pt-1 border-t border-gray-100 dark:border-gray-800 mt-1">
+                    {!showDeleteConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="flex items-center justify-center w-full p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <TrashIcon className="h-4 w-4 mr-1" />
+                        删除图片
+                      </button>
+                    ) : (
+                      <DeleteConfirm
+                        isDeleting={isDeleting}
+                        onCancel={() => setShowDeleteConfirm(false)}
+                        onConfirm={handleDelete}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

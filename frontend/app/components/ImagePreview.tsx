@@ -1,13 +1,16 @@
 import Image from "next/image";
 import { ImageFile } from "../types";
+import { ImageData } from "../types/image";
 import { getFullUrl } from "../utils/baseUrl";
 import { useState, useEffect, useCallback } from "react";
 import { imageQueue } from "../utils/imageQueue";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { DownloadIcon } from "./ui/icons";
 
+type ImageType = ImageFile | (ImageData & { status: 'success' });
+
 interface ImagePreviewProps {
-  image: ImageFile;
+  image: ImageType;
   priority?: boolean;
   onLoad?: () => void;
   quality?: number;
@@ -22,7 +25,19 @@ export const ImagePreview = ({
   const [isLoading, setIsLoading] = useState(true);
   const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const imageUrl = getFullUrl(image.urls?.webp || image.url);
+  
+  // 判断图片类型并获取适当的URL
+  const isImageFile = 'url' in image;
+  const imageUrl = getFullUrl(
+    isImageFile 
+      ? (image as ImageFile).urls?.webp || (image as ImageFile).url
+      : (image as ImageData).urls?.webp || ''
+  );
+  
+  // 获取格式
+  const format = isImageFile 
+    ? (image as ImageFile).format?.toLowerCase() 
+    : (image as ImageData).format?.toLowerCase() || '';
 
   const handleLoadComplete = useCallback(() => {
     setIsLoading(false);
@@ -36,7 +51,7 @@ export const ImagePreview = ({
     const loadImage = async () => {
       try {
         // Generate placeholder for non-GIF images
-        if (image.format.toLowerCase() !== "gif") {
+        if (format !== "gif") {
           const placeholder = await generateBlurPlaceholder(imageUrl);
           setBlurDataUrl(placeholder);
         }
@@ -55,7 +70,7 @@ export const ImagePreview = ({
     return () => {
       setBlurDataUrl(null);
     };
-  }, [imageUrl, priority, image.format]);
+  }, [imageUrl, priority, format]);
 
   const generateBlurPlaceholder = async (imageUrl: string) => {
     // Generate a more detailed placeholder
@@ -78,11 +93,11 @@ export const ImagePreview = ({
     );
   }
 
-  if (image.format.toLowerCase() === "gif") {
+  if (format === "gif") {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <img
-          src={getFullUrl(image.url)}
+          src={imageUrl}
           alt={image.filename}
           className={`max-h-full max-w-full object-contain transition-opacity duration-300 ${
             isLoading ? "opacity-0" : "opacity-100"
@@ -92,7 +107,7 @@ export const ImagePreview = ({
           onError={() => setError("Failed to load GIF")}
         />
         <a
-          href={getFullUrl(image.url)}
+          href={imageUrl}
           download={image.filename}
           className="absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors duration-300"
           onClick={(e) => e.stopPropagation()}
@@ -117,7 +132,7 @@ export const ImagePreview = ({
         priority={priority}
         loading={priority ? "eager" : "lazy"}
         quality={quality}
-        placeholder="blur"
+        placeholder={blurDataUrl ? "blur" : "empty"}
         blurDataURL={blurDataUrl || undefined}
         onLoadingComplete={handleLoadComplete}
         onError={() => setError("Failed to load image")}
