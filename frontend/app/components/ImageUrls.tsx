@@ -104,11 +104,6 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
 
   return (
     <div className="space-y-1">
-      <div className="mb-1">
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          可用格式
-        </label>
-      </div>
 
       {/* 原始格式链接 */}
       <UrlBox

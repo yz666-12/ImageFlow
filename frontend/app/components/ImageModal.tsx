@@ -4,11 +4,10 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageFile } from "../types";
 import { ImageData } from "../types/image";
-import { ImagePreview } from "./ImagePreview";
 import { ImageInfo } from "./ImageInfo";
 import { ImageUrls } from "./ImageUrls";
 import { DeleteConfirm } from "./DeleteConfirm";
-import { Cross1Icon, TrashIcon } from "./ui/icons";
+import { Cross1Icon, TrashIcon, InfoCircledIcon, Link1Icon } from "./ui/icons";
 
 // 统一的图片类型，可以接受管理界面和上传界面的两种不同图片对象
 type ImageType = ImageFile | (ImageData & { status: 'success' });
@@ -55,69 +54,90 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
           <motion.div
-            className="relative bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-2xl max-w-4xl w-full flex flex-col"
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.9, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative bg-gray-50 dark:bg-slate-800 rounded-xl overflow-hidden w-full max-w-2xl max-h-[90vh] shadow-lg border border-gray-200 dark:border-slate-700"
+            initial={{ scale: 0.97 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.97, opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 关闭按钮 */}
-            <button
-              className="absolute top-4 right-4 z-10 p-2 bg-black/20 dark:bg-white/10 rounded-full hover:bg-black/30 dark:hover:bg-white/20 transition-colors"
-              onClick={onClose}
-            >
-              <Cross1Icon className="h-5 w-5 text-white" />
-            </button>
-
-            {/* 文件名标题 */}
-            <div className="border-b border-gray-100 dark:border-gray-800 px-6 py-4">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate">{image.filename}</h3>
+            {/* 标题栏 */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 truncate">{image.filename}</h3>
+              <button
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-md transition-colors"
+                onClick={onClose}
+              >
+                <Cross1Icon className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="flex flex-col md:flex-row">
-              {/* 图片预览区域 */}
-              <div className="relative w-full md:w-1/2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center p-4">
-                <div className="relative w-full" style={{ height: '380px' }}>
-                  <ImagePreview image={image as any} />
-                </div>
-              </div>
-
-              {/* 图片信息区域 */}
-              <div className="w-full md:w-1/2 p-4 flex flex-col h-full md:h-[380px]">
-                <div className="flex flex-col h-full">
-                  <ImageInfo image={image as any} />
-                  <ImageUrls image={image as any} />
-                </div>
-
-                {/* 底部删除区域 */}
-                {canDelete && (
-                  <div className="pt-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                    {!showDeleteConfirm ? (
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="flex items-center justify-center w-full p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <TrashIcon className="h-4 w-4 mr-1" />
-                        删除图片
-                      </button>
-                    ) : (
-                      <DeleteConfirm
-                        isDeleting={isDeleting}
-                        onCancel={() => setShowDeleteConfirm(false)}
-                        onConfirm={handleDelete}
-                      />
-                    )}
+            {/* 内容区域 */}
+            <div className="overflow-y-auto max-h-[calc(90vh-9rem)] bg-white dark:bg-slate-900 p-6">
+              <div className="space-y-6">
+                {/* 图片信息 */}
+                <div>
+                  <div className="flex items-center mb-4">
+                    <InfoCircledIcon className="h-5 w-5 mr-2 text-blue-500 dark:text-blue-400" />
+                    <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200">图片信息</h4>
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <ImageInfo image={image as any} />
+                  </div>
+                </div>
+                
+                {/* 可用链接 */}
+                <div>
+                  <div className="flex items-center mb-4">
+                    <Link1Icon className="h-5 w-5 mr-2 text-teal-500 dark:text-teal-400" />
+                    <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200">可用链接</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <ImageUrls image={image as any} />
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* 底部操作区域 */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
+              {canDelete && !showDeleteConfirm && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-1.5 rounded-md transition-colors flex items-center text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-100/50 dark:hover:bg-red-500/10 text-sm"
+                >
+                  <TrashIcon className="h-4 w-4 mr-1.5" />
+                  删除图片
+                </button>
+              )}
+              
+              {showDeleteConfirm && (
+                <div className="flex gap-2">
+                  <DeleteConfirm
+                    isDeleting={isDeleting}
+                    onCancel={() => setShowDeleteConfirm(false)}
+                    onConfirm={handleDelete}
+                  />
+                </div>
+              )}
+              
+              {(!canDelete || !showDeleteConfirm) && (
+                <div className="ml-auto">
+                  <button
+                    onClick={onClose}
+                    className="px-5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-md transition-colors font-medium text-slate-700 dark:text-slate-200 text-sm"
+                  >
+                    关闭
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
