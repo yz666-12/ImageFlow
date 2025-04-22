@@ -85,7 +85,7 @@ export default function ImageSidebar({
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
               <h2 className="text-lg font-semibold flex items-center">
                 <ImageIcon className="h-5 w-5 mr-2 text-white opacity-90" />
-                媒体库 ({results.length})
+                上传结果 ({results.length})
               </h2>
               <button
                 onClick={onClose}

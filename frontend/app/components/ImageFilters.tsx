@@ -128,7 +128,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
           className={`w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 flex items-center justify-between ${
             isActive
               ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30"
-              : "bg-gray-800/40 text-gray-300 hover:bg-gray-800/60 backdrop-blur-md"
+              : "bg-slate-200 dark:bg-gray-800/40 text-slate-700 dark:text-gray-300 hover:bg-slate-300 dark:hover:bg-gray-800/60 backdrop-blur-md border border-slate-300/50 dark:border-transparent"
           }`}
         >
           <span className="font-medium">{getOptionLabel()}</span>
@@ -147,19 +147,19 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 bottom-full mb-2 w-full bg-gray-800/95 backdrop-blur-lg rounded-xl shadow-xl border border-gray-700/50 z-50 overflow-hidden"
+              className="absolute right-0 bottom-full mb-2 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-lg rounded-xl shadow-xl border border-gray-200 dark:border-gray-700/50 z-50 overflow-hidden"
             >
               {type === "tag" && (
-                <div className="p-2 border-b border-gray-700/50">
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700/50">
                   <div className="relative">
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="搜索标签..."
-                      className="w-full px-3 py-2 pl-9 rounded-lg bg-gray-700/50 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+                      className="w-full px-3 py-2 pl-9 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
                     />
-                    <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                   </div>
                 </div>
               )}
@@ -170,8 +170,8 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                     onClick={() => handleFilterChange("tag", "")}
                     className={`w-full px-4 py-2.5 text-sm text-left transition-colors ${
                       tag === ""
-                        ? "bg-indigo-500/20 text-indigo-300"
-                        : "text-gray-300 hover:bg-gray-700/50"
+                        ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                     }`}
                   >
                     全部
@@ -185,15 +185,15 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                       (type === "format" && format === option.value) ||
                       (type === "orientation" && orientation === option.value) ||
                       (type === "tag" && tag === option.value)
-                        ? "bg-indigo-500/20 text-indigo-300"
-                        : "text-gray-300 hover:bg-gray-700/50"
+                        ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                     }`}
                   >
                     {option.label}
                   </button>
                 ))}
                 {type === "tag" && filteredTags.length === 0 && (
-                  <div className="px-4 py-3 text-sm text-gray-400 text-center">
+                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
                     未找到匹配的标签
                   </div>
                 )}
@@ -224,7 +224,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="fixed bottom-20 right-6 z-40 bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-800/50 p-4 w-72"
+            className="fixed bottom-20 right-6 z-40 bg-white dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800/50 p-4 w-72"
           >
             <div className="space-y-3">
               {renderFilterOption("format")}
