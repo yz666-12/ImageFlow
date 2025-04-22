@@ -4,22 +4,28 @@ export function useTheme() {
   const [isDarkMode, setIsDarkMode] = useState(true)
 
   useEffect(() => {
-    // 从localStorage获取主题设置
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark')
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark')
+    let initialIsDark;
+    try {
+      const savedTheme = localStorage.getItem('theme')
+      if (savedTheme) {
+        initialIsDark = savedTheme === 'dark'
+      } else {
+        initialIsDark = document.documentElement.classList.contains('dark')
+
+      }
+    } catch (e) {
+      console.warn("无法访问 localStorage 获取主题设置:", e);
+      initialIsDark = document.documentElement.classList.contains('dark');
     }
+
+    setIsDarkMode(initialIsDark);
+    document.documentElement.classList.toggle('dark', initialIsDark);
   }, [])
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode
     setIsDarkMode(newTheme)
-    
-    // 保存主题设置
     localStorage.setItem('theme', newTheme ? 'dark' : 'light')
-    
-    // 切换主题类
     document.documentElement.classList.toggle('dark', newTheme)
   }
 
