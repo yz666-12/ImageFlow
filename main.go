@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"mime"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/handlers"
@@ -78,6 +82,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// Initialize libvips for image processing
+	utils.InitVips(cfg)
+	log.Printf("Initialized libvips with %d worker threads", cfg.WorkerThreads)
 
 	// Initialize S3 client only when using S3 storage
 	storageType := os.Getenv("STORAGE_TYPE")
@@ -195,11 +203,53 @@ func main() {
 	// Apply CORS middleware to all handlers
 	handler := corsMiddleware(http.DefaultServeMux)
 
-	// Start server
-	log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, storageType)
-	if err := http.ListenAndServe(cfg.ServerAddr, handler); err != nil {
-		log.Fatal(err)
+	// Create HTTP server
+	server := &http.Server{
+		Addr:    cfg.ServerAddr,
+		Handler: handler,
 	}
+
+	// Set up graceful shutdown
+	done := make(chan bool)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, storageType)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-quit
+	log.Println("Server is shutting down...")
+
+	// Give ongoing operations time to finish
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Shut down the worker pool
+	workerPool := utils.GetWorkerPool()
+	if workerPool != nil {
+		log.Println("Shutting down worker pool...")
+		workerPool.Shutdown()
+	}
+
+	// Stop the cleaner
+	if utils.Cleaner != nil {
+		log.Println("Stopping image cleaner...")
+		utils.Cleaner.Stop()
+	}
+
+	// Shutdown the server
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server shutdown completed")
+	close(done)
 }
 
 // configureMIMETypes registers common MIME types

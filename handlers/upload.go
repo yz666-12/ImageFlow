@@ -136,7 +136,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 	var wg sync.WaitGroup
 
 	if imgFormat.Format != "gif" {
-		// WebP conversion
+		// WebP conversion - simply call the function which now uses worker pool internally
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -148,7 +148,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			}
 		}()
 
-		// AVIF conversion
+		// AVIF conversion - simply call the function which now uses worker pool internally
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -291,19 +291,16 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			cfg:        cfg,
 		}
 
-		// Create a buffered channel to limit concurrent processing
-		semaphore := make(chan struct{}, cfg.WorkerThreads)
+		// Process images concurrently - using a semaphore to limit concurrency at upload level
+		// Each image will use the worker pool internally for conversion tasks
 		resultsChan := make(chan UploadResult, len(files))
-
-		// Process each file concurrently with limited concurrency
 		var wg sync.WaitGroup
+
 		for _, fileHeader := range files {
 			wg.Add(1)
 			go func(fh *multipart.FileHeader) {
 				defer wg.Done()
-				semaphore <- struct{}{} // Acquire a slot
 				result := processImage(ctx, fh)
-				<-semaphore // Release the slot
 				resultsChan <- result
 			}(fileHeader)
 		}

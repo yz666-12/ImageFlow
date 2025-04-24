@@ -19,6 +19,7 @@ type Config struct {
 	ImageQuality   int    `json:"image_quality"`    // Image conversion quality (1-100)
 	WorkerThreads  int    `json:"worker_threads"`   // Number of parallel worker threads
 	Speed          int    `json:"speed"`            // Encoding speed (0-8, 0=slowest/highest quality)
+	WorkerPoolSize int    `json:"worker_pool_size"` // Size of worker pool for concurrent image processing
 }
 
 // Load loads configuration from environment variables and config file
@@ -32,6 +33,7 @@ func Load() (*Config, error) {
 		ImageQuality:   75, // Default quality: 75
 		WorkerThreads:  4,  // Default workers: 4 threads
 		Speed:          5,  // Default speed: 5 (medium)
+		WorkerPoolSize: 10, // Default worker pool size: 10 concurrent tasks
 	}
 
 	// If LOCAL_STORAGE_PATH is not set, use default value
@@ -81,6 +83,13 @@ func Load() (*Config, error) {
 				s = 8
 			}
 			cfg.Speed = s
+		}
+	}
+
+	// Get worker pool size from environment
+	if poolSize := os.Getenv("WORKER_POOL_SIZE"); poolSize != "" {
+		if p, err := strconv.Atoi(poolSize); err == nil && p > 0 {
+			cfg.WorkerPoolSize = p
 		}
 	}
 
