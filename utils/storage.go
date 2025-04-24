@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -78,17 +79,21 @@ func (ls *LocalStorage) Delete(ctx context.Context, key string) error {
 
 // S3Storage implements StorageProvider for S3-compatible storage
 type S3Storage struct {
-	client *s3.Client
-	bucket string
+	client       *s3.Client
+	bucket       string
+	customDomain string
+	endpoint     string
 }
 
-func NewS3Storage() (*S3Storage, error) {
-	if err := InitS3Client(); err != nil {
+func NewS3Storage(cfg *config.Config) (*S3Storage, error) {
+	if err := InitS3Client(cfg); err != nil {
 		return nil, err
 	}
 	return &S3Storage{
-		client: S3Client,
-		bucket: os.Getenv("S3_BUCKET"),
+		client:       S3Client,
+		bucket:       cfg.S3Bucket,
+		customDomain: cfg.CustomDomain,
+		endpoint:     cfg.S3Endpoint,
 	}, nil
 }
 
@@ -119,12 +124,11 @@ func (s *S3Storage) Store(ctx context.Context, key string, data []byte) error {
 		return fmt.Errorf("failed to store object in S3: %v", err)
 	}
 
-	customDomain := os.Getenv("CUSTOM_DOMAIN")
 	var url string
-	if customDomain != "" {
-		url = fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
+	if s.customDomain != "" {
+		url = fmt.Sprintf("%s/%s", strings.TrimSuffix(s.customDomain, "/"), key)
 	} else {
-		url = fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/"), s.bucket, key)
+		url = fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(s.endpoint, "/"), s.bucket, key)
 	}
 	log.Printf("Successfully stored object in S3: %s (URL: %s)", key, url)
 	return nil
@@ -190,14 +194,14 @@ type StorageConfig struct {
 }
 
 // NewStorageProvider creates a new storage provider based on configuration
-func NewStorageProvider(cfg StorageConfig) (StorageProvider, error) {
-	switch cfg.Type {
-	case "local":
-		return NewLocalStorage(cfg.LocalPath)
-	case "s3":
-		return NewS3Storage()
+func NewStorageProvider(cfg *config.Config) (StorageProvider, error) {
+	switch cfg.StorageType {
+	case config.StorageTypeLocal:
+		return NewLocalStorage(cfg.ImageBasePath)
+	case config.StorageTypeS3:
+		return NewS3Storage(cfg)
 	default:
-		return nil, fmt.Errorf("unsupported storage type: %s", cfg.Type)
+		return nil, fmt.Errorf("unsupported storage type: %s", cfg.StorageType)
 	}
 }
 
@@ -205,13 +209,8 @@ func NewStorageProvider(cfg StorageConfig) (StorageProvider, error) {
 var Storage StorageProvider
 
 // InitStorage initializes the global storage provider
-func InitStorage() error {
-	storageConfig := StorageConfig{
-		Type:      os.Getenv("STORAGE_TYPE"),
-		LocalPath: os.Getenv("LOCAL_STORAGE_PATH"),
-	}
-
+func InitStorage(cfg *config.Config) error {
 	var err error
-	Storage, err = NewStorageProvider(storageConfig)
+	Storage, err = NewStorageProvider(cfg)
 	return err
 }

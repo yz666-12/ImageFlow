@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 )
 
 // ImageCleaner is responsible for cleaning up expired images
@@ -14,14 +16,11 @@ type ImageCleaner struct {
 }
 
 // NewImageCleaner creates a new image cleaner
-func NewImageCleaner() *ImageCleaner {
-	// Fixed cleanup interval: 1 minute
-	interval := 1
-
+func NewImageCleaner(cfg *config.Config) *ImageCleaner {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ImageCleaner{
-		interval: time.Duration(interval) * time.Minute,
+		interval: time.Duration(cfg.CleanupInterval) * time.Minute,
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -115,8 +114,8 @@ func (ic *ImageCleaner) cleanExpiredImages() {
 var Cleaner *ImageCleaner
 
 // InitCleaner initializes and starts the image cleaner
-func InitCleaner() {
-	Cleaner = NewImageCleaner()
+func InitCleaner(cfg *config.Config) {
+	Cleaner = NewImageCleaner(cfg)
 	Cleaner.Start()
 }
 

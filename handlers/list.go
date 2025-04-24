@@ -7,12 +7,10 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
@@ -20,31 +18,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var (
-	debugMode = (os.Getenv("DEBUG_MODE") == "true")
-	// baseURLs caches the base URLs for different storage types
-	baseURLs = make(map[string]string)
-)
+// Global configuration instance
+var globalConfig *config.Config
 
-func init() {
-	// Initialize base URLs
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "s3" {
-		customDomain := os.Getenv("CUSTOM_DOMAIN")
-		if customDomain != "" {
-			baseURLs["s3"] = strings.TrimSuffix(customDomain, "/")
-		} else {
-			endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-			bucket := os.Getenv("S3_BUCKET")
-			baseURLs["s3"] = fmt.Sprintf("%s/%s", endpoint, bucket)
-		}
-	} else {
-		baseURLs["local"] = "/images"
-	}
+// SetConfig sets the global configuration
+func SetConfig(cfg *config.Config) {
+	globalConfig = cfg
 }
 
 func DebugLog(format string, args ...interface{}) {
-	if debugMode {
+	if globalConfig != nil && globalConfig.DebugMode {
 		log.Printf("[DEBUG] "+format, args...)
 	}
 }
@@ -64,11 +47,14 @@ type PaginatedResponse struct {
 
 // ListImagesHandler returns a handler for listing images
 func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
+	// Set global config for debug logging
+	SetConfig(cfg)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		var cacheHit bool
 		defer func() {
-			if debugMode {
+			if cfg.DebugMode {
 				duration := time.Since(startTime)
 				log.Printf("[DEBUG] List API latency: %v, cache hit: %v", duration, cacheHit)
 			}
@@ -105,7 +91,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		} else {
 			// Cache miss, get from Redis
 			var err error
-			allImages, err = listImagesFromRedis(r.Context(), params)
+			allImages, err = listImagesFromRedis(r.Context(), params, cfg)
 			if err != nil {
 				log.Printf("Error listing images from Redis: %v", err)
 				http.Error(w, "获取图片列表失败", http.StatusInternalServerError)
@@ -114,7 +100,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 			// Cache the results
 			if err := utils.SetCachedPage(r.Context(), cacheKey, allImages); err != nil {
-				if debugMode {
+				if cfg.DebugMode {
 					log.Printf("[DEBUG] Failed to cache page results: %v", err)
 				}
 			}
@@ -158,7 +144,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			if debugMode {
+			if cfg.DebugMode {
 				log.Printf("[DEBUG] Error encoding JSON response: %v", err)
 			}
 		}
@@ -243,29 +229,8 @@ func parseQueryParams(r *http.Request) queryParams {
 	}
 }
 
-// constructImageURL creates the appropriate URL for image access
-func constructImageURL(relPath string) string {
-	storageType := os.Getenv("STORAGE_TYPE")
-	var baseURL string
-
-	if storageType == "s3" {
-		customDomain := os.Getenv("CUSTOM_DOMAIN")
-		if customDomain != "" {
-			baseURL = strings.TrimSuffix(customDomain, "/")
-		} else {
-			endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-			bucket := os.Getenv("S3_BUCKET")
-			baseURL = fmt.Sprintf("%s/%s", endpoint, bucket)
-		}
-	} else {
-		baseURL = "/images"
-	}
-
-	return fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(relPath, "\\", "/"))
-}
-
 // listImagesFromRedis retrieves images from Redis with optimized queries
-func listImagesFromRedis(ctx context.Context, params queryParams) ([]ImageInfo, error) {
+func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Config) ([]ImageInfo, error) {
 	if !utils.RedisEnabled {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
@@ -319,9 +284,6 @@ func listImagesFromRedis(ctx context.Context, params queryParams) ([]ImageInfo, 
 		return nil, fmt.Errorf("failed to get metadata: %v", err)
 	}
 
-	// URL builder function with caching
-	urlBuilder := newURLBuilder()
-
 	// Process results
 	for _, id := range imageIDs {
 		data, err := metadataCommands[id].Result()
@@ -352,7 +314,7 @@ func listImagesFromRedis(ctx context.Context, params queryParams) ([]ImageInfo, 
 			FileName:    data["originalName"],
 			Orientation: data["orientation"],
 			Format:      data["format"],
-			StorageType: os.Getenv("STORAGE_TYPE"),
+			StorageType: string(cfg.StorageType),
 			URLs:        make(map[string]string, 3), // Pre-allocate with capacity
 		}
 
@@ -361,33 +323,39 @@ func listImagesFromRedis(ctx context.Context, params queryParams) ([]ImageInfo, 
 			imageInfo.Tags = strings.Split(tags, ",")
 		}
 
+		// Get base URL for image access
+		baseURL := cfg.GetBaseURL()
+
 		// Construct URLs based on paths
 		isGIF := data["format"] == "gif"
 
 		if isGIF {
 			gifPath := filepath.Join("gif", id+".gif")
-			gifURL := urlBuilder.getURL(gifPath)
+			gifURL := fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(gifPath, "\\", "/"))
 			imageInfo.URLs["original"] = gifURL
 			imageInfo.URLs["webp"] = gifURL
 			imageInfo.URLs["avif"] = gifURL
 		} else {
 			// Use stored paths if available
 			if paths.Original != "" {
-				imageInfo.URLs["original"] = urlBuilder.getURL(paths.Original)
+				imageInfo.URLs["original"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(paths.Original, "\\", "/"))
 			} else {
-				imageInfo.URLs["original"] = urlBuilder.getURL(filepath.Join("original", data["orientation"], id+"."+data["format"]))
+				originalPath := filepath.Join("original", data["orientation"], id+"."+data["format"])
+				imageInfo.URLs["original"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(originalPath, "\\", "/"))
 			}
 
 			if paths.WebP != "" {
-				imageInfo.URLs["webp"] = urlBuilder.getURL(paths.WebP)
+				imageInfo.URLs["webp"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(paths.WebP, "\\", "/"))
 			} else {
-				imageInfo.URLs["webp"] = urlBuilder.getURL(filepath.Join(data["orientation"], "webp", id+".webp"))
+				webpPath := filepath.Join(data["orientation"], "webp", id+".webp")
+				imageInfo.URLs["webp"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(webpPath, "\\", "/"))
 			}
 
 			if paths.AVIF != "" {
-				imageInfo.URLs["avif"] = urlBuilder.getURL(paths.AVIF)
+				imageInfo.URLs["avif"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(paths.AVIF, "\\", "/"))
 			} else {
-				imageInfo.URLs["avif"] = urlBuilder.getURL(filepath.Join(data["orientation"], "avif", id+".avif"))
+				avifPath := filepath.Join(data["orientation"], "avif", id+".avif")
+				imageInfo.URLs["avif"] = fmt.Sprintf("%s/%s", baseURL, strings.ReplaceAll(avifPath, "\\", "/"))
 			}
 		}
 
@@ -409,38 +377,4 @@ func listImagesFromRedis(ctx context.Context, params queryParams) ([]ImageInfo, 
 	})
 
 	return images, nil
-}
-
-// URLBuilder caches constructed URLs
-type URLBuilder struct {
-	cache map[string]string
-	mu    sync.RWMutex
-}
-
-// newURLBuilder creates a new URL builder with caching
-func newURLBuilder() *URLBuilder {
-	return &URLBuilder{
-		cache: make(map[string]string),
-	}
-}
-
-// getURL returns a cached URL or constructs and caches a new one
-func (b *URLBuilder) getURL(relPath string) string {
-	// Try to get from cache first
-	b.mu.RLock()
-	if url, ok := b.cache[relPath]; ok {
-		b.mu.RUnlock()
-		return url
-	}
-	b.mu.RUnlock()
-
-	// Construct new URL
-	url := constructImageURL(relPath)
-
-	// Cache the result
-	b.mu.Lock()
-	b.cache[relPath] = url
-	b.mu.Unlock()
-
-	return url
 }

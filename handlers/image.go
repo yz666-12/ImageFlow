@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
@@ -23,16 +22,13 @@ import (
 // - Ensures consistent headers and caching behavior
 func RandomImage(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get storage type from environment
-		storageType := os.Getenv("STORAGE_TYPE")
-
 		// Use the appropriate handler based on storage type
-		if storageType == "s3" {
+		if cfg.StorageType == config.StorageTypeS3 {
 			// Use the existing S3 handler
-			RandomImageHandler(utils.S3Client)(w, r)
+			RandomImageHandler(utils.S3Client, cfg)(w, r)
 		} else {
 			// Use the existing local handler
-			LocalRandomImageHandler()(w, r)
+			LocalRandomImageHandler(cfg)(w, r)
 		}
 	}
 }

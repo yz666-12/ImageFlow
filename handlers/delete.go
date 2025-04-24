@@ -53,15 +53,9 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 		var success bool
 		var message string
 
-		// Get storage type from environment
-		storageType := os.Getenv("STORAGE_TYPE")
-		if storageType == "" {
-			storageType = "local" // Default to local storage if not specified
-		}
-
 		// Delete based on storage type
-		if storageType == "s3" {
-			success, message = deleteS3Images(req.ID)
+		if cfg.StorageType == config.StorageTypeS3 {
+			success, message = deleteS3Images(req.ID, cfg)
 		} else {
 			success, message = deleteLocalImages(req.ID, cfg.ImageBasePath)
 		}
@@ -179,10 +173,13 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 }
 
 // deleteS3Images deletes all formats of an image from S3 storage
-func deleteS3Images(id string) (bool, string) {
-	// Get S3 bucket from environment
-	bucket := os.Getenv("S3_BUCKET")
-	if bucket == "" {
+func deleteS3Images(id string, cfg *config.Config) (bool, string) {
+	// Check if S3 is properly configured
+	if !cfg.S3Enabled {
+		return false, "S3 storage is not enabled"
+	}
+
+	if cfg.S3Bucket == "" {
 		return false, "S3 bucket not configured"
 	}
 
@@ -214,7 +211,7 @@ func deleteS3Images(id string) (bool, string) {
 
 			// List objects matching prefix
 			paginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
-				Bucket: aws.String(bucket),
+				Bucket: aws.String(cfg.S3Bucket),
 				Prefix: aws.String(prefix),
 			})
 
@@ -245,7 +242,7 @@ func deleteS3Images(id string) (bool, string) {
 
 	// List GIF objects matching prefix
 	gifPaginator := s3.NewListObjectsV2Paginator(utils.S3Client, &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(cfg.S3Bucket),
 		Prefix: aws.String(gifPrefix),
 	})
 
@@ -276,7 +273,7 @@ func deleteS3Images(id string) (bool, string) {
 
 	// Delete objects in batch
 	_, err := utils.S3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(cfg.S3Bucket),
 		Delete: &types.Delete{
 			Objects: objectsToDelete,
 			Quiet:   aws.Bool(false),

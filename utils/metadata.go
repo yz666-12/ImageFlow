@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/redis/go-redis/v9"
@@ -171,13 +172,15 @@ func (lms *LocalMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMeta
 type S3MetadataStore struct {
 	client *S3Storage
 	prefix string
+	bucket string
 }
 
 // NewS3MetadataStore creates a new S3 metadata store
-func NewS3MetadataStore(s3Storage *S3Storage) *S3MetadataStore {
+func NewS3MetadataStore(s3Storage *S3Storage, cfg *config.Config) *S3MetadataStore {
 	return &S3MetadataStore{
 		client: s3Storage,
 		prefix: "metadata/",
+		bucket: cfg.S3Bucket,
 	}
 }
 
@@ -217,12 +220,9 @@ func (sms *S3MetadataStore) GetMetadata(ctx context.Context, id string) (*ImageM
 
 // ListExpiredImages lists all expired images in S3
 func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMetadata, error) {
-	// Get the S3 bucket name
-	bucket := os.Getenv("S3_BUCKET")
-
 	// List all metadata objects with the metadata/ prefix
 	paginator := s3.NewListObjectsV2Paginator(S3Client, &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(sms.bucket),
 		Prefix: aws.String(sms.prefix),
 	})
 
@@ -320,9 +320,9 @@ func (s3ms *S3MetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetada
 var MetadataManager MetadataStore
 
 // InitMetadataStore initializes the metadata storage
-func InitMetadataStore() error {
+func InitMetadataStore(cfg *config.Config) error {
 	// Initialize Redis client if enabled
-	if err := InitRedisClient(); err != nil {
+	if err := InitRedisClient(cfg); err != nil {
 		log.Printf("Warning: Failed to initialize Redis client: %v", err)
 		log.Printf("Falling back to file-based metadata storage")
 	}
@@ -335,7 +335,7 @@ func InitMetadataStore() error {
 		// Migrate existing metadata to Redis if needed
 		if _, err := RedisClient.Get(context.Background(), RedisPrefix+"migration_completed").Result(); err == redis.Nil {
 			log.Printf("Starting metadata migration to Redis...")
-			if err := MigrateMetadataToRedis(context.Background()); err != nil {
+			if err := MigrateMetadataToRedis(context.Background(), cfg); err != nil {
 				log.Printf("Warning: Failed to migrate metadata to Redis: %v", err)
 			} else {
 				// Mark migration as completed
@@ -351,10 +351,7 @@ func InitMetadataStore() error {
 		return nil
 	}
 
-	// Fall back to file-based storage if Redis is not enabled
-	storageType := os.Getenv("STORAGE_TYPE")
-
-	if storageType == "s3" {
+	if cfg.StorageType == config.StorageTypeS3 {
 		// Ensure S3 client is initialized
 		if S3Client == nil {
 			return fmt.Errorf("S3 client not initialized")
@@ -366,14 +363,11 @@ func InitMetadataStore() error {
 			return fmt.Errorf("failed to get S3 storage instance")
 		}
 
-		MetadataManager = NewS3MetadataStore(s3Storage)
+		MetadataManager = NewS3MetadataStore(s3Storage, cfg)
 		log.Printf("S3 metadata store initialized")
 	} else {
 		// Local storage
-		localPath := os.Getenv("LOCAL_STORAGE_PATH")
-		if localPath == "" {
-			localPath = "static/images"
-		}
+		localPath := cfg.ImageBasePath
 
 		// Ensure path is absolute
 		if !filepath.IsAbs(localPath) {

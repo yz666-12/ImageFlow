@@ -8,11 +8,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -127,23 +127,16 @@ func ClearPageCache(ctx context.Context) error {
 }
 
 // InitRedisClient initializes the Redis client
-// Read environment variables and initialize the Redis client (with TLS support). Sets RedisEnabled if connection is successful.
-func InitRedisClient() error {
+func InitRedisClient(cfg *config.Config) error {
 	// Check if Redis is enabled
-	redisEnabled := os.Getenv("REDIS_ENABLED")
-	if strings.ToLower(redisEnabled) != "true" {
+	if !cfg.RedisEnabled {
 		log.Printf("Redis is disabled")
 		RedisEnabled = false
 		return nil
 	}
 
-	// Get Redis configuration from environment variables
-	redisHost := getEnvOrDefault("REDIS_HOST", "localhost")
-	redisPort := getEnvOrDefault("REDIS_PORT", "6379")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	redisDB := parseEnvInt("REDIS_DB", 0)
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "s3" {
+	// Set Redis prefix based on storage type
+	if cfg.StorageType == config.StorageTypeS3 {
 		RedisPrefix = "imageflow:s3:"
 	} else {
 		RedisPrefix = "imageflow:local:"
@@ -155,14 +148,12 @@ func InitRedisClient() error {
 	}
 
 	// Create Redis client
-	// Check if TLS is enabled for Redis
-	tlsEnabled := strings.ToLower(os.Getenv("REDIS_TLS_ENABLED")) == "true"
 	redisOptions := &redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
-		Password: redisPassword,
-		DB:       redisDB,
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
 	}
-	if tlsEnabled {
+	if cfg.RedisTLS {
 		redisOptions.TLSConfig = &tls.Config{}
 	}
 	RedisClient = redis.NewClient(redisOptions)
@@ -176,7 +167,7 @@ func InitRedisClient() error {
 		return err
 	}
 
-	log.Printf("Connected to Redis at %s:%s with prefix %s", redisHost, redisPort, RedisPrefix)
+	log.Printf("Connected to Redis at %s:%s with prefix %s", cfg.RedisHost, cfg.RedisPort, RedisPrefix)
 	RedisEnabled = true
 	return nil
 }
@@ -185,29 +176,6 @@ func InitRedisClient() error {
 // RedisMetadataStore is the structure for metadata operations using Redis.
 type RedisMetadataStore struct {
 	prefix string
-}
-
-// getEnvOrDefault returns the value of the environment variable or the default value if not set.
-func getEnvOrDefault(key, defaultVal string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaultVal
-	}
-	return v
-}
-
-// parseEnvInt parses an environment variable as int, or returns defaultVal on error.
-func parseEnvInt(key string, defaultVal int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaultVal
-	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		log.Printf("Invalid %s value: %s, using default %d", key, v, defaultVal)
-		return defaultVal
-	}
-	return i
 }
 
 // NewRedisMetadataStore creates a new Redis metadata store
@@ -417,33 +385,27 @@ func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
 }
 
 // MigrateMetadataToRedis migrates metadata from JSON files or S3 to Redis
-func MigrateMetadataToRedis(ctx context.Context) error {
+func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
 	if !RedisEnabled {
 		return fmt.Errorf("redis is not enabled")
 	}
 
-	storageType := os.Getenv("STORAGE_TYPE")
-	log.Printf("Starting metadata migration to Redis for storage type: %s", storageType)
+	log.Printf("Starting metadata migration to Redis for storage type: %s", cfg.StorageType)
 
 	// Create Redis metadata store
 	redisStore := NewRedisMetadataStore()
 
-	if storageType == "s3" {
-		return migrateS3MetadataToRedis(ctx, redisStore)
+	if cfg.StorageType == config.StorageTypeS3 {
+		return migrateS3MetadataToRedis(ctx, redisStore, cfg)
 	} else {
-		return migrateLocalMetadataToRedis(ctx, redisStore)
+		return migrateLocalMetadataToRedis(ctx, redisStore, cfg)
 	}
 }
 
 // migrateLocalMetadataToRedis migrates local metadata to Redis
-func migrateLocalMetadataToRedis(ctx context.Context, redisStore *RedisMetadataStore) error {
-	// Get local metadata store
-	localPath := os.Getenv("LOCAL_STORAGE_PATH")
-	if localPath == "" {
-		localPath = "static/images"
-	}
-
+func migrateLocalMetadataToRedis(ctx context.Context, redisStore *RedisMetadataStore, cfg *config.Config) error {
 	// Ensure path is absolute
+	localPath := cfg.ImageBasePath
 	if !filepath.IsAbs(localPath) {
 		localPath = filepath.Join(".", localPath)
 	}
@@ -492,7 +454,7 @@ func migrateLocalMetadataToRedis(ctx context.Context, redisStore *RedisMetadataS
 }
 
 // migrateS3MetadataToRedis migrates S3 metadata to Redis
-func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStore) error {
+func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStore, cfg *config.Config) error {
 	// Get S3 storage instance
 	s3Storage, ok := Storage.(*S3Storage)
 	if !ok {

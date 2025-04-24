@@ -88,20 +88,19 @@ func main() {
 	log.Printf("Initialized libvips with %d worker threads", cfg.WorkerThreads)
 
 	// Initialize S3 client only when using S3 storage
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "s3" {
-		if err := utils.InitS3Client(); err != nil {
+	if cfg.StorageType == config.StorageTypeS3 {
+		if err := utils.InitS3Client(cfg); err != nil {
 			log.Fatalf("Failed to initialize S3 client: %v", err)
 		}
 	}
 
 	// Initialize storage provider
-	if err := utils.InitStorage(); err != nil {
+	if err := utils.InitStorage(cfg); err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
 	// Initialize metadata store
-	if err := utils.InitMetadataStore(); err != nil {
+	if err := utils.InitMetadataStore(cfg); err != nil {
 		log.Fatalf("Failed to initialize metadata store: %v", err)
 	}
 
@@ -109,7 +108,7 @@ func main() {
 	ensureDirectories(cfg)
 
 	// Initialize and start image cleaner
-	utils.InitCleaner()
+	utils.InitCleaner(cfg)
 	log.Printf("Image cleaner started")
 
 	// Configure MIME types
@@ -142,16 +141,15 @@ func main() {
 	}))
 
 	// Use appropriate random image handler based on storage type
-	if storageType == "s3" {
-		http.HandleFunc("/api/random", handlers.RandomImageHandler(utils.S3Client))
+	if cfg.StorageType == config.StorageTypeS3 {
+		http.HandleFunc("/api/random", handlers.RandomImageHandler(utils.S3Client, cfg))
 	} else {
-		http.HandleFunc("/api/random", handlers.LocalRandomImageHandler())
+		http.HandleFunc("/api/random", handlers.LocalRandomImageHandler(cfg))
 		// Serve local images
-		localPath := os.Getenv("LOCAL_STORAGE_PATH")
-		if !filepath.IsAbs(localPath) {
-			localPath = filepath.Join(".", localPath)
+		if !filepath.IsAbs(cfg.ImageBasePath) {
+			cfg.ImageBasePath = filepath.Join(".", cfg.ImageBasePath)
 		}
-		http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(localPath))))
+		http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(cfg.ImageBasePath))))
 	}
 
 	// Serve static files
@@ -216,7 +214,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, storageType)
+		log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, cfg.StorageType)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}

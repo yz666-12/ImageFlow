@@ -22,9 +22,6 @@ type DebugTagsResponse struct {
 // DebugTagsHandler returns a handler for debugging tag issues
 func DebugTagsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get storage type from environment
-		storageType := os.Getenv("STORAGE_TYPE")
-
 		// Validate API key
 		if !validateAPIKey(w, r, cfg.APIKey) {
 			return
@@ -38,7 +35,7 @@ func DebugTagsHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		// Find all images with the specified tag
-		images, err := findImagesWithTagDebug(tag, storageType, cfg.ImageBasePath)
+		images, err := findImagesWithTagDebug(tag, string(cfg.StorageType), cfg.ImageBasePath)
 		if err != nil {
 			log.Printf("Error finding images with tag %s: %v", tag, err)
 			http.Error(w, "Failed to find images", http.StatusInternalServerError)

@@ -22,16 +22,8 @@ type TagsResponse struct {
 // TagsHandler returns a handler for retrieving all unique tags
 func TagsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get storage type from environment
-		storageType := os.Getenv("STORAGE_TYPE")
-
-		// Validate API key
-		if !validateAPIKey(w, r, cfg.APIKey) {
-			return
-		}
-
-		// Get all unique tags
-		tags, err := getAllUniqueTags(storageType, cfg.ImageBasePath)
+		// Get all unique tags based on storage type
+		tags, err := getAllUniqueTags(string(cfg.StorageType), cfg.ImageBasePath)
 		if err != nil {
 			log.Printf("Error retrieving tags: %v", err)
 			http.Error(w, "Failed to retrieve tags", http.StatusInternalServerError)

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -98,9 +99,12 @@ func getFormattedImagePath(format string, orientation string, filename string) s
 }
 
 // RandomImageHandler serves random images from S3 storage
-func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
+func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		bucket := os.Getenv("S3_BUCKET")
+		if !cfg.S3Enabled {
+			http.Error(w, "S3 storage is not enabled", http.StatusInternalServerError)
+			return
+		}
 
 		// Determine device type and orientation
 		deviceType := utils.DetectDeviceType(r)
@@ -126,12 +130,10 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 				log.Printf("Found %d images with tag %s from Redis", len(imageIDs), tag)
 
 				// Filter images by orientation
-				var filteredIDs []string
 				for _, id := range imageIDs {
 					metadata, metaErr := utils.MetadataManager.GetMetadata(context.Background(), id)
 					if metaErr == nil && metadata != nil && metadata.Orientation == orientation {
 						// Add the original image path to the list
-						filteredIDs = append(filteredIDs, id)
 						imageObjects = append(imageObjects, metadata.Paths.Original)
 					}
 				}
@@ -153,7 +155,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 			// Traditional filtering if Redis is not enabled or no results from Redis
 			// List objects in the directory
 			output, err := s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-				Bucket: &bucket,
+				Bucket: aws.String(cfg.S3Bucket),
 				Prefix: aws.String(prefix),
 			})
 
@@ -226,7 +228,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 
 			// Get image from S3
 			data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
-				Bucket: &bucket,
+				Bucket: aws.String(cfg.S3Bucket),
 				Key:    aws.String(imageKey),
 			})
 
@@ -254,7 +256,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 
 		// Get image from S3
 		data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
-			Bucket: &bucket,
+			Bucket: aws.String(cfg.S3Bucket),
 			Key:    aws.String(imageKey),
 		})
 
@@ -264,7 +266,7 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 			if bestFormat != FormatOriginal {
 				log.Printf("Falling back to original image format")
 				data, err = s3Client.GetObject(r.Context(), &s3.GetObjectInput{
-					Bucket: &bucket,
+					Bucket: aws.String(cfg.S3Bucket),
 					Key:    aws.String(originalKey),
 				})
 
@@ -297,11 +299,8 @@ func RandomImageHandler(s3Client *s3.Client) http.HandlerFunc {
 }
 
 // LocalRandomImageHandler serves random images from local storage
-func LocalRandomImageHandler() http.HandlerFunc {
+func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get local storage path
-		localPath := os.Getenv("LOCAL_STORAGE_PATH")
-
 		// Determine device type
 		deviceType := utils.DetectDeviceType(r)
 
@@ -340,7 +339,7 @@ func LocalRandomImageHandler() http.HandlerFunc {
 
 			// Fall back to file-based lookup if Redis is not enabled or failed
 			if len(imageIDs) == 0 {
-				fileIDs, fileErr := findImagesWithTagDebug(tag, "local", localPath)
+				fileIDs, fileErr := findImagesWithTagDebug(tag, string(cfg.StorageType), cfg.ImageBasePath)
 				if fileErr != nil {
 					log.Printf("Error finding images with tag %s: %v", tag, fileErr)
 					http.Error(w, "Error finding images", http.StatusInternalServerError)
@@ -386,7 +385,7 @@ func LocalRandomImageHandler() http.HandlerFunc {
 			// Without tag filtering, use the standard approach
 
 			// Read files from the orientation directory
-			originalDir := filepath.Join(localPath, "original", orientation)
+			originalDir := filepath.Join(cfg.ImageBasePath, "original", orientation)
 			log.Printf("Looking for images in directory: %s", originalDir)
 
 			files, err := os.ReadDir(originalDir)
@@ -446,21 +445,21 @@ func LocalRandomImageHandler() http.HandlerFunc {
 
 		// For PNG images with transparency, use original format
 		if isPNG && bestFormat == FormatOriginal {
-			imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+			imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 			contentType = "image/png"
 			log.Printf("Using original PNG for transparency: %s", imagePath)
 		} else {
 			// Use the appropriate format based on browser support
 			switch bestFormat {
 			case FormatAVIF:
-				imagePath = filepath.Join(localPath, selectedImage.Orientation, "avif", selectedImage.ID+".avif")
+				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Orientation, "avif", selectedImage.ID+".avif")
 				contentType = "image/avif"
 			case FormatWebP:
-				imagePath = filepath.Join(localPath, selectedImage.Orientation, "webp", selectedImage.ID+".webp")
+				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Orientation, "webp", selectedImage.ID+".webp")
 				contentType = "image/webp"
 			default:
 				// Use original format
-				imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 				contentType = getContentType(FormatOriginal, imagePath)
 			}
 			log.Printf("Using format %s, path: %s", bestFormat, imagePath)
@@ -468,7 +467,7 @@ func LocalRandomImageHandler() http.HandlerFunc {
 			// Check if file exists, fall back to original if needed
 			if _, err := os.Stat(imagePath); os.IsNotExist(err) && bestFormat != FormatOriginal {
 				log.Printf("Format %s not available, falling back to original", bestFormat)
-				imagePath = filepath.Join(localPath, selectedImage.Paths.Original)
+				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 				contentType = getContentType(FormatOriginal, imagePath)
 			}
 		}

@@ -10,7 +10,6 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,20 +33,17 @@ type UploadResult struct {
 }
 
 // getPublicURL constructs a public-facing URL for accessing an image
-func getPublicURL(key string) string {
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "local" {
+func getPublicURL(key string, cfg *config.Config) string {
+	if cfg.StorageType == config.StorageTypeLocal {
 		return fmt.Sprintf("/images/%s", key)
 	}
 	// For S3 storage
-	customDomain := os.Getenv("CUSTOM_DOMAIN")
-	if customDomain != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimSuffix(customDomain, "/"), key)
+	if cfg.CustomDomain != "" {
+		return fmt.Sprintf("%s/%s", strings.TrimSuffix(cfg.CustomDomain, "/"), key)
 	}
 	// Fallback to S3 endpoint with bucket name
-	endpoint := strings.TrimSuffix(os.Getenv("S3_ENDPOINT"), "/")
-	bucket := os.Getenv("S3_BUCKET")
-	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
+	endpoint := strings.TrimSuffix(cfg.S3Endpoint, "/")
+	return fmt.Sprintf("%s/%s/%s", endpoint, cfg.S3Bucket, key)
 }
 
 // determineImageOrientation classifies an image as landscape or portrait
@@ -143,7 +139,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			if webpData, err := utils.ConvertToWebPWithBimg(data, ctx.cfg); err == nil {
 				webpKey := filepath.Join(orientation, "webp", filename+".webp")
 				if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err == nil {
-					webpURL = getPublicURL(webpKey)
+					webpURL = getPublicURL(webpKey, ctx.cfg)
 				}
 			}
 		}()
@@ -155,7 +151,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			if avifData, err := utils.ConvertToAVIFWithBimg(data, ctx.cfg); err == nil {
 				avifKey := filepath.Join(orientation, "avif", filename+".avif")
 				if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err == nil {
-					avifURL = getPublicURL(avifKey)
+					avifURL = getPublicURL(avifKey, ctx.cfg)
 				}
 			}
 		}()
@@ -164,7 +160,7 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 	}
 
 	// Get URL for original image
-	originalURL := getPublicURL(originalKey)
+	originalURL := getPublicURL(originalKey, ctx.cfg)
 
 	// Set WebP and AVIF URLs with defaults if conversion failed
 	if webpURL == "" {
