@@ -415,7 +415,7 @@ func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
 	return imageIDs, nil
 }
 
-// MigrateMetadataToRedis migrates metadata from JSON files or S3 to Redis
+// MigrateMetadataToRedis migrates metadata from JSON files to Redis
 func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
 	if !IsRedisMetadataStore() {
 		return fmt.Errorf("redis not enabled")
@@ -426,12 +426,7 @@ func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
 
 	// Create Redis metadata store
 	redisStore := NewRedisMetadataStore()
-
-	if cfg.StorageType == config.StorageTypeS3 {
-		return migrateS3MetadataToRedis(ctx, redisStore, cfg)
-	} else {
-		return migrateLocalMetadataToRedis(ctx, redisStore, cfg)
-	}
+	return migrateLocalMetadataToRedis(ctx, redisStore, cfg)
 }
 
 // migrateLocalMetadataToRedis migrates local metadata to Redis
@@ -488,64 +483,6 @@ func migrateLocalMetadataToRedis(ctx context.Context, redisStore *RedisMetadataS
 	}
 
 	logger.Info("Completed local metadata migration to Redis",
-		zap.Int("migrated_count", migratedCount))
-	return nil
-}
-
-// migrateS3MetadataToRedis migrates S3 metadata to Redis
-func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStore, cfg *config.Config) error {
-	// Get S3 storage instance
-	s3Storage, ok := Storage.(*S3Storage)
-	if !ok {
-		return fmt.Errorf("failed to get S3 storage instance")
-	}
-
-	// List all metadata objects
-	metadataPrefix := "metadata/"
-	objects, err := s3Storage.ListObjects(ctx, metadataPrefix)
-	if err != nil {
-		return fmt.Errorf("failed to list metadata objects: %v", err)
-	}
-
-	migratedCount := 0
-	for _, obj := range objects {
-		if filepath.Ext(obj.Key) != ".json" {
-			continue
-		}
-
-		// Extract ID from key
-		id := filepath.Base(obj.Key)
-		id = id[:len(id)-5] // Remove .json extension
-
-		// Get metadata from S3
-		data, err := s3Storage.Get(ctx, obj.Key)
-		if err != nil {
-			logger.Error("Failed to get metadata from S3",
-				zap.String("key", obj.Key),
-				zap.Error(err))
-			continue
-		}
-
-		var metadata ImageMetadata
-		if err := json.Unmarshal(data, &metadata); err != nil {
-			logger.Error("Failed to unmarshal metadata from S3",
-				zap.String("key", obj.Key),
-				zap.Error(err))
-			continue
-		}
-
-		// Save to Redis
-		if err := redisStore.SaveMetadata(ctx, &metadata); err != nil {
-			logger.Error("Failed to save metadata to Redis",
-				zap.String("id", id),
-				zap.Error(err))
-			continue
-		}
-
-		migratedCount++
-	}
-
-	logger.Info("Completed S3 metadata migration to Redis",
 		zap.Int("migrated_count", migratedCount))
 	return nil
 }
