@@ -170,14 +170,15 @@ API_KEY=your_api_key_here  # Set your API key
 
 # Storage Configuration
 STORAGE_TYPE=local  # Storage type: local or s3 (S3-compatible storage)
+METADATA_STORE_TYPE=redis  # Type of metadata storage to use (currently only redis is supported)
 LOCAL_STORAGE_PATH=static/images  # Local storage path
 
 # Redis Configuration
 REDIS_ENABLED=true  # Enable Redis for metadata and tags storage
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
+REDIS_HOST=localhost  # Redis server host
+REDIS_PORT=6379  # Redis server port
+REDIS_PASSWORD=  # Redis password
+REDIS_DB=0  # Redis database number
 REDIS_TLS_ENABLED=false  # Enable TLS for Redis connection
 
 # S3 Storage Configuration (required when STORAGE_TYPE=s3)

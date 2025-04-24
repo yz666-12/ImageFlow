@@ -5,6 +5,7 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"go.uber.org/zap"
 )
@@ -24,9 +25,16 @@ import (
 // - Ensures consistent headers and caching behavior
 func RandomImage(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			errors.HandleError(w, errors.ErrInvalidParam, "Method not allowed", nil)
+			logger.Warn("Invalid request method",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path))
+			return
+		}
+
 		logger.Info("Processing random image request",
-			zap.String("storage_type", string(cfg.StorageType)),
-			zap.String("remote_addr", r.RemoteAddr))
+			zap.String("storage_type", string(cfg.StorageType)))
 
 		// Use the appropriate handler based on storage type
 		if cfg.StorageType == config.StorageTypeS3 {

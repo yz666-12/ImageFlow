@@ -38,8 +38,7 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 			errors.HandleError(w, errors.ErrInvalidParam, "Method not allowed", nil)
 			logger.Warn("Invalid request method",
 				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.String("remote_addr", r.RemoteAddr))
+				zap.String("path", r.URL.Path))
 			return
 		}
 
@@ -48,16 +47,14 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			errors.HandleError(w, errors.ErrInvalidParam, "Invalid request body", nil)
 			logger.Warn("Failed to decode request body",
-				zap.Error(err),
-				zap.String("remote_addr", r.RemoteAddr))
+				zap.Error(err))
 			return
 		}
 
 		// Check if ID is provided
 		if req.ID == "" {
 			errors.HandleError(w, errors.ErrInvalidParam, "Image ID is required", nil)
-			logger.Warn("Missing image ID",
-				zap.String("remote_addr", r.RemoteAddr))
+			logger.Warn("Missing image ID")
 			return
 		}
 
@@ -76,7 +73,7 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		// If deletion was successful, clean up Redis data
-		if success && utils.RedisEnabled {
+		if success && utils.IsRedisMetadataStore() {
 			// Create Redis metadata store
 			redisStore := utils.NewRedisMetadataStore()
 

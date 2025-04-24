@@ -20,15 +20,20 @@ import (
 var (
 	// RedisClient is the global Redis client instance
 	RedisClient *redis.Client
-	// RedisEnabled indicates if Redis is enabled
-	RedisEnabled bool
 	// RedisPrefix is the prefix for all Redis keys
 	RedisPrefix string
 	// PageCacheExpiration is the expiration time for page cache
 	PageCacheExpiration = 5 * time.Minute
 	// PageCache mutex
 	pageCacheMutex sync.RWMutex
+	// Current metadata store type
+	currentMetadataStoreType config.MetadataStoreType
 )
+
+// IsRedisMetadataStore checks if Redis is being used as the metadata store
+func IsRedisMetadataStore() bool {
+	return currentMetadataStoreType == config.MetadataStoreTypeRedis && RedisClient != nil
+}
 
 // ImageInfo represents information about an image
 type ImageInfo struct {
@@ -69,7 +74,7 @@ func getCachedPage(ctx context.Context, key CachedPageKey) (*PageCache, error) {
 	pageCacheMutex.RLock()
 	defer pageCacheMutex.RUnlock()
 
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis not enabled")
 	}
 
@@ -91,7 +96,7 @@ func setCachedPage(ctx context.Context, key CachedPageKey, data []ImageInfo) err
 	pageCacheMutex.Lock()
 	defer pageCacheMutex.Unlock()
 
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return fmt.Errorf("redis not enabled")
 	}
 
@@ -111,8 +116,8 @@ func setCachedPage(ctx context.Context, key CachedPageKey, data []ImageInfo) err
 
 // ClearPageCache clears all page cache entries
 func ClearPageCache(ctx context.Context) error {
-	if !RedisEnabled {
-		return fmt.Errorf("redis not enabled")
+	if !IsRedisMetadataStore() {
+		return nil // Redis is not enabled, no need to clear cache
 	}
 
 	pattern := RedisPrefix + "page_cache:*"
@@ -129,10 +134,11 @@ func ClearPageCache(ctx context.Context) error {
 
 // InitRedisClient initializes the Redis client
 func InitRedisClient(cfg *config.Config) error {
-	// Check if Redis is enabled
-	if !cfg.RedisEnabled {
-		logger.Info("Redis is disabled")
-		RedisEnabled = false
+	// Check if Redis is enabled as metadata store
+	if cfg.MetadataStoreType != config.MetadataStoreTypeRedis {
+		logger.Info("Redis is not configured as metadata store")
+		RedisClient = nil
+		currentMetadataStoreType = cfg.MetadataStoreType
 		return nil
 	}
 
@@ -172,7 +178,7 @@ func InitRedisClient(cfg *config.Config) error {
 		zap.String("host", cfg.RedisHost),
 		zap.String("port", cfg.RedisPort),
 		zap.String("prefix", RedisPrefix))
-	RedisEnabled = true
+	currentMetadataStoreType = cfg.MetadataStoreType
 	return nil
 }
 
@@ -191,7 +197,7 @@ func NewRedisMetadataStore() *RedisMetadataStore {
 
 // SaveMetadata saves image metadata to Redis with optimized structure
 func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *ImageMetadata) error {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return fmt.Errorf("redis not enabled")
 	}
 
@@ -265,7 +271,7 @@ func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 
 // GetMetadata retrieves image metadata from Redis with optimized structure
 func (rms *RedisMetadataStore) GetMetadata(ctx context.Context, id string) (*ImageMetadata, error) {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis not enabled")
 	}
 
@@ -381,7 +387,7 @@ func (rms *RedisMetadataStore) DeleteMetadata(ctx context.Context, id string) er
 
 // GetAllUniqueTags retrieves all unique tags from Redis
 func GetAllUniqueTags(ctx context.Context) ([]string, error) {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
 
@@ -396,7 +402,7 @@ func GetAllUniqueTags(ctx context.Context) ([]string, error) {
 
 // GetImagesByTag retrieves all image IDs with a specific tag
 func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
 
@@ -411,7 +417,7 @@ func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
 
 // MigrateMetadataToRedis migrates metadata from JSON files or S3 to Redis
 func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return fmt.Errorf("redis not enabled")
 	}
 
@@ -546,7 +552,7 @@ func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStor
 
 // GetAllMetadata retrieves all image metadata from Redis
 func (rms *RedisMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
-	if !RedisEnabled {
+	if !IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis not enabled")
 	}
 

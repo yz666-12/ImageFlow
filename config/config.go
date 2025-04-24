@@ -23,6 +23,16 @@ const (
 	StorageTypeDefault = StorageTypeLocal
 )
 
+// MetadataStoreType defines the type of metadata storage backend
+type MetadataStoreType string
+
+const (
+	// MetadataStoreTypeRedis represents Redis metadata storage
+	MetadataStoreTypeRedis MetadataStoreType = "redis"
+	// MetadataStoreTypeDefault is the default metadata storage type
+	MetadataStoreTypeDefault = MetadataStoreTypeRedis
+)
+
 // Config stores the application configuration
 type Config struct {
 	// Server settings
@@ -42,13 +52,15 @@ type Config struct {
 	StorageType  StorageType `json:"storage_type"`  // Type of storage backend to use
 	CustomDomain string      `json:"custom_domain"` // Custom domain for S3 storage
 
+	// Metadata storage settings
+	MetadataStoreType MetadataStoreType `json:"metadata_store_type"` // Type of metadata storage to use
+
 	// Redis settings
-	RedisHost     string `json:"redis_host"`    // Redis server host
-	RedisPort     string `json:"redis_port"`    // Redis server port
-	RedisPassword string `json:"-"`             // Redis password
-	RedisDB       int    `json:"redis_db"`      // Redis database number
-	RedisEnabled  bool   `json:"redis_enabled"` // Whether Redis is enabled
-	RedisTLS      bool   `json:"redis_tls"`     // Whether to use TLS for Redis connection
+	RedisHost     string `json:"redis_host"` // Redis server host
+	RedisPort     string `json:"redis_port"` // Redis server port
+	RedisPassword string `json:"-"`          // Redis password
+	RedisDB       int    `json:"redis_db"`   // Redis database number
+	RedisTLS      bool   `json:"redis_tls"`  // Whether to use TLS for Redis connection
 
 	// S3 settings
 	S3Endpoint       string `json:"s3_endpoint"`         // S3 endpoint
@@ -105,12 +117,14 @@ func Load() (*Config, error) {
 		DebugMode:       false,              // Default debug mode off
 		CleanupInterval: 1,                  // Default cleanup interval: 1 minute
 
+		// Metadata store defaults
+		MetadataStoreType: MetadataStoreTypeDefault,
+
 		// Redis defaults
-		RedisHost:    "localhost",
-		RedisPort:    "6379",
-		RedisDB:      0,
-		RedisEnabled: false,
-		RedisTLS:     false,
+		RedisHost: "localhost",
+		RedisPort: "6379",
+		RedisDB:   0,
+		RedisTLS:  false,
 
 		// S3 defaults
 		S3Region:         "us-east-1",
@@ -217,9 +231,18 @@ func (c *Config) loadEnvVars() {
 		c.RedisPort = port
 	}
 	c.RedisPassword = os.Getenv("REDIS_PASSWORD")
-	if enabled := os.Getenv("REDIS_ENABLED"); enabled != "" {
-		c.RedisEnabled = enabled == "true"
+
+	// Metadata store settings
+	if storeType := os.Getenv("METADATA_STORE_TYPE"); storeType != "" {
+		switch storeType {
+		case "redis":
+			c.MetadataStoreType = MetadataStoreTypeRedis
+		default:
+			fmt.Printf("Warning: Invalid metadata store type specified (%s), using default\n", storeType)
+			c.MetadataStoreType = MetadataStoreTypeDefault
+		}
 	}
+
 	if tls := os.Getenv("REDIS_TLS_ENABLED"); tls != "" {
 		c.RedisTLS = tls == "true"
 	}

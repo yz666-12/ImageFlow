@@ -332,7 +332,7 @@ func InitMetadataStore(cfg *config.Config) error {
 			zap.Error(err))
 	}
 
-	if RedisEnabled {
+	if IsRedisMetadataStore() {
 		MetadataManager = NewRedisMetadataStore()
 		logger.Info("Redis metadata store initialized")
 

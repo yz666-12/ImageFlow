@@ -74,8 +74,8 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 		var allImages []ImageInfo
 
-		// Check if Redis is enabled
-		if !utils.RedisEnabled {
+		// Try to get from Redis if enabled
+		if !utils.IsRedisMetadataStore() {
 			errors.HandleError(w, errors.ErrInternal, "Redis is required for metadata storage", nil)
 			return
 		}
@@ -235,7 +235,7 @@ func parseQueryParams(r *http.Request) queryParams {
 
 // listImagesFromRedis retrieves images from Redis with optimized queries
 func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Config) ([]ImageInfo, error) {
-	if !utils.RedisEnabled {
+	if !utils.IsRedisMetadataStore() {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
 

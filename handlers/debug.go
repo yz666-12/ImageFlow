@@ -29,7 +29,6 @@ func DebugTagsHandler(cfg *config.Config) http.HandlerFunc {
 		if tag == "" {
 			errors.HandleError(w, errors.ErrInvalidParam, "Tag parameter is required", nil)
 			logger.Warn("Missing tag parameter",
-				zap.String("remote_addr", r.RemoteAddr),
 				zap.String("path", r.URL.Path))
 			return
 		}
@@ -66,8 +65,8 @@ func DebugTagsHandler(cfg *config.Config) http.HandlerFunc {
 
 // findImagesWithTagDebug finds all images with the specified tag
 func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error) {
-	// Check if Redis is enabled
-	if utils.RedisEnabled {
+	// Get metadata from Redis if enabled
+	if utils.IsRedisMetadataStore() {
 		// Use Redis to get all images with the specified tag
 		imageIDs, err := utils.GetImagesByTag(context.Background(), tag)
 		if err != nil {

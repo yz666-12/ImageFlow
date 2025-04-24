@@ -41,12 +41,10 @@ func ValidateAPIKey(cfg *config.Config) http.HandlerFunc {
 		if providedKey == cfg.APIKey {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"valid":true}`))
-			logger.Debug("API密钥验证成功",
-				zap.String("remote_addr", r.RemoteAddr))
+			logger.Debug("API key validated successfully")
 		} else {
 			errors.WriteError(w, errors.ErrInvalidAPIKey)
-			logger.Warn("API密钥验证失败",
-				zap.String("remote_addr", r.RemoteAddr),
+			logger.Warn("API key validation failed",
 				zap.String("provided_key", providedKey))
 		}
 	}
@@ -60,7 +58,6 @@ func RequireAPIKey(cfg *config.Config, next http.HandlerFunc) http.HandlerFunc {
 		if authHeader == "" {
 			errors.WriteError(w, errors.ErrInvalidAPIKey)
 			logger.Warn("缺少API密钥",
-				zap.String("remote_addr", r.RemoteAddr),
 				zap.String("path", r.URL.Path))
 			return
 		}
@@ -70,7 +67,6 @@ func RequireAPIKey(cfg *config.Config, next http.HandlerFunc) http.HandlerFunc {
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			errors.WriteError(w, errors.ErrInvalidAPIKey)
 			logger.Warn("无效的Authorization头",
-				zap.String("remote_addr", r.RemoteAddr),
 				zap.String("path", r.URL.Path),
 				zap.String("auth_header", authHeader))
 			return
@@ -81,7 +77,6 @@ func RequireAPIKey(cfg *config.Config, next http.HandlerFunc) http.HandlerFunc {
 		if providedKey != cfg.APIKey {
 			errors.WriteError(w, errors.ErrInvalidAPIKey)
 			logger.Warn("API密钥验证失败",
-				zap.String("remote_addr", r.RemoteAddr),
 				zap.String("path", r.URL.Path),
 				zap.String("provided_key", providedKey))
 			return

@@ -30,9 +30,9 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Check if Redis is enabled
-	if !cfg.RedisEnabled {
-		log.Fatalf("Redis is not enabled. Set REDIS_ENABLED=true in your .env file")
+	// Check if Redis is enabled as metadata store
+	if cfg.MetadataStoreType != config.MetadataStoreTypeRedis {
+		log.Fatalf("Redis is not configured as metadata store. Set METADATA_STORE_TYPE=redis in your .env file")
 	}
 
 	// Initialize Redis client
@@ -40,8 +40,9 @@ func main() {
 		log.Fatalf("Failed to initialize Redis client: %v", err)
 	}
 
-	if !utils.RedisEnabled {
-		log.Fatalf("Redis initialization failed")
+	// Check if Redis is properly initialized
+	if !utils.IsRedisMetadataStore() {
+		log.Fatalf("Redis metadata store is not properly initialized")
 	}
 
 	// Initialize storage provider based on storage type

@@ -51,8 +51,8 @@ func TagsHandler(cfg *config.Config) http.HandlerFunc {
 
 // getAllUniqueTags retrieves all unique tags from image metadata
 func getAllUniqueTags(storageType, basePath string) ([]string, error) {
-	// Check if Redis is enabled
-	if utils.RedisEnabled {
+	// Get unique tags from Redis if enabled
+	if utils.IsRedisMetadataStore() {
 		logger.Debug("Using Redis to get unique tags")
 		// Use Redis to get all unique tags
 		return utils.GetAllUniqueTags(context.Background())

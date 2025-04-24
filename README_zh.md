@@ -169,6 +169,7 @@ API_KEY=your_api_key_here  # 设置您的 API 密钥
 
 # 存储配置
 STORAGE_TYPE=local  # 存储类型：local（本地存储）或 s3（S3 兼容存储）
+METADATA_STORE_TYPE=redis # 未来支持
 LOCAL_STORAGE_PATH=static/images  # 本地存储路径
 
 # Redis 配置

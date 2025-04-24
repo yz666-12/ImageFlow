@@ -124,7 +124,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 		var useRedisResults bool = false
 
 		// Filter by tag if specified
-		if tag != "" && utils.RedisEnabled {
+		if tag != "" && utils.IsRedisMetadataStore() {
 			// Use Redis to get all images with the specified tag
 			imageIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
 			if redisErr != nil {
@@ -344,7 +344,7 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 			var imageIDs []string
 
 			// Try to use Redis first if enabled
-			if utils.RedisEnabled {
+			if utils.IsRedisMetadataStore() {
 				redisIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
 				if redisErr != nil {
 					logger.Error("Failed to get images by tag from Redis",
