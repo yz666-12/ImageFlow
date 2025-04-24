@@ -276,7 +276,6 @@ func ensureDirectories(cfg *config.Config) {
 		filepath.Join(cfg.ImageBasePath, "portrait", "webp"),
 		filepath.Join(cfg.ImageBasePath, "portrait", "avif"),
 		filepath.Join(cfg.ImageBasePath, "gif"),
-		filepath.Join(cfg.ImageBasePath, "metadata"),
 	}
 
 	for _, dir := range dirs {

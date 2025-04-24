@@ -54,7 +54,7 @@ func DetectImageFormat(data []byte) (ImageFormatInfo, error) {
 		return ImageFormatInfo{
 			Format:    format,
 			Extension: ".jpg",
-			MimeType:  "image/jpeg",
+			MimeType:  "image/jpg",
 		}, nil
 	case "png":
 		return ImageFormatInfo{

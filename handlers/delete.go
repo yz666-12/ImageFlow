@@ -66,6 +66,27 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 			success, message = deleteLocalImages(req.ID, cfg.ImageBasePath)
 		}
 
+		// If deletion was successful, clean up Redis data
+		if success && utils.RedisEnabled {
+			// Create Redis metadata store
+			redisStore := utils.NewRedisMetadataStore()
+
+			// Delete metadata from Redis
+			if err := redisStore.DeleteMetadata(r.Context(), req.ID); err != nil {
+				log.Printf("Warning: Failed to delete Redis metadata for %s: %v", req.ID, err)
+			}
+
+			// Remove from images sorted set
+			if err := utils.RedisClient.ZRem(r.Context(), utils.RedisPrefix+"images", req.ID).Err(); err != nil {
+				log.Printf("Warning: Failed to remove from images set: %v", err)
+			}
+
+			// Clear page cache
+			if err := utils.ClearPageCache(r.Context()); err != nil {
+				log.Printf("Warning: Failed to clear page cache: %v", err)
+			}
+		}
+
 		// Prepare and send response
 		resp := DeleteResponse{
 			Success: success,

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -22,7 +23,108 @@ var (
 	RedisEnabled bool
 	// RedisPrefix is the prefix for all Redis keys
 	RedisPrefix string
+	// PageCacheExpiration is the expiration time for page cache
+	PageCacheExpiration = 5 * time.Minute
+	// PageCache mutex
+	pageCacheMutex sync.RWMutex
 )
+
+// ImageInfo represents information about an image
+type ImageInfo struct {
+	ID          string            `json:"id"`          // Filename without extension
+	FileName    string            `json:"filename"`    // Full filename with extension
+	URL         string            `json:"url"`         // URL to access the image
+	URLs        map[string]string `json:"urls"`        // URLs for all available formats
+	Orientation string            `json:"orientation"` // landscape or portrait
+	Format      string            `json:"format"`      // original, webp, avif
+	Size        int64             `json:"size"`        // File size in bytes
+	Path        string            `json:"path"`        // Path relative to storage root
+	StorageType string            `json:"storageType"` // "local" or "s3"
+	Tags        []string          `json:"tags"`        // Image tags for categorization
+}
+
+// CachedPageKey represents a unique key for cached page results
+type CachedPageKey struct {
+	Orientation string `json:"orientation"`
+	Format      string `json:"format"`
+	Tag         string `json:"tag"`
+	Page        int    `json:"page"`
+	Limit       int    `json:"limit"`
+}
+
+// PageCache represents cached page data
+type PageCache struct {
+	Data      []ImageInfo `json:"data"`
+	ExpiresAt time.Time   `json:"expires_at"`
+}
+
+// String returns a string representation of CachedPageKey
+func (k CachedPageKey) String() string {
+	return fmt.Sprintf("%s:%s:%s:%d:%d", k.Orientation, k.Format, k.Tag, k.Page, k.Limit)
+}
+
+// getCachedPage retrieves cached page data if available
+func getCachedPage(ctx context.Context, key CachedPageKey) (*PageCache, error) {
+	pageCacheMutex.RLock()
+	defer pageCacheMutex.RUnlock()
+
+	if !RedisEnabled {
+		return nil, fmt.Errorf("redis not enabled")
+	}
+
+	cacheKey := RedisPrefix + "page_cache:" + key.String()
+	data, err := RedisClient.Get(ctx, cacheKey).Bytes()
+	if err == nil {
+		var cache PageCache
+		if err := json.Unmarshal(data, &cache); err == nil {
+			if time.Now().Before(cache.ExpiresAt) {
+				return &cache, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("cache miss")
+}
+
+// setCachedPage stores page data in cache
+func setCachedPage(ctx context.Context, key CachedPageKey, data []ImageInfo) error {
+	pageCacheMutex.Lock()
+	defer pageCacheMutex.Unlock()
+
+	if !RedisEnabled {
+		return fmt.Errorf("redis not enabled")
+	}
+
+	cache := PageCache{
+		Data:      data,
+		ExpiresAt: time.Now().Add(PageCacheExpiration),
+	}
+
+	cacheData, err := json.Marshal(cache)
+	if err != nil {
+		return err
+	}
+
+	cacheKey := RedisPrefix + "page_cache:" + key.String()
+	return RedisClient.Set(ctx, cacheKey, cacheData, PageCacheExpiration).Err()
+}
+
+// ClearPageCache clears all page cache entries
+func ClearPageCache(ctx context.Context) error {
+	if !RedisEnabled {
+		return fmt.Errorf("redis not enabled")
+	}
+
+	pattern := RedisPrefix + "page_cache:*"
+	keys, err := RedisClient.Keys(ctx, pattern).Result()
+	if err != nil {
+		return err
+	}
+
+	if len(keys) > 0 {
+		return RedisClient.Del(ctx, keys...).Err()
+	}
+	return nil
+}
 
 // InitRedisClient initializes the Redis client
 // Read environment variables and initialize the Redis client (with TLS support). Sets RedisEnabled if connection is successful.
@@ -40,7 +142,17 @@ func InitRedisClient() error {
 	redisPort := getEnvOrDefault("REDIS_PORT", "6379")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisDB := parseEnvInt("REDIS_DB", 0)
-	RedisPrefix = getEnvOrDefault("REDIS_PREFIX", "imageflow:")
+	storageType := os.Getenv("STORAGE_TYPE")
+	if storageType == "s3" {
+		RedisPrefix = "imageflow:s3:"
+	} else {
+		RedisPrefix = "imageflow:local:"
+	}
+
+	// Clear page cache when storage type changes
+	if err := ClearPageCache(context.Background()); err != nil {
+		log.Printf("Warning: Failed to clear page cache: %v", err)
+	}
 
 	// Create Redis client
 	// Check if TLS is enabled for Redis
@@ -64,7 +176,7 @@ func InitRedisClient() error {
 		return err
 	}
 
-	log.Printf("Connected to Redis at %s:%s", redisHost, redisPort)
+	log.Printf("Connected to Redis at %s:%s with prefix %s", redisHost, redisPort, RedisPrefix)
 	RedisEnabled = true
 	return nil
 }
@@ -105,74 +217,109 @@ func NewRedisMetadataStore() *RedisMetadataStore {
 	}
 }
 
-// SaveMetadata saves image metadata to Redis
+// SaveMetadata saves image metadata to Redis with optimized structure
 func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *ImageMetadata) error {
-	// Marshal metadata to JSON
-	data, err := json.Marshal(metadata)
+	if !RedisEnabled {
+		return fmt.Errorf("redis not enabled")
+	}
+
+	pipe := RedisClient.Pipeline()
+
+	// Convert paths to JSON string
+	pathsJSON, err := json.Marshal(metadata.Paths)
 	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %v", err)
+		return fmt.Errorf("failed to marshal paths: %v", err)
 	}
 
-	// Save metadata
+	// Store metadata in hash
 	key := rms.prefix + metadata.ID
-	if err := RedisClient.Set(ctx, key, data, 0).Err(); err != nil {
-		return fmt.Errorf("failed to save metadata to Redis: %v", err)
-	}
+	pipe.HSet(ctx, key, map[string]interface{}{
+		"id":           metadata.ID,
+		"originalName": metadata.OriginalName,
+		"uploadTime":   metadata.UploadTime.Format(time.RFC3339),
+		"expiryTime":   metadata.ExpiryTime.Format(time.RFC3339),
+		"format":       metadata.Format,
+		"orientation":  metadata.Orientation,
+		"tags":         strings.Join(metadata.Tags, ","),
+		"paths":        string(pathsJSON),
+	})
 
-	// If expiry time is set, add to expiry index
-	if !metadata.ExpiryTime.IsZero() {
-		expiryKey := RedisPrefix + "expiry"
-		score := float64(metadata.ExpiryTime.Unix())
-		if err := RedisClient.ZAdd(ctx, expiryKey, redis.Z{
-			Score:  score,
-			Member: metadata.ID,
-		}).Err(); err != nil {
-			log.Printf("Warning: Failed to add to expiry index: %v", err)
-		}
-	}
+	// Add to sorted set for pagination
+	pipe.ZAdd(ctx, RedisPrefix+"images", redis.Z{
+		Score:  float64(metadata.UploadTime.Unix()),
+		Member: metadata.ID,
+	})
 
-	// Add tags to tag index
+	// Add tags
 	if len(metadata.Tags) > 0 {
 		for _, tag := range metadata.Tags {
 			tagKey := RedisPrefix + "tag:" + tag
-			if err := RedisClient.SAdd(ctx, tagKey, metadata.ID).Err(); err != nil {
-				log.Printf("Warning: Failed to add to tag index: %v", err)
-			}
+			pipe.SAdd(ctx, tagKey, metadata.ID)
 		}
 
 		// Add to all tags set
 		allTagsKey := RedisPrefix + "all_tags"
-		// Convert []string to []any
-		tagsInterface := make([]any, len(metadata.Tags))
+		tagsInterface := make([]interface{}, len(metadata.Tags))
 		for i, tag := range metadata.Tags {
 			tagsInterface[i] = tag
 		}
-		if err := RedisClient.SAdd(ctx, allTagsKey, tagsInterface...).Err(); err != nil {
-			log.Printf("Warning: Failed to add to all tags set: %v", err)
-		}
+		pipe.SAdd(ctx, allTagsKey, tagsInterface...)
 	}
 
-	log.Printf("Metadata saved to Redis for image %s", metadata.ID)
+	// Execute pipeline
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("failed to save metadata to Redis: %v", err)
+	}
+
+	// Clear page cache when new data is added
+	if err := ClearPageCache(ctx); err != nil {
+		log.Printf("Warning: Failed to clear page cache: %v", err)
+	}
+
 	return nil
 }
 
-// GetMetadata retrieves image metadata from Redis
+// GetMetadata retrieves image metadata from Redis with optimized structure
 func (rms *RedisMetadataStore) GetMetadata(ctx context.Context, id string) (*ImageMetadata, error) {
+	if !RedisEnabled {
+		return nil, fmt.Errorf("redis not enabled")
+	}
+
 	key := rms.prefix + id
-	data, err := RedisClient.Get(ctx, key).Bytes()
+	data, err := RedisClient.HGetAll(ctx, key).Result()
 	if err != nil {
-		if err == redis.Nil {
-			return nil, fmt.Errorf("metadata not found for ID: %s", id)
-		}
 		return nil, fmt.Errorf("failed to get metadata from Redis: %v", err)
 	}
-
-	var metadata ImageMetadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata: %v", err)
+	if len(data) == 0 {
+		return nil, fmt.Errorf("metadata not found for ID: %s", id)
 	}
 
-	return &metadata, nil
+	metadata := &ImageMetadata{
+		ID:           data["id"],
+		OriginalName: data["originalName"],
+		Format:       data["format"],
+		Orientation:  data["orientation"],
+	}
+
+	// Parse times
+	if uploadTime, err := time.Parse(time.RFC3339, data["uploadTime"]); err == nil {
+		metadata.UploadTime = uploadTime
+	}
+	if expiryTime, err := time.Parse(time.RFC3339, data["expiryTime"]); err == nil {
+		metadata.ExpiryTime = expiryTime
+	}
+
+	// Parse tags
+	if tags := data["tags"]; tags != "" {
+		metadata.Tags = strings.Split(tags, ",")
+	}
+
+	// Parse paths
+	if paths := data["paths"]; paths != "" {
+		json.Unmarshal([]byte(paths), &metadata.Paths)
+	}
+
+	return metadata, nil
 }
 
 // ListExpiredImages lists all expired images
@@ -426,4 +573,14 @@ func (rms *RedisMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMeta
 
 	log.Printf("Retrieved %d metadata entries from Redis", len(allMetadata))
 	return allMetadata, nil
+}
+
+// GetCachedPage retrieves cached page data if available
+func GetCachedPage(ctx context.Context, key CachedPageKey) (*PageCache, error) {
+	return getCachedPage(ctx, key)
+}
+
+// SetCachedPage stores page data in cache
+func SetCachedPage(ctx context.Context, key CachedPageKey, data []ImageInfo) error {
+	return setCachedPage(ctx, key, data)
 }
