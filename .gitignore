@@ -20,6 +20,7 @@ vendor/
 
 tmp/
 temp/
+imageflow.log
 
 
 coverage.txt

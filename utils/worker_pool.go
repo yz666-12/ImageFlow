@@ -1,10 +1,11 @@
 package utils
 
 import (
-	"log"
 	"sync"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // Task represents a unit of work to be processed by the worker pool
@@ -43,8 +44,9 @@ func InitWorkerPool(cfg *config.Config) *WorkerPool {
 			workerCount: cfg.WorkerPoolSize,
 		}
 		globalPool.start()
-		log.Printf("Worker pool initialized with %d workers and queue size %d",
-			cfg.WorkerPoolSize, cfg.WorkerPoolSize*2)
+		logger.Info("Worker pool initialized",
+			zap.Int("worker_count", cfg.WorkerPoolSize),
+			zap.Int("queue_size", cfg.WorkerPoolSize*2))
 	}
 	return globalPool
 }
@@ -55,7 +57,7 @@ func GetWorkerPool() *WorkerPool {
 	defer poolMutex.Unlock()
 
 	if globalPool == nil {
-		log.Printf("Warning: Worker pool accessed before initialization, using default configuration")
+		logger.Warn("Worker pool accessed before initialization, using default configuration")
 		// Use a default configuration if not initialized
 		defaultCfg := &config.Config{WorkerPoolSize: 10}
 		globalPool = &WorkerPool{
@@ -71,6 +73,8 @@ func GetWorkerPool() *WorkerPool {
 func (p *WorkerPool) start() {
 	p.once.Do(func() {
 		p.wg.Add(p.workerCount)
+		logger.Info("Starting worker pool",
+			zap.Int("worker_count", p.workerCount))
 		for i := 0; i < p.workerCount; i++ {
 			go p.worker(i)
 		}
@@ -81,15 +85,30 @@ func (p *WorkerPool) start() {
 func (p *WorkerPool) worker(id int) {
 	defer p.wg.Done()
 
-	log.Printf("Worker %d started", id)
+	logger.Debug("Worker started",
+		zap.Int("worker_id", id))
 
 	for task := range p.taskQueue {
+		logger.Debug("Processing task",
+			zap.Int("worker_id", id))
+
 		data, err := task.Process()
+		if err != nil {
+			logger.Error("Task processing failed",
+				zap.Int("worker_id", id),
+				zap.Error(err))
+		} else {
+			logger.Debug("Task completed successfully",
+				zap.Int("worker_id", id),
+				zap.Int("data_size", len(data)))
+		}
+
 		task.Result <- TaskResult{Data: data, Error: err}
 		close(task.Result)
 	}
 
-	log.Printf("Worker %d stopped", id)
+	logger.Debug("Worker stopped",
+		zap.Int("worker_id", id))
 }
 
 // Submit adds a task to the worker pool queue and returns a channel for the result
@@ -99,6 +118,7 @@ func (p *WorkerPool) Submit(process func() ([]byte, error)) <-chan TaskResult {
 		Process: process,
 		Result:  resultChan,
 	}
+	logger.Debug("Task submitted to worker pool")
 	return resultChan
 }
 
@@ -106,12 +126,17 @@ func (p *WorkerPool) Submit(process func() ([]byte, error)) <-chan TaskResult {
 func (p *WorkerPool) ProcessTask(process func() ([]byte, error)) ([]byte, error) {
 	resultChan := p.Submit(process)
 	result := <-resultChan
+	if result.Error != nil {
+		logger.Error("Task processing failed", zap.Error(result.Error))
+	}
 	return result.Data, result.Error
 }
 
 // Shutdown gracefully stops the worker pool after all tasks are processed
 func (p *WorkerPool) Shutdown() {
+	logger.Info("Initiating worker pool shutdown")
 	close(p.taskQueue)
 	p.wg.Wait()
-	log.Printf("Worker pool shutdown complete")
+	logger.Info("Worker pool shutdown complete",
+		zap.Int("worker_count", p.workerCount))
 }

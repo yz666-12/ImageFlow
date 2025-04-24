@@ -2,7 +2,7 @@ package utils
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"image"
 	_ "image/gif"  // Register GIF format
 	_ "image/jpeg" // Register JPEG format
@@ -14,6 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // ImageFormatInfo contains information about an image's format
@@ -37,16 +40,19 @@ func DetectImageFormat(data []byte) (ImageFormatInfo, error) {
 	// Detect the image format
 	_, format, err := image.DecodeConfig(r)
 	if err != nil {
-		return ImageFormatInfo{}, err
+		logger.Error("Failed to decode image format", zap.Error(err))
+		return ImageFormatInfo{}, fmt.Errorf("failed to decode image format: %v", err)
 	}
 
 	// Rewind the reader for future use
 	if _, err = r.Seek(0, io.SeekStart); err != nil {
-		return ImageFormatInfo{}, err
+		logger.Error("Failed to rewind image reader", zap.Error(err))
+		return ImageFormatInfo{}, fmt.Errorf("failed to process image data: %v", err)
 	}
 
 	// Convert format to lowercase
 	format = strings.ToLower(format)
+	logger.Debug("Detected image format", zap.String("format", format))
 
 	// Map format to extension and MIME type
 	switch format {
@@ -82,6 +88,8 @@ func DetectImageFormat(data []byte) (ImageFormatInfo, error) {
 		}, nil
 	default:
 		// Default to jpeg for unknown formats
+		logger.Debug("Unknown format detected, defaulting to JPEG",
+			zap.String("original_format", format))
 		return ImageFormatInfo{
 			Format:    "jpeg",
 			Extension: ".jpg",
@@ -119,13 +127,21 @@ func GetRandomImage(basePath string, deviceType DeviceType, avifSupport bool) (s
 		format = "avif"
 	}
 
+	logger.Debug("Selecting random image",
+		zap.String("orientation", orientation),
+		zap.String("format", format),
+		zap.String("base_path", basePath))
+
 	// Construct the image directory path
 	dirPath := filepath.Join(basePath, orientation, format)
 
 	// Get all files in the directory
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		return "", err
+		logger.Error("Failed to read image directory",
+			zap.String("path", dirPath),
+			zap.Error(err))
+		return "", fmt.Errorf("failed to read image directory: %v", err)
 	}
 
 	// Filter for image files
@@ -137,12 +153,19 @@ func GetRandomImage(basePath string, deviceType DeviceType, avifSupport bool) (s
 	}
 
 	if len(imageFiles) == 0 {
-		return "", errors.New("no images found in directory")
+		logger.Error("No images found in directory",
+			zap.String("path", dirPath))
+		return "", fmt.Errorf("no images found in directory: %s", dirPath)
 	}
 
 	// Select a random image
 	randomIndex := globalRand.Intn(len(imageFiles))
 	selectedImage := imageFiles[randomIndex]
 
-	return filepath.Join(dirPath, selectedImage.Name()), nil
+	imagePath := filepath.Join(dirPath, selectedImage.Name())
+	logger.Debug("Selected random image",
+		zap.String("path", imagePath),
+		zap.Int("total_images", len(imageFiles)))
+
+	return imagePath, nil
 }

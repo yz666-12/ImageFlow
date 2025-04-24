@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,9 @@ import (
 	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var (
@@ -130,7 +131,7 @@ func ClearPageCache(ctx context.Context) error {
 func InitRedisClient(cfg *config.Config) error {
 	// Check if Redis is enabled
 	if !cfg.RedisEnabled {
-		log.Printf("Redis is disabled")
+		logger.Info("Redis is disabled")
 		RedisEnabled = false
 		return nil
 	}
@@ -144,7 +145,7 @@ func InitRedisClient(cfg *config.Config) error {
 
 	// Clear page cache when storage type changes
 	if err := ClearPageCache(context.Background()); err != nil {
-		log.Printf("Warning: Failed to clear page cache: %v", err)
+		logger.Warn("Failed to clear page cache", zap.Error(err))
 	}
 
 	// Create Redis client
@@ -163,11 +164,14 @@ func InitRedisClient(cfg *config.Config) error {
 	defer cancel()
 
 	if err := RedisClient.Ping(ctx).Err(); err != nil {
-		log.Printf("Failed to connect to Redis: %v", err)
+		logger.Error("Failed to connect to Redis", zap.Error(err))
 		return err
 	}
 
-	log.Printf("Connected to Redis at %s:%s with prefix %s", cfg.RedisHost, cfg.RedisPort, RedisPrefix)
+	logger.Info("Connected to Redis",
+		zap.String("host", cfg.RedisHost),
+		zap.String("port", cfg.RedisPort),
+		zap.String("prefix", RedisPrefix))
 	RedisEnabled = true
 	return nil
 }
@@ -250,9 +254,12 @@ func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 
 	// Clear page cache when new data is added
 	if err := ClearPageCache(ctx); err != nil {
-		log.Printf("Warning: Failed to clear page cache: %v", err)
+		logger.Warn("Failed to clear page cache", zap.Error(err))
 	}
 
+	logger.Debug("Metadata saved to Redis",
+		zap.String("id", metadata.ID),
+		zap.Int("tags", len(metadata.Tags)))
 	return nil
 }
 
@@ -318,7 +325,9 @@ func (rms *RedisMetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageM
 	for _, id := range expiredIDs {
 		metadata, err := rms.GetMetadata(ctx, id)
 		if err != nil {
-			log.Printf("Error getting metadata for expired image %s: %v", id, err)
+			logger.Error("Failed to get metadata for expired image",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
@@ -326,7 +335,8 @@ func (rms *RedisMetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageM
 	}
 
 	if len(expiredImages) > 0 {
-		log.Printf("Found %d expired images", len(expiredImages))
+		logger.Info("Found expired images",
+			zap.Int("count", len(expiredImages)))
 	}
 	return expiredImages, nil
 }
@@ -343,14 +353,19 @@ func (rms *RedisMetadataStore) DeleteMetadata(ctx context.Context, id string) er
 	for _, tag := range metadata.Tags {
 		tagKey := RedisPrefix + "tag:" + tag
 		if err := RedisClient.SRem(ctx, tagKey, id).Err(); err != nil {
-			log.Printf("Warning: Failed to remove from tag index: %v", err)
+			logger.Warn("Failed to remove from tag index",
+				zap.String("tag", tag),
+				zap.String("id", id),
+				zap.Error(err))
 		}
 	}
 
 	// Remove from expiry index
 	expiryKey := RedisPrefix + "expiry"
 	if err := RedisClient.ZRem(ctx, expiryKey, id).Err(); err != nil {
-		log.Printf("Warning: Failed to remove from expiry index: %v", err)
+		logger.Warn("Failed to remove from expiry index",
+			zap.String("id", id),
+			zap.Error(err))
 	}
 
 	// Delete metadata
@@ -359,7 +374,8 @@ func (rms *RedisMetadataStore) DeleteMetadata(ctx context.Context, id string) er
 		return fmt.Errorf("failed to delete metadata from Redis: %v", err)
 	}
 
-	log.Printf("Metadata deleted from Redis for image %s", id)
+	logger.Info("Metadata deleted from Redis",
+		zap.String("id", id))
 	return nil
 }
 
@@ -396,10 +412,11 @@ func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
 // MigrateMetadataToRedis migrates metadata from JSON files or S3 to Redis
 func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
 	if !RedisEnabled {
-		return fmt.Errorf("redis is not enabled")
+		return fmt.Errorf("redis not enabled")
 	}
 
-	log.Printf("Starting metadata migration to Redis for storage type: %s", cfg.StorageType)
+	logger.Info("Starting metadata migration to Redis",
+		zap.String("storage_type", string(cfg.StorageType)))
 
 	// Create Redis metadata store
 	redisStore := NewRedisMetadataStore()
@@ -439,26 +456,33 @@ func migrateLocalMetadataToRedis(ctx context.Context, redisStore *RedisMetadataS
 		metadataPath := filepath.Join(metadataDir, file.Name())
 		data, err := os.ReadFile(metadataPath)
 		if err != nil {
-			log.Printf("Error reading metadata file %s: %v", metadataPath, err)
+			logger.Error("Failed to read metadata file",
+				zap.String("path", metadataPath),
+				zap.Error(err))
 			continue
 		}
 
 		var metadata ImageMetadata
 		if err := json.Unmarshal(data, &metadata); err != nil {
-			log.Printf("Error unmarshaling metadata from %s: %v", metadataPath, err)
+			logger.Error("Failed to unmarshal metadata",
+				zap.String("path", metadataPath),
+				zap.Error(err))
 			continue
 		}
 
 		// Save to Redis
 		if err := redisStore.SaveMetadata(ctx, &metadata); err != nil {
-			log.Printf("Error saving metadata to Redis for %s: %v", id, err)
+			logger.Error("Failed to save metadata to Redis",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		migratedCount++
 	}
 
-	log.Printf("Migrated %d metadata entries from local storage to Redis", migratedCount)
+	logger.Info("Completed local metadata migration to Redis",
+		zap.Int("migrated_count", migratedCount))
 	return nil
 }
 
@@ -479,7 +503,6 @@ func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStor
 
 	migratedCount := 0
 	for _, obj := range objects {
-		// Skip if not a JSON file
 		if filepath.Ext(obj.Key) != ".json" {
 			continue
 		}
@@ -491,33 +514,40 @@ func migrateS3MetadataToRedis(ctx context.Context, redisStore *RedisMetadataStor
 		// Get metadata from S3
 		data, err := s3Storage.Get(ctx, obj.Key)
 		if err != nil {
-			log.Printf("Error getting metadata from S3 for %s: %v", obj.Key, err)
+			logger.Error("Failed to get metadata from S3",
+				zap.String("key", obj.Key),
+				zap.Error(err))
 			continue
 		}
 
 		var metadata ImageMetadata
 		if err := json.Unmarshal(data, &metadata); err != nil {
-			log.Printf("Error unmarshaling metadata from S3 for %s: %v", obj.Key, err)
+			logger.Error("Failed to unmarshal metadata from S3",
+				zap.String("key", obj.Key),
+				zap.Error(err))
 			continue
 		}
 
 		// Save to Redis
 		if err := redisStore.SaveMetadata(ctx, &metadata); err != nil {
-			log.Printf("Error saving metadata to Redis for %s: %v", id, err)
+			logger.Error("Failed to save metadata to Redis",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		migratedCount++
 	}
 
-	log.Printf("Migrated %d metadata entries from S3 to Redis", migratedCount)
+	logger.Info("Completed S3 metadata migration to Redis",
+		zap.Int("migrated_count", migratedCount))
 	return nil
 }
 
 // GetAllMetadata retrieves all image metadata from Redis
 func (rms *RedisMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
 	if !RedisEnabled {
-		return nil, fmt.Errorf("redis is not enabled")
+		return nil, fmt.Errorf("redis not enabled")
 	}
 
 	// Get all keys matching the metadata prefix pattern
@@ -535,14 +565,17 @@ func (rms *RedisMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMeta
 		// Get metadata for this ID
 		metadata, err := rms.GetMetadata(ctx, id)
 		if err != nil {
-			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			logger.Warn("Failed to get metadata",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		allMetadata = append(allMetadata, metadata)
 	}
 
-	log.Printf("Retrieved %d metadata entries from Redis", len(allMetadata))
+	logger.Info("Retrieved all metadata entries from Redis",
+		zap.Int("count", len(allMetadata)))
 	return allMetadata, nil
 }
 

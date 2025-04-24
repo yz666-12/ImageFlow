@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"path/filepath"
@@ -15,7 +14,10 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // Global configuration instance
@@ -28,7 +30,7 @@ func SetConfig(cfg *config.Config) {
 
 func DebugLog(format string, args ...interface{}) {
 	if globalConfig != nil && globalConfig.DebugMode {
-		log.Printf("[DEBUG] "+format, args...)
+		logger.Debug(fmt.Sprintf(format, args...))
 	}
 }
 
@@ -56,7 +58,9 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 		defer func() {
 			if cfg.DebugMode {
 				duration := time.Since(startTime)
-				log.Printf("[DEBUG] List API latency: %v, cache hit: %v", duration, cacheHit)
+				logger.Debug("List API latency",
+					zap.Duration("duration", duration),
+					zap.Bool("cache_hit", cacheHit))
 			}
 		}()
 
@@ -72,7 +76,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Check if Redis is enabled
 		if !utils.RedisEnabled {
-			http.Error(w, "Redis is required for metadata storage", http.StatusInternalServerError)
+			errors.HandleError(w, errors.ErrInternal, "Redis is required for metadata storage", nil)
 			return
 		}
 
@@ -93,15 +97,15 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 			var err error
 			allImages, err = listImagesFromRedis(r.Context(), params, cfg)
 			if err != nil {
-				log.Printf("Error listing images from Redis: %v", err)
-				http.Error(w, "获取图片列表失败", http.StatusInternalServerError)
+				logger.Error("Failed to list images from Redis", zap.Error(err))
+				errors.HandleError(w, errors.ErrImageList, "Failed to retrieve image list", err)
 				return
 			}
 
 			// Cache the results
 			if err := utils.SetCachedPage(r.Context(), cacheKey, allImages); err != nil {
 				if cfg.DebugMode {
-					log.Printf("[DEBUG] Failed to cache page results: %v", err)
+					logger.Debug("Failed to cache page results", zap.Error(err))
 				}
 			}
 		}
@@ -145,7 +149,7 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			if cfg.DebugMode {
-				log.Printf("[DEBUG] Error encoding JSON response: %v", err)
+				logger.Debug("Error encoding JSON response", zap.Error(err))
 			}
 		}
 	}
@@ -164,19 +168,19 @@ type queryParams struct {
 func validateAPIKey(w http.ResponseWriter, r *http.Request, configAPIKey string) bool {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		http.Error(w, "未提供授权信息", http.StatusUnauthorized)
+		errors.HandleError(w, errors.ErrUnauthorized, "Authorization header not provided", nil)
 		return false
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		http.Error(w, "授权格式无效", http.StatusUnauthorized)
+		errors.HandleError(w, errors.ErrUnauthorized, "Invalid authorization format", nil)
 		return false
 	}
 
 	apiKey := parts[1]
 	if apiKey != configAPIKey {
-		http.Error(w, "API密钥无效", http.StatusUnauthorized)
+		errors.HandleError(w, errors.ErrUnauthorized, "Invalid API key", nil)
 		return false
 	}
 
@@ -304,7 +308,9 @@ func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Co
 		}
 		if pathsStr := data["paths"]; pathsStr != "" {
 			if err := json.Unmarshal([]byte(pathsStr), &paths); err != nil {
-				log.Printf("Warning: Failed to unmarshal paths for image %s: %v", id, err)
+				logger.Warn("Failed to unmarshal paths",
+					zap.String("image_id", id),
+					zap.Error(err))
 			}
 		}
 

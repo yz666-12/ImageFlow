@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -16,7 +15,9 @@ import (
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/handlers"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 // corsMiddleware adds CORS headers to all responses
@@ -74,34 +75,41 @@ func corsMiddleware(next http.Handler) http.Handler {
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Error loading .env file: %v", err)
+		logger.Warn("Failed to load .env file", zap.Error(err))
 	}
 
 	// Initialize configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logger.Fatal("Failed to load config", zap.Error(err))
 	}
+
+	// Initialize logger
+	if err := logger.InitLogger(cfg.DebugMode); err != nil {
+		logger.Fatal("Failed to initialize logger", zap.Error(err))
+	}
+	defer logger.Log.Sync()
 
 	// Initialize libvips for image processing
 	utils.InitVips(cfg)
-	log.Printf("Initialized libvips with %d worker threads", cfg.WorkerThreads)
+	logger.Info("Initialized libvips",
+		zap.Int("worker_threads", cfg.WorkerThreads))
 
 	// Initialize S3 client only when using S3 storage
 	if cfg.StorageType == config.StorageTypeS3 {
 		if err := utils.InitS3Client(cfg); err != nil {
-			log.Fatalf("Failed to initialize S3 client: %v", err)
+			logger.Fatal("Failed to initialize S3 client", zap.Error(err))
 		}
 	}
 
 	// Initialize storage provider
 	if err := utils.InitStorage(cfg); err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
 
 	// Initialize metadata store
 	if err := utils.InitMetadataStore(cfg); err != nil {
-		log.Fatalf("Failed to initialize metadata store: %v", err)
+		logger.Fatal("Failed to initialize metadata store", zap.Error(err))
 	}
 
 	// Ensure image directories exist
@@ -109,7 +117,7 @@ func main() {
 
 	// Initialize and start image cleaner
 	utils.InitCleaner(cfg)
-	log.Printf("Image cleaner started")
+	logger.Info("Image cleaner started")
 
 	// Configure MIME types
 	configureMIMETypes()
@@ -198,13 +206,10 @@ func main() {
 		}
 	})
 
-	// Apply CORS middleware to all handlers
-	handler := corsMiddleware(http.DefaultServeMux)
-
 	// Create HTTP server
 	server := &http.Server{
 		Addr:    cfg.ServerAddr,
-		Handler: handler,
+		Handler: corsMiddleware(http.DefaultServeMux),
 	}
 
 	// Set up graceful shutdown
@@ -214,15 +219,19 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting server on %s with %s storage (with CORS enabled)", cfg.ServerAddr, cfg.StorageType)
+		logger.Info("Starting server",
+			zap.String("address", cfg.ServerAddr),
+			zap.String("storage_type", string(cfg.StorageType)),
+			zap.Bool("cors_enabled", true))
+
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			logger.Fatal("Server error", zap.Error(err))
 		}
 	}()
 
 	// Wait for shutdown signal
 	<-quit
-	log.Println("Server is shutting down...")
+	logger.Info("Server is shutting down...")
 
 	// Give ongoing operations time to finish
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -231,23 +240,23 @@ func main() {
 	// Shut down the worker pool
 	workerPool := utils.GetWorkerPool()
 	if workerPool != nil {
-		log.Println("Shutting down worker pool...")
+		logger.Info("Shutting down worker pool...")
 		workerPool.Shutdown()
 	}
 
 	// Stop the cleaner
 	if utils.Cleaner != nil {
-		log.Println("Stopping image cleaner...")
+		logger.Info("Stopping image cleaner...")
 		utils.Cleaner.Stop()
 	}
 
-	// Shutdown the server
+	// Attempt to shut down the server gracefully
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", zap.Error(err))
 	}
 
-	log.Println("Server shutdown completed")
 	close(done)
+	logger.Info("Server shutdown completed")
 }
 
 // configureMIMETypes registers common MIME types
@@ -278,9 +287,12 @@ func ensureDirectories(cfg *config.Config) {
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Printf("Warning: Failed to create directory %s: %v", dir, err)
+			logger.Error("Failed to create directory",
+				zap.String("dir", dir),
+				zap.Error(err))
 		} else {
-			log.Printf("Created directory: %s", dir)
+			logger.Info("Created directory",
+				zap.String("dir", dir))
 		}
 	}
 }

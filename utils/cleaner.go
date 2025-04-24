@@ -2,10 +2,11 @@ package utils
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // ImageCleaner is responsible for cleaning up expired images
@@ -28,7 +29,8 @@ func NewImageCleaner(cfg *config.Config) *ImageCleaner {
 
 // Start begins the periodic cleanup task
 func (ic *ImageCleaner) Start() {
-	log.Printf("Starting image cleaner with interval: %v", ic.interval)
+	logger.Info("Starting image cleaner",
+		zap.Duration("interval", ic.interval))
 
 	// Run cleanup immediately
 	go ic.cleanExpiredImages()
@@ -51,7 +53,7 @@ func (ic *ImageCleaner) Start() {
 // Stop terminates the cleanup task
 func (ic *ImageCleaner) Stop() {
 	ic.cancel()
-	log.Println("Image cleaner stopped")
+	logger.Info("Image cleaner stopped")
 }
 
 // cleanExpiredImages removes all expired images
@@ -59,62 +61,80 @@ func (ic *ImageCleaner) cleanExpiredImages() {
 	ctx := context.Background()
 	expiredImages, err := MetadataManager.ListExpiredImages(ctx)
 	if err != nil {
-		log.Printf("Error listing expired images: %v", err)
+		logger.Error("Failed to list expired images", zap.Error(err))
 		return
 	}
 
 	if len(expiredImages) == 0 {
+		logger.Debug("No expired images found")
 		return
 	}
 
-	log.Printf("Found %d expired images to clean up", len(expiredImages))
+	logger.Info("Found expired images to clean up",
+		zap.Int("count", len(expiredImages)))
 
 	for _, metadata := range expiredImages {
-		log.Printf("Cleaning up expired image: %s (expired at: %v)", metadata.ID, metadata.ExpiryTime)
+		logger.Debug("Processing expired image",
+			zap.String("id", metadata.ID),
+			zap.Time("expiry_time", metadata.ExpiryTime))
 
 		// Delete original image
 		if metadata.Paths.Original != "" {
 			if err := Storage.Delete(ctx, metadata.Paths.Original); err != nil {
-				log.Printf("Error deleting original image %s: %v", metadata.Paths.Original, err)
+				logger.Error("Failed to delete original image",
+					zap.String("path", metadata.Paths.Original),
+					zap.Error(err))
 			} else {
-				log.Printf("Deleted original image: %s", metadata.Paths.Original)
+				logger.Debug("Deleted original image",
+					zap.String("path", metadata.Paths.Original))
 			}
 		}
 
 		// Delete WebP format
 		if metadata.Paths.WebP != "" {
 			if err := Storage.Delete(ctx, metadata.Paths.WebP); err != nil {
-				log.Printf("Error deleting WebP image %s: %v", metadata.Paths.WebP, err)
+				logger.Error("Failed to delete WebP image",
+					zap.String("path", metadata.Paths.WebP),
+					zap.Error(err))
 			} else {
-				log.Printf("Deleted WebP image: %s", metadata.Paths.WebP)
+				logger.Debug("Deleted WebP image",
+					zap.String("path", metadata.Paths.WebP))
 			}
 		}
 
 		// Delete AVIF format
 		if metadata.Paths.AVIF != "" {
 			if err := Storage.Delete(ctx, metadata.Paths.AVIF); err != nil {
-				log.Printf("Error deleting AVIF image %s: %v", metadata.Paths.AVIF, err)
+				logger.Error("Failed to delete AVIF image",
+					zap.String("path", metadata.Paths.AVIF),
+					zap.Error(err))
 			} else {
-				log.Printf("Deleted AVIF image: %s", metadata.Paths.AVIF)
+				logger.Debug("Deleted AVIF image",
+					zap.String("path", metadata.Paths.AVIF))
 			}
 		}
 
 		// Delete metadata
 		if err := MetadataManager.DeleteMetadata(ctx, metadata.ID); err != nil {
-			log.Printf("Error deleting metadata for %s: %v", metadata.ID, err)
+			logger.Error("Failed to delete metadata",
+				zap.String("id", metadata.ID),
+				zap.Error(err))
 		} else {
-			log.Printf("Deleted metadata for image: %s", metadata.ID)
+			logger.Debug("Deleted metadata",
+				zap.String("id", metadata.ID))
 		}
 	}
 
 	// Clear page cache after deleting all expired images
 	if err := ClearPageCache(ctx); err != nil {
-		log.Printf("Warning: Failed to clear page cache: %v", err)
+		logger.Warn("Failed to clear page cache",
+			zap.Error(err))
 	} else {
-		log.Printf("Page cache cleared after cleaning up expired images")
+		logger.Debug("Page cache cleared after cleanup")
 	}
 
-	log.Printf("Completed cleanup of %d expired images", len(expiredImages))
+	logger.Info("Completed cleanup of expired images",
+		zap.Int("total_cleaned", len(expiredImages)))
 }
 
 // Global cleaner instance
@@ -129,9 +149,9 @@ func InitCleaner(cfg *config.Config) {
 // TriggerCleanup manually triggers the cleanup process
 func TriggerCleanup() {
 	if Cleaner != nil {
-		log.Println("Manually triggering cleanup process...")
+		logger.Info("Manually triggering cleanup process")
 		go Cleaner.cleanExpiredImages()
 	} else {
-		log.Println("Cleaner not initialized, cannot trigger cleanup")
+		logger.Warn("Cannot trigger cleanup: cleaner not initialized")
 	}
 }

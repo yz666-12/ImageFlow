@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // ImageMetadata stores metadata information for images
@@ -70,7 +71,9 @@ func (lms *LocalMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 		return fmt.Errorf("failed to write metadata file: %v", err)
 	}
 
-	log.Printf("Metadata saved for image %s", metadata.ID)
+	logger.Info("Metadata saved successfully",
+		zap.String("image_id", metadata.ID),
+		zap.String("path", metadataPath))
 	return nil
 }
 
@@ -110,13 +113,17 @@ func (lms *LocalMetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageM
 		metadataPath := filepath.Join(metadataDir, file.Name())
 		data, err := os.ReadFile(metadataPath)
 		if err != nil {
-			log.Printf("Error reading metadata file %s: %v", metadataPath, err)
+			logger.Error("Failed to read metadata file",
+				zap.String("path", metadataPath),
+				zap.Error(err))
 			continue
 		}
 
 		var metadata ImageMetadata
 		if err := json.Unmarshal(data, &metadata); err != nil {
-			log.Printf("Error unmarshaling metadata from %s: %v", metadataPath, err)
+			logger.Error("Failed to unmarshal metadata",
+				zap.String("path", metadataPath),
+				zap.Error(err))
 			continue
 		}
 
@@ -126,6 +133,8 @@ func (lms *LocalMetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageM
 		}
 	}
 
+	logger.Debug("Listed expired images",
+		zap.Int("count", len(expiredImages)))
 	return expiredImages, nil
 }
 
@@ -157,14 +166,18 @@ func (lms *LocalMetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMeta
 		// Get metadata for this ID
 		metadata, err := lms.GetMetadata(ctx, id)
 		if err != nil {
-			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			logger.Warn("Failed to get metadata",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		allMetadata = append(allMetadata, metadata)
 	}
 
-	log.Printf("Retrieved %d metadata entries from local storage", len(allMetadata))
+	logger.Info("Retrieved all metadata entries",
+		zap.Int("count", len(allMetadata)),
+		zap.String("storage", "local"))
 	return allMetadata, nil
 }
 
@@ -197,7 +210,9 @@ func (sms *S3MetadataStore) SaveMetadata(ctx context.Context, metadata *ImageMet
 		return fmt.Errorf("failed to store metadata in S3: %v", err)
 	}
 
-	log.Printf("Metadata saved to S3 for image %s", metadata.ID)
+	logger.Info("Metadata saved to S3",
+		zap.String("image_id", metadata.ID),
+		zap.String("key", key))
 	return nil
 }
 
@@ -220,7 +235,6 @@ func (sms *S3MetadataStore) GetMetadata(ctx context.Context, id string) (*ImageM
 
 // ListExpiredImages lists all expired images in S3
 func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMetadata, error) {
-	// List all metadata objects with the metadata/ prefix
 	paginator := s3.NewListObjectsV2Paginator(S3Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(sms.bucket),
 		Prefix: aws.String(sms.prefix),
@@ -233,38 +247,34 @@ func (sms *S3MetadataStore) ListExpiredImages(ctx context.Context) ([]*ImageMeta
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			log.Printf("Error listing metadata objects from S3: %v", err)
+			logger.Error("Failed to list metadata objects from S3", zap.Error(err))
 			return nil, fmt.Errorf("failed to list metadata objects from S3: %v", err)
 		}
 
 		// Process each object in the current page
 		for _, obj := range page.Contents {
-			// Skip if not a JSON file
 			if !strings.HasSuffix(*obj.Key, ".json") {
 				continue
 			}
 
-			// Extract the image ID from the key
 			id := strings.TrimSuffix(strings.TrimPrefix(*obj.Key, sms.prefix), ".json")
-
-			// Get the metadata for this image
 			metadata, err := sms.GetMetadata(ctx, id)
 			if err != nil {
-				log.Printf("Error getting metadata for image %s: %v", id, err)
+				logger.Error("Failed to get metadata from S3",
+					zap.String("id", id),
+					zap.Error(err))
 				continue
 			}
 
-			// Check if the image has expired
 			if !metadata.ExpiryTime.IsZero() && metadata.ExpiryTime.Before(now) {
-				// Only log individual expired images when we actually find them
 				expiredImages = append(expiredImages, metadata)
 			}
 		}
 	}
 
-	// Only log the count if we found expired images
 	if len(expiredImages) > 0 {
-		log.Printf("Found %d expired images in S3", len(expiredImages))
+		logger.Info("Found expired images in S3",
+			zap.Int("count", len(expiredImages)))
 	}
 	return expiredImages, nil
 }
@@ -278,11 +288,8 @@ func (sms *S3MetadataStore) DeleteMetadata(ctx context.Context, id string) error
 // GetAllMetadata retrieves all image metadata from S3
 func (s3ms *S3MetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetadata, error) {
 	var allMetadata []*ImageMetadata
-
-	// List all metadata objects
 	metadataPrefix := "metadata/"
 
-	// Get S3 storage instance
 	s3Storage, ok := Storage.(*S3Storage)
 	if !ok {
 		return nil, fmt.Errorf("failed to get S3 storage instance")
@@ -294,25 +301,24 @@ func (s3ms *S3MetadataStore) GetAllMetadata(ctx context.Context) ([]*ImageMetada
 	}
 
 	for _, obj := range objects {
-		// Skip if not a JSON file
 		if !strings.HasSuffix(obj.Key, ".json") {
 			continue
 		}
 
-		// Extract ID from key
 		id := strings.TrimSuffix(filepath.Base(obj.Key), ".json")
-
-		// Get metadata for this ID
 		metadata, err := s3ms.GetMetadata(ctx, id)
 		if err != nil {
-			log.Printf("Warning: Failed to get metadata for ID %s: %v", id, err)
+			logger.Warn("Failed to get metadata from S3",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		allMetadata = append(allMetadata, metadata)
 	}
 
-	log.Printf("Retrieved %d metadata entries from S3", len(allMetadata))
+	logger.Info("Retrieved all metadata entries from S3",
+		zap.Int("count", len(allMetadata)))
 	return allMetadata, nil
 }
 
@@ -321,55 +327,49 @@ var MetadataManager MetadataStore
 
 // InitMetadataStore initializes the metadata storage
 func InitMetadataStore(cfg *config.Config) error {
-	// Initialize Redis client if enabled
 	if err := InitRedisClient(cfg); err != nil {
-		log.Printf("Warning: Failed to initialize Redis client: %v", err)
-		log.Printf("Falling back to file-based metadata storage")
+		logger.Warn("Failed to initialize Redis client, falling back to file-based storage",
+			zap.Error(err))
 	}
 
-	// Use Redis metadata store if enabled
 	if RedisEnabled {
 		MetadataManager = NewRedisMetadataStore()
-		log.Printf("Redis metadata store initialized")
+		logger.Info("Redis metadata store initialized")
 
-		// Migrate existing metadata to Redis if needed
 		if _, err := RedisClient.Get(context.Background(), RedisPrefix+"migration_completed").Result(); err == redis.Nil {
-			log.Printf("Starting metadata migration to Redis...")
+			logger.Info("Starting metadata migration to Redis")
 			if err := MigrateMetadataToRedis(context.Background(), cfg); err != nil {
-				log.Printf("Warning: Failed to migrate metadata to Redis: %v", err)
+				logger.Warn("Failed to migrate metadata to Redis",
+					zap.Error(err))
 			} else {
-				// Mark migration as completed
 				RedisClient.Set(context.Background(), RedisPrefix+"migration_completed", time.Now().Format(time.RFC3339), 0)
-				log.Printf("Metadata migration to Redis completed successfully")
+				logger.Info("Metadata migration to Redis completed successfully")
 			}
 		} else if err != nil {
-			log.Printf("Warning: Failed to check migration status: %v", err)
+			logger.Warn("Failed to check Redis migration status",
+				zap.Error(err))
 		} else {
-			log.Printf("Metadata migration to Redis already completed")
+			logger.Debug("Metadata migration to Redis already completed")
 		}
 
 		return nil
 	}
 
 	if cfg.StorageType == config.StorageTypeS3 {
-		// Ensure S3 client is initialized
 		if S3Client == nil {
 			return fmt.Errorf("S3 client not initialized")
 		}
 
-		// Get S3 storage instance
 		s3Storage, ok := Storage.(*S3Storage)
 		if !ok {
 			return fmt.Errorf("failed to get S3 storage instance")
 		}
 
 		MetadataManager = NewS3MetadataStore(s3Storage, cfg)
-		log.Printf("S3 metadata store initialized")
+		logger.Info("S3 metadata store initialized",
+			zap.String("bucket", cfg.S3Bucket))
 	} else {
-		// Local storage
 		localPath := cfg.ImageBasePath
-
-		// Ensure path is absolute
 		if !filepath.IsAbs(localPath) {
 			localPath = filepath.Join(".", localPath)
 		}
@@ -380,7 +380,8 @@ func InitMetadataStore(cfg *config.Config) error {
 		}
 
 		MetadataManager = localStore
-		log.Printf("Local metadata store initialized at %s", localPath)
+		logger.Info("Local metadata store initialized",
+			zap.String("path", localPath))
 	}
 
 	return nil

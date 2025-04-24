@@ -2,44 +2,51 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/h2non/bimg"
+	"go.uber.org/zap"
 )
 
 // InitVips initializes libvips and sets concurrency parameters.
 func InitVips(cfg *config.Config) {
 	os.Setenv("VIPS_CONCURRENCY", strconv.Itoa(cfg.WorkerThreads))
-	log.Printf("Setting libvips concurrency to %d threads", cfg.WorkerThreads)
+	logger.Info("Initializing libvips",
+		zap.Int("threads", cfg.WorkerThreads))
 
 	bimg.Initialize()
 
 	// Initialize worker pool
 	InitWorkerPool(cfg)
-	log.Printf("Initialized image processing worker pool with %d workers", cfg.WorkerPoolSize)
+	logger.Info("Initialized image processing worker pool",
+		zap.Int("workers", cfg.WorkerPoolSize))
 }
 
 // ConvertToWebPWithBimg converts image data to WebP format using bimg/libvips
 func ConvertToWebPWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
-	log.Printf("Queuing WebP conversion task, input size: %d bytes", len(data))
+	logger.Debug("Queuing WebP conversion task",
+		zap.Int("input_size", len(data)))
 
 	// Submit conversion task to worker pool and wait for result
 	return GetWorkerPool().ProcessTask(func() ([]byte, error) {
-		log.Printf("Starting WebP conversion with bimg, input size: %d bytes, quality: %d, speed: %d",
-			len(data), cfg.ImageQuality, cfg.Speed)
+		logger.Debug("Starting WebP conversion",
+			zap.Int("input_size", len(data)),
+			zap.Int("quality", cfg.ImageQuality),
+			zap.Int("speed", cfg.Speed))
 
 		// Detect image format
 		imgFormat, err := DetectImageFormat(data)
 		if err != nil {
+			logger.Error("Failed to detect image format", zap.Error(err))
 			return nil, fmt.Errorf("failed to detect image format: %v", err)
 		}
 
 		// Return original data for GIF images
 		if imgFormat.Format == "gif" {
-			log.Printf("GIF detected, skipping WebP conversion")
+			logger.Debug("GIF detected, skipping WebP conversion")
 			return data, nil
 		}
 
@@ -55,12 +62,14 @@ func ConvertToWebPWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
 		// Perform conversion
 		result, err := img.Process(options)
 		if err != nil {
-			log.Printf("WebP conversion failed: %v", err)
+			logger.Error("WebP conversion failed", zap.Error(err))
 			return nil, fmt.Errorf("webp conversion failed: %v", err)
 		}
 
-		log.Printf("WebP conversion successful, output size: %d bytes, compression ratio: %.2f%%",
-			len(result), float64(len(result))*100/float64(len(data)))
+		compressionRatio := float64(len(result)) * 100 / float64(len(data))
+		logger.Info("WebP conversion completed",
+			zap.Int("output_size", len(result)),
+			zap.Float64("compression_ratio", compressionRatio))
 
 		return result, nil
 	})
@@ -68,22 +77,26 @@ func ConvertToWebPWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
 
 // ConvertToAVIFWithBimg converts image data to AVIF format using bimg/libvips
 func ConvertToAVIFWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
-	log.Printf("Queuing AVIF conversion task, input size: %d bytes", len(data))
+	logger.Debug("Queuing AVIF conversion task",
+		zap.Int("input_size", len(data)))
 
 	// Submit conversion task to worker pool and wait for result
 	return GetWorkerPool().ProcessTask(func() ([]byte, error) {
-		log.Printf("Starting AVIF conversion with bimg, input size: %d bytes, quality: %d, speed: %d",
-			len(data), cfg.ImageQuality, cfg.Speed)
+		logger.Debug("Starting AVIF conversion",
+			zap.Int("input_size", len(data)),
+			zap.Int("quality", cfg.ImageQuality),
+			zap.Int("speed", cfg.Speed))
 
 		// Detect image format
 		imgFormat, err := DetectImageFormat(data)
 		if err != nil {
+			logger.Error("Failed to detect image format", zap.Error(err))
 			return nil, fmt.Errorf("failed to detect image format: %v", err)
 		}
 
 		// Return original data for GIF images
 		if imgFormat.Format == "gif" {
-			log.Printf("GIF detected, skipping AVIF conversion")
+			logger.Debug("GIF detected, skipping AVIF conversion")
 			return data, nil
 		}
 
@@ -99,12 +112,14 @@ func ConvertToAVIFWithBimg(data []byte, cfg *config.Config) ([]byte, error) {
 		// Perform conversion
 		result, err := img.Process(options)
 		if err != nil {
-			log.Printf("AVIF conversion failed: %v", err)
+			logger.Error("AVIF conversion failed", zap.Error(err))
 			return nil, fmt.Errorf("avif conversion failed: %v", err)
 		}
 
-		log.Printf("AVIF conversion successful, output size: %d bytes, compression ratio: %.2f%%",
-			len(result), float64(len(result))*100/float64(len(data)))
+		compressionRatio := float64(len(result)) * 100 / float64(len(data))
+		logger.Info("AVIF conversion completed",
+			zap.Int("output_size", len(result)),
+			zap.Float64("compression_ratio", compressionRatio))
 
 		return result, nil
 	})

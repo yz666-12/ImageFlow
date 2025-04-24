@@ -166,7 +166,18 @@ func (c *Config) loadEnvVars() {
 
 	// Storage settings
 	if storageType := os.Getenv("STORAGE_TYPE"); storageType != "" {
-		c.StorageType = StorageType(storageType)
+		switch storageType {
+		case "local":
+			c.StorageType = StorageTypeLocal
+		case "s3":
+			c.StorageType = StorageTypeS3
+			// When storage type is S3, automatically enable S3
+			c.S3Enabled = true
+			fmt.Printf("Storage type set to S3, automatically enabling S3\n")
+		default:
+			fmt.Printf("Warning: Invalid storage type specified (%s), using local storage\n", storageType)
+			c.StorageType = StorageTypeLocal
+		}
 	}
 	if customDomain := os.Getenv("CUSTOM_DOMAIN"); customDomain != "" {
 		c.CustomDomain = customDomain
@@ -225,9 +236,17 @@ func (c *Config) loadEnvVars() {
 	}
 	c.S3AccessKey = os.Getenv("S3_ACCESS_KEY")
 	c.S3SecretKey = os.Getenv("S3_SECRET_KEY")
+
+	// Handle S3_ENABLED override
 	if enabled := os.Getenv("S3_ENABLED"); enabled != "" {
 		c.S3Enabled = enabled == "true"
+		// If S3 is explicitly disabled but storage type is S3, force local storage
+		if !c.S3Enabled && c.StorageType == StorageTypeS3 {
+			c.StorageType = StorageTypeLocal
+			fmt.Printf("Warning: S3 is disabled but storage type was set to S3, forcing local storage\n")
+		}
 	}
+
 	if pathStyle := os.Getenv("S3_FORCE_PATH_STYLE"); pathStyle != "" {
 		c.S3ForcePathStyle = pathStyle == "true"
 	}

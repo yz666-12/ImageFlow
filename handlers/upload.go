@@ -7,7 +7,6 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -18,6 +17,9 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // UploadResult represents the result of an image upload
@@ -59,10 +61,13 @@ func determineImageOrientation(img image.Config) string {
 func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadResult {
 	file, err := fileHeader.Open()
 	if err != nil {
+		logger.Error("打开上传文件失败",
+			zap.String("filename", fileHeader.Filename),
+			zap.Error(err))
 		return UploadResult{
 			Filename: fileHeader.Filename,
 			Status:   "error",
-			Message:  fmt.Sprintf("Error opening file: %v", err),
+			Message:  "打开文件失败",
 		}
 	}
 	defer file.Close()
@@ -126,37 +131,80 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			Message:  fmt.Sprintf("Error storing original file: %v", err),
 		}
 	}
-	log.Printf("Original image stored: %s", originalKey)
+	logger.Info("Original image stored",
+		zap.String("key", originalKey),
+		zap.String("filename", fileHeader.Filename),
+		zap.String("format", imgFormat.Format),
+		zap.Int("size", len(data)))
 
 	var webpURL, avifURL string
 	var wg sync.WaitGroup
 
 	if imgFormat.Format != "gif" {
-		// WebP conversion - simply call the function which now uses worker pool internally
+		// WebP conversion
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if webpData, err := utils.ConvertToWebPWithBimg(data, ctx.cfg); err == nil {
-				webpKey := filepath.Join(orientation, "webp", filename+".webp")
-				if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err == nil {
-					webpURL = getPublicURL(webpKey, ctx.cfg)
-				}
+			logger.Debug("Starting WebP conversion",
+				zap.String("filename", fileHeader.Filename))
+
+			webpData, err := utils.ConvertToWebPWithBimg(data, ctx.cfg)
+			if err != nil {
+				logger.Error("WebP conversion failed",
+					zap.String("filename", fileHeader.Filename),
+					zap.Error(err))
+				return
 			}
+
+			webpKey := filepath.Join(orientation, "webp", filename+".webp")
+			if err := utils.Storage.Store(ctx.r.Context(), webpKey, webpData); err != nil {
+				logger.Error("Failed to store WebP image",
+					zap.String("key", webpKey),
+					zap.Error(err))
+				return
+			}
+
+			webpURL = getPublicURL(webpKey, ctx.cfg)
+			logger.Info("WebP conversion completed",
+				zap.String("key", webpKey),
+				zap.String("url", webpURL),
+				zap.Int("size", len(webpData)))
 		}()
 
-		// AVIF conversion - simply call the function which now uses worker pool internally
+		// AVIF conversion
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if avifData, err := utils.ConvertToAVIFWithBimg(data, ctx.cfg); err == nil {
-				avifKey := filepath.Join(orientation, "avif", filename+".avif")
-				if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err == nil {
-					avifURL = getPublicURL(avifKey, ctx.cfg)
-				}
+			logger.Debug("Starting AVIF conversion",
+				zap.String("filename", fileHeader.Filename))
+
+			avifData, err := utils.ConvertToAVIFWithBimg(data, ctx.cfg)
+			if err != nil {
+				logger.Error("AVIF conversion failed",
+					zap.String("filename", fileHeader.Filename),
+					zap.Error(err))
+				return
 			}
+
+			avifKey := filepath.Join(orientation, "avif", filename+".avif")
+			if err := utils.Storage.Store(ctx.r.Context(), avifKey, avifData); err != nil {
+				logger.Error("Failed to store AVIF image",
+					zap.String("key", avifKey),
+					zap.Error(err))
+				return
+			}
+
+			avifURL = getPublicURL(avifKey, ctx.cfg)
+			logger.Info("AVIF conversion completed",
+				zap.String("key", avifKey),
+				zap.String("url", avifURL),
+				zap.Int("size", len(avifData)))
 		}()
 
 		wg.Wait()
+	} else {
+		logger.Info("Skipping conversions for GIF image",
+			zap.String("filename", fileHeader.Filename))
 	}
 
 	// Get URL for original image
@@ -164,9 +212,13 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 
 	// Set WebP and AVIF URLs with defaults if conversion failed
 	if webpURL == "" {
+		logger.Debug("Using original URL for WebP",
+			zap.String("filename", fileHeader.Filename))
 		webpURL = originalURL
 	}
 	if avifURL == "" {
+		logger.Debug("Using original URL for AVIF",
+			zap.String("filename", fileHeader.Filename))
 		avifURL = originalURL
 	}
 
@@ -197,7 +249,14 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 	}
 
 	if err := utils.MetadataManager.SaveMetadata(ctx.r.Context(), metadata); err != nil {
-		log.Printf("Warning: Failed to save metadata for image %s: %v", imageID, err)
+		logger.Warn("Failed to save metadata",
+			zap.String("image_id", imageID),
+			zap.Error(err))
+	} else {
+		logger.Debug("Metadata saved successfully",
+			zap.String("image_id", imageID),
+			zap.String("format", imgFormat.Format),
+			zap.String("orientation", orientation))
 	}
 
 	return UploadResult{
@@ -227,26 +286,29 @@ type uploadContext struct {
 func UploadHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			errors.HandleError(w, errors.ErrInvalidParam, "方法不允许", nil)
 			return
 		}
 
 		// Parse multipart form with default max upload size (32MB)
 		if err := r.ParseMultipartForm(32 << 20); err != nil {
-			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			logger.Error("解析表单失败", zap.Error(err))
+			errors.HandleError(w, errors.ErrInvalidParam, "解析表单失败", nil)
 			return
 		}
 
 		// Get uploaded files
 		files := r.MultipartForm.File["images[]"]
 		if len(files) == 0 {
-			http.Error(w, "No files uploaded", http.StatusBadRequest)
+			errors.HandleError(w, errors.ErrInvalidParam, "未上传文件", nil)
 			return
 		}
 
 		// Check if number of uploaded files exceeds the maximum limit
 		if len(files) > cfg.MaxUploadCount {
-			http.Error(w, fmt.Sprintf("Too many files uploaded. Maximum allowed is %d files", cfg.MaxUploadCount), http.StatusBadRequest)
+			errors.HandleError(w, errors.ErrInvalidParam,
+				fmt.Sprintf("上传文件数量超过限制，最多允许上传 %d 个文件", cfg.MaxUploadCount),
+				nil)
 			return
 		}
 
@@ -256,7 +318,9 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			if minutes, err := strconv.Atoi(expiryParam); err == nil && minutes >= 0 {
 				expiryMinutes = minutes
 			} else {
-				log.Printf("Invalid expiryMinutes parameter: %s, using default: %d", expiryParam, expiryMinutes)
+				logger.Warn("无效的过期时间参数",
+					zap.String("expiry_minutes", expiryParam),
+					zap.Int("default_value", expiryMinutes))
 			}
 		}
 
@@ -264,7 +328,9 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 		var expiryTime time.Time
 		if expiryMinutes > 0 {
 			expiryTime = time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
-			log.Printf("Images will expire at: %v", expiryTime)
+			logger.Debug("设置图片过期时间",
+				zap.Time("expiry_time", expiryTime),
+				zap.Int("expiry_minutes", expiryMinutes))
 		}
 
 		// Get tags parameter
@@ -277,7 +343,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 					tags = append(tags, trimmedTag)
 				}
 			}
-			log.Printf("Image tags: %v", tags)
+			logger.Debug("图片标签", zap.Strings("tags", tags))
 		}
 
 		ctx := &uploadContext{
@@ -287,8 +353,7 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			cfg:        cfg,
 		}
 
-		// Process images concurrently - using a semaphore to limit concurrency at upload level
-		// Each image will use the worker pool internally for conversion tasks
+		// Process images concurrently
 		resultsChan := make(chan UploadResult, len(files))
 		var wg sync.WaitGroup
 
@@ -307,18 +372,21 @@ func UploadHandler(cfg *config.Config) http.HandlerFunc {
 			close(resultsChan)
 		}()
 
-		// Collect and send results as they come in
+		// Collect results
 		results := make([]UploadResult, 0, len(files))
 		for result := range resultsChan {
 			results = append(results, result)
-			// Optionally flush partial results to client here if needed
 		}
 
 		// Return JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"results": results,
-		})
+		}); err != nil {
+			logger.Error("编码响应失败", zap.Error(err))
+			errors.HandleError(w, errors.ErrInternal, "服务器内部错误", nil)
+			return
+		}
 	}
 }

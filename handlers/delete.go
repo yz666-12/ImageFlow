@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,9 +11,12 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"go.uber.org/zap"
 )
 
 // DeleteRequest represents the request body for deleting an image
@@ -33,22 +35,35 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only accept POST method
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			errors.HandleError(w, errors.ErrInvalidParam, "Method not allowed", nil)
+			logger.Warn("Invalid request method",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.String("remote_addr", r.RemoteAddr))
 			return
 		}
 
 		// Parse the request body
 		var req DeleteRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			errors.HandleError(w, errors.ErrInvalidParam, "Invalid request body", nil)
+			logger.Warn("Failed to decode request body",
+				zap.Error(err),
+				zap.String("remote_addr", r.RemoteAddr))
 			return
 		}
 
 		// Check if ID is provided
 		if req.ID == "" {
-			http.Error(w, "Image ID is required", http.StatusBadRequest)
+			errors.HandleError(w, errors.ErrInvalidParam, "Image ID is required", nil)
+			logger.Warn("Missing image ID",
+				zap.String("remote_addr", r.RemoteAddr))
 			return
 		}
+
+		logger.Info("Processing delete request",
+			zap.String("image_id", req.ID),
+			zap.String("storage_type", string(cfg.StorageType)))
 
 		var success bool
 		var message string
@@ -67,17 +82,23 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 
 			// Delete metadata from Redis
 			if err := redisStore.DeleteMetadata(r.Context(), req.ID); err != nil {
-				log.Printf("Warning: Failed to delete Redis metadata for %s: %v", req.ID, err)
+				logger.Warn("Failed to delete Redis metadata",
+					zap.String("image_id", req.ID),
+					zap.Error(err))
 			}
 
 			// Remove from images sorted set
 			if err := utils.RedisClient.ZRem(r.Context(), utils.RedisPrefix+"images", req.ID).Err(); err != nil {
-				log.Printf("Warning: Failed to remove from images set: %v", err)
+				logger.Warn("Failed to remove from images set",
+					zap.String("image_id", req.ID),
+					zap.Error(err))
 			}
 
 			// Clear page cache
 			if err := utils.ClearPageCache(r.Context()); err != nil {
-				log.Printf("Warning: Failed to clear page cache: %v", err)
+				logger.Warn("Failed to clear page cache",
+					zap.String("image_id", req.ID),
+					zap.Error(err))
 			}
 		}
 
@@ -88,7 +109,18 @@ func DeleteImageHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			logger.Error("Failed to encode response",
+				zap.String("image_id", req.ID),
+				zap.Error(err))
+			errors.HandleError(w, errors.ErrInternal, "Internal server error", nil)
+			return
+		}
+
+		logger.Info("Delete operation completed",
+			zap.String("image_id", req.ID),
+			zap.Bool("success", success),
+			zap.String("message", message))
 	}
 }
 
@@ -113,10 +145,12 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 			}
 
 			// Find matching files with glob pattern
-			// This will match any extension (jpg, png, etc)
 			files, err := filepath.Glob(filepath.Join(path, id+".*"))
 			if err != nil {
-				log.Printf("Error finding files for %s in %s: %v", id, path, err)
+				logger.Error("Failed to find files",
+					zap.String("image_id", id),
+					zap.String("path", path),
+					zap.Error(err))
 				errorCount++
 				lastError = err
 				continue
@@ -126,22 +160,28 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 			for _, file := range files {
 				err := os.Remove(file)
 				if err != nil {
-					log.Printf("Error deleting file %s: %v", file, err)
+					logger.Error("Failed to delete file",
+						zap.String("file", file),
+						zap.Error(err))
 					errorCount++
 					lastError = err
 				} else {
-					log.Printf("Successfully deleted file: %s", file)
+					logger.Debug("Successfully deleted file",
+						zap.String("file", file))
 					deletedCount++
 				}
 			}
 		}
 	}
 
-	// Check for GIF files (stored in a separate gif directory without orientation classification)
+	// Check for GIF files
 	gifPath := filepath.Join(basePath, "gif")
 	gifFiles, err := filepath.Glob(filepath.Join(gifPath, id+".*"))
 	if err != nil {
-		log.Printf("Error finding GIF files for %s in %s: %v", id, gifPath, err)
+		logger.Error("Failed to find GIF files",
+			zap.String("image_id", id),
+			zap.String("path", gifPath),
+			zap.Error(err))
 		errorCount++
 		lastError = err
 	} else {
@@ -149,11 +189,14 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		for _, file := range gifFiles {
 			err := os.Remove(file)
 			if err != nil {
-				log.Printf("Error deleting GIF file %s: %v", file, err)
+				logger.Error("Failed to delete GIF file",
+					zap.String("file", file),
+					zap.Error(err))
 				errorCount++
 				lastError = err
 			} else {
-				log.Printf("Successfully deleted GIF file: %s", file)
+				logger.Debug("Successfully deleted GIF file",
+					zap.String("file", file))
 				deletedCount++
 			}
 		}
@@ -169,7 +212,7 @@ func deleteLocalImages(id string, basePath string) (bool, string) {
 		return false, "No matching image files found"
 	}
 
-	return true, fmt.Sprintf("成功删除 %d 张图片", deletedCount)
+	return true, fmt.Sprintf("Successfully deleted %d images", deletedCount)
 }
 
 // deleteS3Images deletes all formats of an image from S3 storage
@@ -218,7 +261,9 @@ func deleteS3Images(id string, cfg *config.Config) (bool, string) {
 			for paginator.HasMorePages() {
 				output, err := paginator.NextPage(ctx)
 				if err != nil {
-					log.Printf("Error listing S3 objects with prefix %s: %v", prefix, err)
+					logger.Error("Failed to list S3 objects",
+						zap.String("prefix", prefix),
+						zap.Error(err))
 					continue
 				}
 
@@ -249,7 +294,9 @@ func deleteS3Images(id string, cfg *config.Config) (bool, string) {
 	for gifPaginator.HasMorePages() {
 		output, err := gifPaginator.NextPage(ctx)
 		if err != nil {
-			log.Printf("Error listing S3 GIF objects with prefix %s: %v", gifPrefix, err)
+			logger.Error("Failed to list S3 GIF objects",
+				zap.String("prefix", gifPrefix),
+				zap.Error(err))
 			continue
 		}
 
@@ -281,14 +328,17 @@ func deleteS3Images(id string, cfg *config.Config) (bool, string) {
 	})
 
 	if err != nil {
-		log.Printf("Error deleting S3 objects: %v", err)
+		logger.Error("Failed to delete S3 objects",
+			zap.String("image_id", id),
+			zap.Error(err))
 		return false, fmt.Sprintf("Deletion failed: %v", err)
 	}
 
 	// Log deleted files
 	for _, path := range deletedPathsForLogging {
-		log.Printf("Successfully deleted file from S3: %s", path)
+		logger.Debug("Successfully deleted file from S3",
+			zap.String("path", path))
 	}
 
-	return true, fmt.Sprintf("成功删除 %d 张图片", len(objectsToDelete))
+	return true, fmt.Sprintf("Successfully deleted %d images", len(objectsToDelete))
 }

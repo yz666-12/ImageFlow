@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -14,8 +13,11 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"go.uber.org/zap"
 )
 
 // Image format constants
@@ -102,7 +104,7 @@ func getFormattedImagePath(format string, orientation string, filename string) s
 func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !cfg.S3Enabled {
-			http.Error(w, "S3 storage is not enabled", http.StatusInternalServerError)
+			errors.HandleError(w, errors.ErrInternal, "S3 storage is not enabled", nil)
 			return
 		}
 
@@ -112,7 +114,9 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 
 		// Get tag parameter for filtering
 		tag := r.URL.Query().Get("tag")
-		log.Printf("Random image request with tag: %s, orientation: %s", tag, orientation)
+		logger.Info("Processing random image request",
+			zap.String("tag", tag),
+			zap.String("orientation", orientation))
 
 		// Declare variables used throughout the function
 		var imageObjects []string
@@ -124,10 +128,14 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 			// Use Redis to get all images with the specified tag
 			imageIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
 			if redisErr != nil {
-				log.Printf("Error getting images by tag from Redis: %v", redisErr)
+				logger.Error("Failed to get images by tag from Redis",
+					zap.String("tag", tag),
+					zap.Error(redisErr))
 				// Fall back to traditional filtering
 			} else {
-				log.Printf("Found %d images with tag %s from Redis", len(imageIDs), tag)
+				logger.Info("Found images with tag from Redis",
+					zap.String("tag", tag),
+					zap.Int("count", len(imageIDs)))
 
 				// Filter images by orientation
 				for _, id := range imageIDs {
@@ -138,7 +146,9 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 					}
 				}
 
-				log.Printf("Filtered to %d images with orientation: %s", len(imageObjects), orientation)
+				logger.Debug("Filtered images by orientation",
+					zap.String("orientation", orientation),
+					zap.Int("count", len(imageObjects)))
 
 				// If we found images with Redis, skip the traditional filtering
 				if len(imageObjects) > 0 {
@@ -152,7 +162,6 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 			// Build the prefix for original images directory
 			prefix := fmt.Sprintf("original/%s/", orientation)
 
-			// Traditional filtering if Redis is not enabled or no results from Redis
 			// List objects in the directory
 			output, err := s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 				Bucket: aws.String(cfg.S3Bucket),
@@ -160,8 +169,8 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 			})
 
 			if err != nil {
-				log.Printf("Error listing objects: %v", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				logger.Error("Failed to list objects from S3", zap.Error(err))
+				errors.HandleError(w, errors.ErrInternal, "Failed to list images", err)
 				return
 			}
 
@@ -202,7 +211,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 		}
 
 		if len(imageObjects) == 0 {
-			http.Error(w, "No images found", http.StatusNotFound)
+			errors.HandleError(w, errors.ErrNotFound, "No images found", nil)
 			return
 		}
 
@@ -210,7 +219,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randomIndex := rng.Intn(len(imageObjects))
 		originalKey := imageObjects[randomIndex]
-		log.Printf("Selected random image: %s", originalKey)
+		logger.Debug("Selected random image", zap.String("key", originalKey))
 
 		// Extract base filename without extension
 		fileBaseName := filepath.Base(originalKey)
@@ -224,7 +233,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 		if isPNG && bestFormat == FormatOriginal {
 			// Use original PNG
 			imageKey := originalKey
-			log.Printf("Serving original PNG: %s", imageKey)
+			logger.Debug("Serving original PNG", zap.String("key", imageKey))
 
 			// Get image from S3
 			data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
@@ -233,8 +242,10 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 			})
 
 			if err != nil {
-				log.Printf("Error getting image %s: %v", imageKey, err)
-				http.Error(w, "Image not found", http.StatusNotFound)
+				logger.Error("Failed to get image from S3",
+					zap.String("key", imageKey),
+					zap.Error(err))
+				errors.HandleError(w, errors.ErrNotFound, "Image not found", err)
 				return
 			}
 			defer data.Body.Close()
@@ -244,7 +255,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 
 			// Copy image data to response
 			if _, err := io.Copy(w, data.Body); err != nil {
-				log.Printf("Error sending image: %v", err)
+				logger.Error("Failed to send image", zap.Error(err))
 				return
 			}
 			return
@@ -252,7 +263,9 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 
 		// Get image path
 		imageKey := getFormattedImagePath(bestFormat, orientation, filename)
-		log.Printf("Serving image format: %s, path: %s", bestFormat, imageKey)
+		logger.Debug("Serving image",
+			zap.String("format", bestFormat),
+			zap.String("path", imageKey))
 
 		// Get image from S3
 		data, err := s3Client.GetObject(r.Context(), &s3.GetObjectInput{
@@ -261,18 +274,20 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 		})
 
 		if err != nil {
-			log.Printf("Error getting image %s: %v", imageKey, err)
+			logger.Error("Failed to get image from S3",
+				zap.String("key", imageKey),
+				zap.Error(err))
 			// Fall back to original format if specific format not available
 			if bestFormat != FormatOriginal {
-				log.Printf("Falling back to original image format")
+				logger.Info("Falling back to original image format")
 				data, err = s3Client.GetObject(r.Context(), &s3.GetObjectInput{
 					Bucket: aws.String(cfg.S3Bucket),
 					Key:    aws.String(originalKey),
 				})
 
 				if err != nil {
-					log.Printf("Error getting original image: %v", err)
-					http.Error(w, "Image not found", http.StatusNotFound)
+					logger.Error("Failed to get original image", zap.Error(err))
+					errors.HandleError(w, errors.ErrNotFound, "Image not found", err)
 					return
 				}
 
@@ -280,7 +295,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 				bestFormat = FormatOriginal
 				imageKey = originalKey
 			} else {
-				http.Error(w, "Image not found", http.StatusNotFound)
+				errors.HandleError(w, errors.ErrNotFound, "Image not found", err)
 				return
 			}
 		}
@@ -292,7 +307,7 @@ func RandomImageHandler(s3Client *s3.Client, cfg *config.Config) http.HandlerFun
 
 		// Copy image data to response
 		if _, err := io.Copy(w, data.Body); err != nil {
-			log.Printf("Error sending image: %v", err)
+			logger.Error("Failed to send image", zap.Error(err))
 			return
 		}
 	}
@@ -306,16 +321,19 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Get tag parameter for filtering
 		tag := r.URL.Query().Get("tag")
-		log.Printf("Random image request with tag: %s, device type: %s", tag, deviceType)
+		logger.Info("Processing random image request",
+			zap.String("tag", tag),
+			zap.String("device_type", deviceType))
 
 		// Determine orientation based on device type
-		// This is the core design principle: desktop gets landscape, mobile gets portrait
 		orientation := "landscape" // Default for desktop
 		if deviceType == utils.DeviceMobile {
 			orientation = "portrait" // Mobile gets portrait
 		}
 
-		log.Printf("Using orientation: %s based on device type: %s", orientation, deviceType)
+		logger.Debug("Using orientation based on device type",
+			zap.String("orientation", orientation),
+			zap.String("device_type", deviceType))
 
 		// Find all images with the specified tag
 		var matchingImages []*utils.ImageMetadata
@@ -329,10 +347,14 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 			if utils.RedisEnabled {
 				redisIDs, redisErr := utils.GetImagesByTag(context.Background(), tag)
 				if redisErr != nil {
-					log.Printf("Error getting images by tag from Redis: %v", redisErr)
+					logger.Error("Failed to get images by tag from Redis",
+						zap.String("tag", tag),
+						zap.Error(redisErr))
 					// Fall back to file-based lookup
 				} else {
-					log.Printf("Found %d images with tag %s from Redis", len(redisIDs), tag)
+					logger.Info("Found images with tag from Redis",
+						zap.String("tag", tag),
+						zap.Int("count", len(redisIDs)))
 					imageIDs = redisIDs
 				}
 			}
@@ -341,8 +363,10 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 			if len(imageIDs) == 0 {
 				fileIDs, fileErr := findImagesWithTagDebug(tag, string(cfg.StorageType), cfg.ImageBasePath)
 				if fileErr != nil {
-					log.Printf("Error finding images with tag %s: %v", tag, fileErr)
-					http.Error(w, "Error finding images", http.StatusInternalServerError)
+					logger.Error("Failed to find images with tag",
+						zap.String("tag", tag),
+						zap.Error(fileErr))
+					errors.HandleError(w, errors.ErrInternal, "Failed to find images", fileErr)
 					return
 				}
 				imageIDs = fileIDs
@@ -356,11 +380,13 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 				}
 			}
 
-			log.Printf("Found %d images with tag: %s", len(matchingImages), tag)
+			logger.Info("Found images with tag",
+				zap.String("tag", tag),
+				zap.Int("count", len(matchingImages)))
 
 			if len(matchingImages) == 0 {
-				log.Printf("No images found with tag: %s", tag)
-				http.Error(w, "No images found", http.StatusNotFound)
+				logger.Warn("No images found with tag", zap.String("tag", tag))
+				errors.HandleError(w, errors.ErrNotFound, "No images found", nil)
 				return
 			}
 
@@ -375,10 +401,14 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 			// Only use filtered images if we found any
 			if len(filteredImages) > 0 {
 				matchingImages = filteredImages
-				log.Printf("Filtered to %d images with orientation: %s", len(matchingImages), orientation)
+				logger.Debug("Filtered images by orientation",
+					zap.String("orientation", orientation),
+					zap.Int("count", len(matchingImages)))
 			} else {
-				log.Printf("No images found with tag %s and orientation %s", tag, orientation)
-				http.Error(w, "No images found matching criteria", http.StatusNotFound)
+				logger.Warn("No images found matching criteria",
+					zap.String("tag", tag),
+					zap.String("orientation", orientation))
+				errors.HandleError(w, errors.ErrNotFound, "No images found matching criteria", nil)
 				return
 			}
 		} else {
@@ -386,12 +416,14 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 
 			// Read files from the orientation directory
 			originalDir := filepath.Join(cfg.ImageBasePath, "original", orientation)
-			log.Printf("Looking for images in directory: %s", originalDir)
+			logger.Debug("Looking for images in directory", zap.String("dir", originalDir))
 
 			files, err := os.ReadDir(originalDir)
 			if err != nil {
-				log.Printf("Error reading directory %s: %v", originalDir, err)
-				http.Error(w, "No images found", http.StatusNotFound)
+				logger.Error("Failed to read directory",
+					zap.String("dir", originalDir),
+					zap.Error(err))
+				errors.HandleError(w, errors.ErrNotFound, "No images found", err)
 				return
 			}
 
@@ -414,8 +446,8 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 			}
 
 			if len(matchingImages) == 0 {
-				log.Printf("No images found in directory: %s", originalDir)
-				http.Error(w, "No images found", http.StatusNotFound)
+				logger.Warn("No images found in directory", zap.String("dir", originalDir))
+				errors.HandleError(w, errors.ErrNotFound, "No images found", nil)
 				return
 			}
 		}
@@ -424,11 +456,13 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randomIndex := rng.Intn(len(matchingImages))
 		selectedImage := matchingImages[randomIndex]
-		log.Printf("Selected random image: %s, orientation: %s", selectedImage.ID, selectedImage.Orientation)
+		logger.Debug("Selected random image",
+			zap.String("id", selectedImage.ID),
+			zap.String("orientation", selectedImage.Orientation))
 
 		// Determine best format for client
 		bestFormat := detectBestFormat(r)
-		log.Printf("Best format for client: %s", bestFormat)
+		logger.Debug("Best format for client", zap.String("format", bestFormat))
 
 		// Get the image path based on the format
 		var imagePath string
@@ -447,7 +481,7 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 		if isPNG && bestFormat == FormatOriginal {
 			imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 			contentType = "image/png"
-			log.Printf("Using original PNG for transparency: %s", imagePath)
+			logger.Debug("Using original PNG for transparency", zap.String("path", imagePath))
 		} else {
 			// Use the appropriate format based on browser support
 			switch bestFormat {
@@ -462,11 +496,14 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 				contentType = getContentType(FormatOriginal, imagePath)
 			}
-			log.Printf("Using format %s, path: %s", bestFormat, imagePath)
+			logger.Debug("Using format and path",
+				zap.String("format", bestFormat),
+				zap.String("path", imagePath))
 
 			// Check if file exists, fall back to original if needed
 			if _, err := os.Stat(imagePath); os.IsNotExist(err) && bestFormat != FormatOriginal {
-				log.Printf("Format %s not available, falling back to original", bestFormat)
+				logger.Info("Format not available, falling back to original",
+					zap.String("format", bestFormat))
 				imagePath = filepath.Join(cfg.ImageBasePath, selectedImage.Paths.Original)
 				contentType = getContentType(FormatOriginal, imagePath)
 			}
@@ -475,8 +512,10 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 		// Read and serve the image
 		imageData, err := os.ReadFile(imagePath)
 		if err != nil {
-			log.Printf("Error reading image %s: %v", imagePath, err)
-			http.Error(w, "Image not found", http.StatusNotFound)
+			logger.Error("Failed to read image",
+				zap.String("path", imagePath),
+				zap.Error(err))
+			errors.HandleError(w, errors.ErrNotFound, "Image not found", err)
 			return
 		}
 
@@ -485,7 +524,7 @@ func LocalRandomImageHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Send image data
 		if _, err := w.Write(imageData); err != nil {
-			log.Printf("Error sending image: %v", err)
+			logger.Error("Failed to send image", zap.Error(err))
 			return
 		}
 	}

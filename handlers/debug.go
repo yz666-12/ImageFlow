@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // DebugTagsResponse represents the response for the debug tags API
@@ -22,33 +24,43 @@ type DebugTagsResponse struct {
 // DebugTagsHandler returns a handler for debugging tag issues
 func DebugTagsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate API key
-		if !validateAPIKey(w, r, cfg.APIKey) {
-			return
-		}
-
 		// Get tag parameter
 		tag := r.URL.Query().Get("tag")
 		if tag == "" {
-			http.Error(w, "Tag parameter is required", http.StatusBadRequest)
+			errors.HandleError(w, errors.ErrInvalidParam, "Tag parameter is required", nil)
+			logger.Warn("Missing tag parameter",
+				zap.String("remote_addr", r.RemoteAddr),
+				zap.String("path", r.URL.Path))
 			return
 		}
 
 		// Find all images with the specified tag
 		images, err := findImagesWithTagDebug(tag, string(cfg.StorageType), cfg.ImageBasePath)
 		if err != nil {
-			log.Printf("Error finding images with tag %s: %v", tag, err)
-			http.Error(w, "Failed to find images", http.StatusInternalServerError)
+			logger.Error("Failed to find images with tag",
+				zap.String("tag", tag),
+				zap.Error(err))
+			errors.HandleError(w, errors.ErrInternal, "Failed to find images", nil)
 			return
 		}
 
 		// Return JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DebugTagsResponse{
+		if err := json.NewEncoder(w).Encode(DebugTagsResponse{
 			Tag:    tag,
 			Images: images,
-		})
+		}); err != nil {
+			logger.Error("Failed to encode response",
+				zap.String("tag", tag),
+				zap.Error(err))
+			errors.HandleError(w, errors.ErrInternal, "Failed to encode response", nil)
+			return
+		}
+
+		logger.Debug("Successfully retrieved images by tag",
+			zap.String("tag", tag),
+			zap.Int("image_count", len(images)))
 	}
 }
 
@@ -59,17 +71,22 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 		// Use Redis to get all images with the specified tag
 		imageIDs, err := utils.GetImagesByTag(context.Background(), tag)
 		if err != nil {
-			log.Printf("Error getting images by tag from Redis: %v", err)
-			// Fall back to file-based storage
+			logger.Warn("Failed to get images by tag from Redis, falling back to file storage",
+				zap.String("tag", tag),
+				zap.Error(err))
 		} else {
-			log.Printf("Found %d images with tag %s from Redis", len(imageIDs), tag)
+			logger.Info("Found images with tag from Redis",
+				zap.String("tag", tag),
+				zap.Int("count", len(imageIDs)))
 
 			// Log detailed metadata for debugging
 			for _, id := range imageIDs {
 				metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
 				if err == nil && metadata != nil {
-					log.Printf("Image metadata from Redis: ID=%s, Tags=%v, Orientation=%s",
-						metadata.ID, metadata.Tags, metadata.Orientation)
+					logger.Debug("Image metadata from Redis",
+						zap.String("id", metadata.ID),
+						zap.Strings("tags", metadata.Tags),
+						zap.String("orientation", metadata.Orientation))
 				}
 			}
 
@@ -91,7 +108,7 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 		metadataPrefix := "metadata/"
 		objects, err := s3Storage.ListObjects(context.Background(), metadataPrefix)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list S3 objects: %v", err)
 		}
 
 		// Process each metadata file
@@ -108,7 +125,9 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 			// Get metadata
 			metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
 			if err != nil {
-				log.Printf("Error reading metadata for %s: %v", id, err)
+				logger.Warn("Failed to read metadata from S3",
+					zap.String("id", id),
+					zap.Error(err))
 				continue
 			}
 
@@ -124,11 +143,11 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 			if hasTag {
 				// Add image ID to the result
 				images = append(images, id)
-				log.Printf("Found image %s with tag %s", id, tag)
-
-				// Log detailed metadata for debugging
-				log.Printf("Image metadata: ID=%s, Tags=%v, Orientation=%s",
-					metadata.ID, metadata.Tags, metadata.Orientation)
+				logger.Debug("Found image with tag in S3",
+					zap.String("id", id),
+					zap.String("tag", tag),
+					zap.Strings("all_tags", metadata.Tags),
+					zap.String("orientation", metadata.Orientation))
 			}
 		}
 	} else {
@@ -138,7 +157,7 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 		// Read all files in the metadata directory
 		files, err := os.ReadDir(metadataDir)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read metadata directory: %v", err)
 		}
 
 		// Process each metadata file
@@ -154,7 +173,9 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 			// Get metadata
 			metadata, err := utils.MetadataManager.GetMetadata(context.Background(), id)
 			if err != nil {
-				log.Printf("Error reading metadata for %s: %v", id, err)
+				logger.Warn("Failed to read metadata from local storage",
+					zap.String("id", id),
+					zap.Error(err))
 				continue
 			}
 
@@ -170,11 +191,11 @@ func findImagesWithTagDebug(tag, storageType, basePath string) ([]string, error)
 			if hasTag {
 				// Add image ID to the result
 				images = append(images, id)
-				log.Printf("Found image %s with tag %s", id, tag)
-
-				// Log detailed metadata for debugging
-				log.Printf("Image metadata: ID=%s, Tags=%v, Orientation=%s",
-					metadata.ID, metadata.Tags, metadata.Orientation)
+				logger.Debug("Found image with tag in local storage",
+					zap.String("id", id),
+					zap.String("tag", tag),
+					zap.Strings("all_tags", metadata.Tags),
+					zap.String("orientation", metadata.Orientation))
 			}
 		}
 	}

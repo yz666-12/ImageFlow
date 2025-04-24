@@ -5,6 +5,8 @@ import (
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // RandomImage handles random image requests in a unified way, working with both
@@ -22,11 +24,17 @@ import (
 // - Ensures consistent headers and caching behavior
 func RandomImage(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Processing random image request",
+			zap.String("storage_type", string(cfg.StorageType)),
+			zap.String("remote_addr", r.RemoteAddr))
+
 		// Use the appropriate handler based on storage type
 		if cfg.StorageType == config.StorageTypeS3 {
+			logger.Debug("Using S3 random image handler")
 			// Use the existing S3 handler
 			RandomImageHandler(utils.S3Client, cfg)(w, r)
 		} else {
+			logger.Debug("Using local random image handler")
 			// Use the existing local handler
 			LocalRandomImageHandler(cfg)(w, r)
 		}

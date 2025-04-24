@@ -1,11 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/errors"
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 // AuthResponse represents the response for API key validation
@@ -22,20 +24,14 @@ func ValidateAPIKey(cfg *config.Config) http.HandlerFunc {
 		// Get API key from request header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			json.NewEncoder(w).Encode(AuthResponse{
-				Valid: false,
-				Error: "Missing API key",
-			})
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
 			return
 		}
 
 		// Extract Bearer token
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			json.NewEncoder(w).Encode(AuthResponse{
-				Valid: false,
-				Error: "Invalid authorization header",
-			})
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
 			return
 		}
 
@@ -43,14 +39,15 @@ func ValidateAPIKey(cfg *config.Config) http.HandlerFunc {
 
 		// Validate API key
 		if providedKey == cfg.APIKey {
-			json.NewEncoder(w).Encode(AuthResponse{
-				Valid: true,
-			})
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"valid":true}`))
+			logger.Debug("API密钥验证成功",
+				zap.String("remote_addr", r.RemoteAddr))
 		} else {
-			json.NewEncoder(w).Encode(AuthResponse{
-				Valid: false,
-				Error: "Invalid API key",
-			})
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
+			logger.Warn("API密钥验证失败",
+				zap.String("remote_addr", r.RemoteAddr),
+				zap.String("provided_key", providedKey))
 		}
 	}
 }
@@ -61,21 +58,32 @@ func RequireAPIKey(cfg *config.Config, next http.HandlerFunc) http.HandlerFunc {
 		// Get API key from request header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
+			logger.Warn("缺少API密钥",
+				zap.String("remote_addr", r.RemoteAddr),
+				zap.String("path", r.URL.Path))
 			return
 		}
 
 		// Extract Bearer token
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
+			logger.Warn("无效的Authorization头",
+				zap.String("remote_addr", r.RemoteAddr),
+				zap.String("path", r.URL.Path),
+				zap.String("auth_header", authHeader))
 			return
 		}
 
 		// Validate API key
 		providedKey := parts[1]
 		if providedKey != cfg.APIKey {
-			http.Error(w, "Invalid API key", http.StatusUnauthorized)
+			errors.WriteError(w, errors.ErrInvalidAPIKey)
+			logger.Warn("API密钥验证失败",
+				zap.String("remote_addr", r.RemoteAddr),
+				zap.String("path", r.URL.Path),
+				zap.String("provided_key", providedKey))
 			return
 		}
 
