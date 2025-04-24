@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -24,27 +23,8 @@ var (
 	pngCompression = flag.String("png-mode", "auto", "PNG compression mode: auto, lossy, lossless")
 )
 
-// getEnvOrDefault reads configuration values from environment variables
-// with fallback to default value if not set
-func getEnvOrDefault(key string, defaultVal int) int {
-	val := os.Getenv(key)
-	if val == "" {
-		return defaultVal
-	}
-
-	intVal, err := strconv.Atoi(val)
-	if err != nil {
-		return defaultVal
-	}
-
-	return intVal
-}
-
 func main() {
 	flag.Parse()
-
-	// Apply environment variable settings if specified
-	applyEnvironmentSettings()
 
 	// Validate input parameters
 	validateInputParameters()
@@ -70,30 +50,6 @@ func main() {
 
 	// Process images in parallel using worker pool
 	processImagesInParallel(files)
-}
-
-// applyEnvironmentSettings reads and applies settings from environment variables
-func applyEnvironmentSettings() {
-	// Check for quality setting in environment
-	envQuality := getEnvOrDefault("IMAGE_QUALITY", -1)
-	if envQuality > 0 {
-		*quality = envQuality
-		fmt.Printf("Using quality from environment variable: %d\n", *quality)
-	}
-
-	// Check for thread count in environment
-	envWorkers := getEnvOrDefault("WORKER_THREADS", -1)
-	if envWorkers > 0 {
-		*workers = envWorkers
-		fmt.Printf("Using thread count from environment variable: %d\n", *workers)
-	}
-
-	// Check for effort level in environment
-	envEffort := getEnvOrDefault("COMPRESSION_EFFORT", -1)
-	if envEffort >= 0 {
-		*effort = envEffort
-		fmt.Printf("Using compression effort from environment variable: %d\n", *effort)
-	}
 }
 
 // validateInputParameters checks that required parameters are provided and valid

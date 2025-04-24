@@ -165,7 +165,7 @@ export default function Manage() {
       );
 
       if (response.success) {
-        setImages(images.filter((img) => img.id !== id));
+        await fetchImages();
         setStatus({
           type: "success",
           message: response.message,

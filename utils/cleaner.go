@@ -107,6 +107,13 @@ func (ic *ImageCleaner) cleanExpiredImages() {
 		}
 	}
 
+	// Clear page cache after deleting all expired images
+	if err := ClearPageCache(ctx); err != nil {
+		log.Printf("Warning: Failed to clear page cache: %v", err)
+	} else {
+		log.Printf("Page cache cleared after cleaning up expired images")
+	}
+
 	log.Printf("Completed cleanup of %d expired images", len(expiredImages))
 }
 

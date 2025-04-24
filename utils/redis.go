@@ -218,6 +218,15 @@ func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 		Member: metadata.ID,
 	})
 
+	// Add to expiry index if expiry time is set
+	if !metadata.ExpiryTime.IsZero() {
+		expiryKey := RedisPrefix + "expiry"
+		pipe.ZAdd(ctx, expiryKey, redis.Z{
+			Score:  float64(metadata.ExpiryTime.Unix()),
+			Member: metadata.ID,
+		})
+	}
+
 	// Add tags
 	if len(metadata.Tags) > 0 {
 		for _, tag := range metadata.Tags {
