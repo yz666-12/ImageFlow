@@ -177,7 +177,6 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=0
-REDIS_PREFIX=imageflow:
 REDIS_TLS_ENABLED=false  # 启用 Redis TLS 连接
 
 # S3 存储配置（当 STORAGE_TYPE=s3 时需要）

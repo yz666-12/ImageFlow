@@ -29,7 +29,6 @@ services:
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
-      - REDIS_PREFIX=${REDIS_PREFIX:-imageflow:}
       - REDIS_TLS_ENABLED=${REDIS_TLS_ENABLED:-false}
     restart: unless-stopped
     depends_on:

@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
 	"time"
 
+	"github.com/Yuri-NagaSaki/ImageFlow/config"
 	"github.com/Yuri-NagaSaki/ImageFlow/utils"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -24,14 +24,19 @@ func main() {
 		log.Printf("Continuing with environment variables from the system")
 	}
 
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	// Check if Redis is enabled
-	redisEnabled := os.Getenv("REDIS_ENABLED")
-	if redisEnabled != "true" {
+	if !cfg.RedisEnabled {
 		log.Fatalf("Redis is not enabled. Set REDIS_ENABLED=true in your .env file")
 	}
 
 	// Initialize Redis client
-	if err := utils.InitRedisClient(); err != nil {
+	if err := utils.InitRedisClient(cfg); err != nil {
 		log.Fatalf("Failed to initialize Redis client: %v", err)
 	}
 
@@ -40,18 +45,17 @@ func main() {
 	}
 
 	// Initialize storage provider based on storage type
-	storageType := os.Getenv("STORAGE_TYPE")
-	log.Printf("Storage type: %s", storageType)
+	log.Printf("Storage type: %s", cfg.StorageType)
 
-	if storageType == "s3" {
+	if cfg.StorageType == config.StorageTypeS3 {
 		// Initialize S3 client
-		if err := utils.InitS3Client(); err != nil {
+		if err := utils.InitS3Client(cfg); err != nil {
 			log.Fatalf("Failed to initialize S3 client: %v", err)
 		}
 	}
 
 	// Initialize storage
-	if err := utils.InitStorage(); err != nil {
+	if err := utils.InitStorage(cfg); err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
@@ -76,7 +80,7 @@ func main() {
 	log.Printf("Starting metadata migration to Redis...")
 	startTime := time.Now()
 
-	if err := utils.MigrateMetadataToRedis(ctx); err != nil {
+	if err := utils.MigrateMetadataToRedis(ctx, cfg); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 

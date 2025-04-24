@@ -178,7 +178,6 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=0
-REDIS_PREFIX=imageflow:
 REDIS_TLS_ENABLED=false  # Enable TLS for Redis connection
 
 # S3 Storage Configuration (required when STORAGE_TYPE=s3)
