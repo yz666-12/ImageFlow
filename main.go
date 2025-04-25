@@ -85,7 +85,7 @@ func main() {
 	}
 
 	// Initialize logger
-	if err := logger.InitLogger(cfg.DebugMode); err != nil {
+	if err := logger.InitLogger(cfg); err != nil {
 		logger.Fatal("Failed to initialize logger", zap.Error(err))
 	}
 	defer logger.Log.Sync()

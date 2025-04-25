@@ -3,28 +3,31 @@ package errors
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/Yuri-NagaSaki/ImageFlow/utils/logger"
+	"go.uber.org/zap"
 )
 
 type ErrorCode int
 
 const (
-	ErrInternal     ErrorCode = 1000 // 内部错误
-	ErrInvalidParam ErrorCode = 1001 // 参数错误
-	ErrUnauthorized ErrorCode = 1002 // 未授权
-	ErrForbidden    ErrorCode = 1003 // 禁止访问
-	ErrNotFound     ErrorCode = 1004 // 资源不存在
+	ErrInternal     ErrorCode = 1000 // Internal server error
+	ErrInvalidParam ErrorCode = 1001 // Invalid parameter
+	ErrUnauthorized ErrorCode = 1002 // Unauthorized
+	ErrForbidden    ErrorCode = 1003 // Forbidden
+	ErrNotFound     ErrorCode = 1004 // Resource not found
 
-	ErrImageProcess ErrorCode = 2000 // 图片处理错误
-	ErrImageUpload  ErrorCode = 2001 // 图片上传错误
-	ErrImageDelete  ErrorCode = 2002 // 图片删除错误
-	ErrImageList    ErrorCode = 2003 // 图片列表获取错误
-	ErrMetadata     ErrorCode = 2004 // 元数据操作错误
+	ErrImageProcess ErrorCode = 2000 // Image processing error
+	ErrImageUpload  ErrorCode = 2001 // Image upload error
+	ErrImageDelete  ErrorCode = 2002 // Image deletion error
+	ErrImageList    ErrorCode = 2003 // Image list retrieval error
+	ErrMetadata     ErrorCode = 2004 // Metadata operation error
 )
 
 type ErrorResponse struct {
-	Code    ErrorCode   `json:"code"`              // 错误码
-	Message string      `json:"message"`           // 错误信息
-	Details interface{} `json:"details,omitempty"` // 错误详情
+	Code    ErrorCode   `json:"code"`              // Error code
+	Message string      `json:"message"`           // Error message
+	Details interface{} `json:"details,omitempty"` // Error details
 }
 
 func (code ErrorCode) HTTPError() int {
@@ -51,6 +54,25 @@ func NewError(code ErrorCode, message string, details interface{}) *ErrorRespons
 }
 
 func WriteError(w http.ResponseWriter, err *ErrorResponse) {
+	logFields := []zap.Field{
+		zap.Int("error_code", int(err.Code)),
+		zap.String("error_message", err.Message),
+	}
+	if err.Details != nil {
+		logFields = append(logFields, zap.Any("error_details", err.Details))
+	}
+
+	switch err.Code {
+	case ErrInternal, ErrImageProcess, ErrImageUpload, ErrImageDelete, ErrImageList, ErrMetadata:
+		logger.Error("Internal server error occurred", logFields...)
+	case ErrInvalidParam:
+		logger.Warn("Invalid parameter error", logFields...)
+	case ErrUnauthorized, ErrForbidden, ErrNotFound:
+		logger.Info("Access control error", logFields...)
+	default:
+		logger.Error("Unknown error occurred", logFields...)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(err.Code.HTTPError())
 	json.NewEncoder(w).Encode(err)
@@ -62,7 +84,7 @@ func HandleError(w http.ResponseWriter, code ErrorCode, message string, details 
 }
 
 var (
-	ErrInvalidAPIKey = NewError(ErrUnauthorized, "无效的API密钥", nil)
-	ErrNoPermission  = NewError(ErrForbidden, "没有权限访问", nil)
-	ErrServerError   = NewError(ErrInternal, "服务器内部错误", nil)
+	ErrInvalidAPIKey = NewError(ErrUnauthorized, "Invalid API key", nil)
+	ErrNoPermission  = NewError(ErrForbidden, "No permission to access", nil)
+	ErrServerError   = NewError(ErrInternal, "Internal server error", nil)
 )

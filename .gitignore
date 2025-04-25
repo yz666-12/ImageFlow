@@ -21,7 +21,7 @@ vendor/
 tmp/
 temp/
 imageflow.log
-
+logs/
 
 coverage.txt
 node_modules/
