@@ -80,7 +80,6 @@ func ListImagesHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Try to get from cache first
 		cacheKey := utils.CachedPageKey{
 			Orientation: params.orientation,
 			Format:      params.format,
