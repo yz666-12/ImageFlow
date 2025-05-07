@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Yuri-NagaSaki/ImageFlow/config"
@@ -13,6 +14,38 @@ var (
 	Log       *zap.Logger
 	debugMode bool
 )
+
+func InitBasicLogger() error {
+	config := zap.NewProductionConfig()
+	config.EncoderConfig = zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		FunctionKey:    zapcore.OmitKey,
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(config.EncoderConfig),
+		zapcore.AddSync(os.Stdout),
+		zapcore.InfoLevel,
+	)
+
+	Log = zap.New(core, zap.AddCaller())
+
+	if Log == nil {
+		return fmt.Errorf("failed to initialize basic logger")
+	}
+
+	return nil
+}
 
 func InitLogger(cfg *config.Config) error {
 	debugMode = cfg.DebugMode
@@ -67,6 +100,10 @@ func InitLogger(cfg *config.Config) error {
 
 	core := zapcore.NewTee(cores...)
 	Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+
+	if Log == nil {
+		return fmt.Errorf("failed to initialize logger with config")
+	}
 
 	Info("Logger initialized",
 		zap.Bool("debug_mode", debugMode),

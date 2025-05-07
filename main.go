@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime"
 	"net/http"
 	"os"
@@ -73,6 +74,11 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	if err := logger.InitBasicLogger(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize basic logger: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		logger.Warn("Failed to load .env file", zap.Error(err))
@@ -84,7 +90,7 @@ func main() {
 		logger.Fatal("Failed to load config", zap.Error(err))
 	}
 
-	// Initialize logger
+	// Initialize logger with config
 	if err := logger.InitLogger(cfg); err != nil {
 		logger.Fatal("Failed to initialize logger", zap.Error(err))
 	}
