@@ -7,6 +7,8 @@
 [部署说明](https://catcat.blog/imageflow-install.html)
 |
 [贡献指南](contributing.md)
+|
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Yuri-NagaSaki/ImageFlow)
 </div>
 
 <div align="center">
