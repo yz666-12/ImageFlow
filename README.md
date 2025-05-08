@@ -254,6 +254,7 @@ ImageFlow/
 ├── cmd/            # Command-line tools
 │   └── migrate/    # Metadata migration tool
 ├── config/         # Configuration related code
+│   └── config.go   # Main configuration definitions
 ├── docs/           # Documentation and images
 │   └── img/        # Documentation images
 ├── favicon/        # Favicon assets
@@ -274,15 +275,16 @@ ImageFlow/
 │   └── build.bat       # Windows build script
 ├── handlers/       # HTTP request handlers
 │   ├── auth.go     # Authentication handlers
-│   ├── config.go   # Configuration handlers
+│   ├── config_handler.go # Configuration API handlers
+│   ├── debug.go    # Debug information handlers
 │   ├── delete.go   # Image deletion handlers
 │   ├── image.go    # Image handlers
 │   ├── list.go     # Listing handlers
 │   ├── random.go   # Random image handlers
 │   ├── tags.go     # Tag handlers
 │   └── upload.go   # Upload handlers
+├── logs/           # Application logs directory
 ├── scripts/        # Utility scripts
-│   └── convert.go  # Image conversion script
 ├── static/         # Static files and image storage
 │   ├── _next/      # Next.js static assets
 │   └── images/     # Image storage directory
@@ -291,7 +293,7 @@ ImageFlow/
 │       │   └── webp/   # WebP format
 │       ├── portrait/   # Portrait images
 │       │   ├── avif/   # AVIF format
-│       │   └── webp/   # WebP format
+│   │   └── webp/   # WebP format
 │       ├── original/   # Original images
 │       │   ├── landscape/  # Original landscape
 │       │   └── portrait/   # Original portrait
@@ -299,28 +301,35 @@ ImageFlow/
 │       └── metadata/  # Image metadata (including expiration information)
 ├── utils/          # Backend utility functions
 │   ├── cleaner.go  # Expired image cleanup
-│   ├── converter.go # Image conversion
+│   ├── converter_bimg.go # Image conversion
 │   ├── device.go   # Device detection
 │   ├── helpers.go  # Helper functions
 │   ├── image.go    # Image processing
 │   ├── metadata.go # Metadata handling
 │   ├── redis.go    # Redis client and operations
 │   ├── s3client.go # S3 storage client
-│   └── storage.go  # Storage interface
+│   ├── storage.go  # Storage interface
+│   ├── worker_pool.go # Asynchronous worker pool
+│   ├── errors/     # Error handling
+│   └── logger/     # Logging system
+├── .cursor/        # Cursor editor rules and configurations
 ├── .env            # Environment variables
 ├── .env.example    # Example environment configuration
 ├── Dockerfile      # Main Docker configuration
 ├── Dockerfile.backend # Backend Docker configuration
 ├── Dockerfile.frontend # Frontend Docker configuration
-├── docker-compose.yaml      # Docker Compose configuration (using pre-built image)
+├── docker-compose.yaml      # Docker Compose configuration
 ├── docker-compose-build.yml # Docker Compose build configuration
-├── docker-compose-separate.yaml # Separate Docker Compose configuration
+├── docker-compose-separate.yaml # Frontend-Backend separated configuration
+├── docker-compose-separate-build.yaml # Frontend-Backend separated build
 ├── migrate.sh     # Metadata migration script
 ├── go.mod          # Go module file
 ├── go.sum          # Go module checksum
 ├── main.go         # Main application entry
 ├── README.md       # English project documentation
-└── README_zh.md    # Chinese project documentation
+├── README_zh.md    # Chinese project documentation
+├── contributing.md # Contribution guidelines
+└── LICENSE         # License information
 ```
 
 ## 📄 License
