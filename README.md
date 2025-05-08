@@ -2,11 +2,11 @@
 
 <div align="center">
 
-[中文文档](README_zh.md)
+[![中文文档](https://img.shields.io/badge/-%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3-6366f1?logo=readthedocs&style=flat-square&logoColor=white)](README_zh.md)
 |
-[部署说明](https://catcat.blog/imageflow-install.html)
+[![部署说明](https://img.shields.io/badge/-%E9%83%A8%E7%BD%B2%E8%AF%B4%E6%98%8E-6366f1?logo=docker&style=flat-square&logoColor=white)](https://catcat.blog/imageflow-install.html)
 |
-[贡献指南](contributing.md)
+[![贡献指南](https://img.shields.io/badge/-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97-6366f1?logo=github&style=flat-square&logoColor=white)](contributing.md)
 |
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Yuri-NagaSaki/ImageFlow)
 </div>
