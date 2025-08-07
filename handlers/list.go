@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -383,7 +382,7 @@ func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Co
 				}
 			}
 		}
-		
+
 		// Fallback: try the legacy size field for backward compatibility
 		if imageInfo.Size == 0 {
 			if sizeStr := data["size"]; sizeStr != "" {
