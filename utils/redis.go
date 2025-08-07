@@ -209,6 +209,12 @@ func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 		return fmt.Errorf("failed to marshal paths: %v", err)
 	}
 
+	// Convert sizes to JSON string
+	sizesJSON, err := json.Marshal(metadata.Sizes)
+	if err != nil {
+		return fmt.Errorf("failed to marshal sizes: %v", err)
+	}
+
 	// Store metadata in hash
 	key := rms.prefix + metadata.ID
 	pipe.HSet(ctx, key, map[string]interface{}{
@@ -220,6 +226,7 @@ func (rms *RedisMetadataStore) SaveMetadata(ctx context.Context, metadata *Image
 		"orientation":  metadata.Orientation,
 		"tags":         strings.Join(metadata.Tags, ","),
 		"paths":        string(pathsJSON),
+		"sizes":        string(sizesJSON),
 	})
 
 	// Add to sorted set for pagination
@@ -307,6 +314,14 @@ func (rms *RedisMetadataStore) GetMetadata(ctx context.Context, id string) (*Ima
 	// Parse paths
 	if paths := data["paths"]; paths != "" {
 		json.Unmarshal([]byte(paths), &metadata.Paths)
+	}
+
+	// Parse sizes
+	if sizes := data["sizes"]; sizes != "" {
+		if metadata.Sizes == nil {
+			metadata.Sizes = make(map[string]int64)
+		}
+		json.Unmarshal([]byte(sizes), &metadata.Sizes)
 	}
 
 	return metadata, nil

@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -29,10 +33,16 @@ type Config struct {
 	RedisPrefix      string
 	ImageBasePath    string
 	StorageType      string
+	S3Endpoint       string
+	S3Region         string
+	S3AccessKey      string
+	S3SecretKey      string
+	S3Bucket         string
 }
 
 var (
 	redisClient *redis.Client
+	s3Client    *s3.Client
 	logger      *zap.Logger
 	config      *Config
 )
@@ -91,6 +101,11 @@ func loadConfig() (*Config, error) {
 		RedisPrefix:     getEnvOrDefault("REDIS_PREFIX", "imageflow:"),
 		ImageBasePath:   getEnvOrDefault("LOCAL_STORAGE_PATH", "static/images"),
 		StorageType:     getEnvOrDefault("STORAGE_TYPE", "local"),
+		S3Endpoint:      os.Getenv("S3_ENDPOINT"),
+		S3Region:        getEnvOrDefault("S3_REGION", "us-east-1"),
+		S3AccessKey:     os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:     os.Getenv("S3_SECRET_KEY"),
+		S3Bucket:        os.Getenv("S3_BUCKET"),
 	}
 
 	// Ensure Redis prefix ends with ":"
@@ -140,6 +155,69 @@ func initRedis(cfg *Config) error {
 		zap.Int("db", cfg.RedisDB))
 
 	return nil
+}
+
+// Initialize S3 client if needed
+func initS3(cfg *Config) error {
+	if cfg.StorageType != "s3" {
+		return nil // No need to init S3 for local storage
+	}
+
+	if cfg.S3Endpoint == "" || cfg.S3AccessKey == "" || cfg.S3SecretKey == "" || cfg.S3Bucket == "" {
+		return fmt.Errorf("S3 configuration incomplete: endpoint, access_key, secret_key, and bucket are required")
+	}
+
+	logger.Info("Initializing S3 client",
+		zap.String("endpoint", cfg.S3Endpoint),
+		zap.String("region", cfg.S3Region),
+		zap.String("bucket", cfg.S3Bucket))
+
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		return aws.Endpoint{
+			URL: cfg.S3Endpoint,
+		}, nil
+	})
+
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+		awsconfig.WithRegion(cfg.S3Region),
+		awsconfig.WithEndpointResolverWithOptions(customResolver),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			cfg.S3AccessKey,
+			cfg.S3SecretKey,
+			"",
+		)),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to load AWS SDK config: %v", err)
+	}
+
+	s3Client = s3.NewFromConfig(awsCfg)
+	
+	// Test S3 connection
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	_, err = s3Client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(cfg.S3Bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to access S3 bucket: %v", err)
+	}
+
+	logger.Info("S3 client initialized successfully")
+	return nil
+}
+
+// Get file size from S3
+func getS3FileSize(ctx context.Context, key string) (int64, error) {
+	resp, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(config.S3Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return *resp.ContentLength, nil
 }
 
 // Check if Redis metadata store is enabled
@@ -223,60 +301,110 @@ func migrateFileSizes() error {
 		// Calculate file sizes for different formats
 		sizes := make(map[string]int64)
 
-		// Handle GIF files specially
-		isGIF := data["format"] == "gif"
-		if isGIF {
-			filePath := filepath.Join(config.ImageBasePath, "gif", id+".gif")
-			if fileInfo, err := os.Stat(filePath); err == nil {
-				sizes["original"] = fileInfo.Size()
-				sizes["webp"] = fileInfo.Size()
-				sizes["avif"] = fileInfo.Size()
+		if config.StorageType == "s3" {
+			// For S3 storage, get actual file sizes using HEAD requests
+			logger.Debug("S3 storage detected, querying file sizes from S3",
+				zap.String("image_id", id))
+
+			// Parse paths to get S3 keys
+			var s3Keys = make(map[string]string)
+			
+			if isGIF := data["format"] == "gif"; isGIF {
+				s3Keys["original"] = "gif/" + id + ".gif"
+				s3Keys["webp"] = "gif/" + id + ".gif" // GIF files use same file for all formats
+				s3Keys["avif"] = "gif/" + id + ".gif"
 			} else {
-				logger.Debug("GIF file not found",
-					zap.String("image_id", id),
-					zap.String("file_path", filePath))
+				// Use stored paths if available
+				if paths.Original != "" {
+					s3Keys["original"] = strings.TrimPrefix(paths.Original, "/")
+				} else {
+					s3Keys["original"] = "original/" + data["orientation"] + "/" + id + "." + data["format"]
+				}
+
+				if paths.WebP != "" {
+					s3Keys["webp"] = strings.TrimPrefix(paths.WebP, "/")
+				} else {
+					s3Keys["webp"] = data["orientation"] + "/webp/" + id + ".webp"
+				}
+
+				if paths.AVIF != "" {
+					s3Keys["avif"] = strings.TrimPrefix(paths.AVIF, "/")
+				} else {
+					s3Keys["avif"] = data["orientation"] + "/avif/" + id + ".avif"
+				}
+			}
+
+			// Query S3 for file sizes
+			for format, key := range s3Keys {
+				if size, err := getS3FileSize(ctx, key); err == nil {
+					sizes[format] = size
+					logger.Debug("Got S3 file size",
+						zap.String("key", key),
+						zap.String("format", format),
+						zap.Int64("size", size))
+				} else {
+					logger.Debug("Failed to get S3 file size",
+						zap.String("key", key),
+						zap.String("format", format),
+						zap.Error(err))
+				}
 			}
 		} else {
-			// Original file
-			var originalPath string
-			if paths.Original != "" {
-				cleanPath := strings.TrimPrefix(paths.Original, "/")
-				cleanPath = strings.TrimPrefix(cleanPath, "images/")
-				originalPath = filepath.Join(config.ImageBasePath, cleanPath)
+			// Handle local storage files
+			isGIF := data["format"] == "gif"
+			if isGIF {
+				filePath := filepath.Join(config.ImageBasePath, "gif", id+".gif")
+				if fileInfo, err := os.Stat(filePath); err == nil {
+					sizes["original"] = fileInfo.Size()
+					sizes["webp"] = fileInfo.Size()
+					sizes["avif"] = fileInfo.Size()
+				} else {
+					logger.Debug("GIF file not found",
+						zap.String("image_id", id),
+						zap.String("file_path", filePath))
+				}
 			} else {
-				originalPath = filepath.Join(config.ImageBasePath, "original", data["orientation"], id+"."+data["format"])
-			}
+				// Original file
+				var originalPath string
+				if paths.Original != "" {
+					cleanPath := strings.TrimPrefix(paths.Original, "/")
+					cleanPath = strings.TrimPrefix(cleanPath, "images/")
+					originalPath = filepath.Join(config.ImageBasePath, cleanPath)
+				} else {
+					originalPath = filepath.Join(config.ImageBasePath, "original", data["orientation"], id+"."+data["format"])
+				}
 
-			if fileInfo, err := os.Stat(originalPath); err == nil {
-				sizes["original"] = fileInfo.Size()
-			}
+				if fileInfo, err := os.Stat(originalPath); err == nil {
+					sizes["original"] = fileInfo.Size()
+				}
 
-			// WebP file
-			var webpPath string
-			if paths.WebP != "" {
-				cleanPath := strings.TrimPrefix(paths.WebP, "/")
-				cleanPath = strings.TrimPrefix(cleanPath, "images/")
-				webpPath = filepath.Join(config.ImageBasePath, cleanPath)
-			} else {
-				webpPath = filepath.Join(config.ImageBasePath, data["orientation"], "webp", id+".webp")
-			}
+				// WebP file
+				var webpPath string
+				if paths.WebP != "" {
+					cleanPath := strings.TrimPrefix(paths.WebP, "/")
+					cleanPath = strings.TrimPrefix(cleanPath, "images/")
+					webpPath = filepath.Join(config.ImageBasePath, cleanPath)
+				} else {
+					webpPath = filepath.Join(config.ImageBasePath, data["orientation"], "webp", id+".webp")
+				}
 
-			if fileInfo, err := os.Stat(webpPath); err == nil {
-				sizes["webp"] = fileInfo.Size()
-			}
+				if fileInfo, err := os.Stat(webpPath); err == nil {
+					sizes["webp"] = fileInfo.Size()
+				}
 
-			// AVIF file
-			var avifPath string
-			if paths.AVIF != "" {
-				cleanPath := strings.TrimPrefix(paths.AVIF, "/")
-				cleanPath = strings.TrimPrefix(cleanPath, "images/")
-				avifPath = filepath.Join(config.ImageBasePath, cleanPath)
-			} else {
-				avifPath = filepath.Join(config.ImageBasePath, data["orientation"], "avif", id+".avif")
-			}
+				// AVIF file
+				var avifPath string
+				if paths.AVIF != "" {
+					cleanPath := strings.TrimPrefix(paths.AVIF, "/")
+					cleanPath = strings.TrimPrefix(cleanPath, "images/")
+					avifPath = filepath.Join(config.ImageBasePath, cleanPath)
+				} else {
+					avifPath = filepath.Join(config.ImageBasePath, data["orientation"], "avif", id+".avif")
+				}
 
-			if fileInfo, err := os.Stat(avifPath); err == nil {
-				sizes["avif"] = fileInfo.Size()
+				if fileInfo, err := os.Stat(avifPath); err == nil {
+					sizes["avif"] = fileInfo.Size()
+				}
 			}
 		}
 
@@ -378,7 +506,8 @@ func main() {
 		zap.String("redis_port", cfg.RedisPort),
 		zap.Int("redis_db", cfg.RedisDB),
 		zap.String("storage_type", cfg.StorageType),
-		zap.String("image_base_path", cfg.ImageBasePath))
+		zap.String("image_base_path", cfg.ImageBasePath),
+		zap.String("redis_prefix", cfg.RedisPrefix))
 
 	// Check if Redis is enabled
 	if !isRedisEnabled() {
@@ -390,6 +519,63 @@ func main() {
 		logger.Fatal("Failed to initialize Redis", zap.Error(err))
 	}
 	defer redisClient.Close()
+
+	// Initialize S3 if needed
+	if err := initS3(cfg); err != nil {
+		logger.Fatal("Failed to initialize S3", zap.Error(err))
+	}
+
+	// Debug: Check what keys exist in Redis
+	ctx := context.Background()
+	allKeys, err := redisClient.Keys(ctx, "*").Result()
+	if err != nil {
+		logger.Warn("Failed to scan Redis keys", zap.Error(err))
+	} else {
+		logger.Info("Found Redis keys", 
+			zap.Int("total_keys", len(allKeys)),
+			zap.Strings("sample_keys", func() []string {
+				if len(allKeys) > 10 {
+					return allKeys[:10]
+				}
+				return allKeys
+			}()))
+	}
+
+	// Try different prefixes to find the data
+	possiblePrefixes := []string{
+		cfg.RedisPrefix,
+		"imageflow:",
+		"",
+	}
+
+	var foundPrefix string
+	var imageIDs []string
+
+	for _, prefix := range possiblePrefixes {
+		testKey := prefix + "images"
+		logger.Info("Checking for images with prefix", zap.String("key", testKey))
+		
+		ids, err := redisClient.ZRevRange(ctx, testKey, 0, -1).Result()
+		if err == nil && len(ids) > 0 {
+			foundPrefix = prefix
+			imageIDs = ids
+			logger.Info("Found images with prefix", 
+				zap.String("prefix", prefix),
+				zap.Int("count", len(ids)))
+			break
+		}
+	}
+
+	if len(imageIDs) == 0 {
+		logger.Info("No images found with any common prefix. This could mean:")
+		logger.Info("1. No images have been uploaded yet")
+		logger.Info("2. Images are stored with a different Redis prefix")
+		logger.Info("3. Images are using file-based metadata instead of Redis")
+		return
+	}
+
+	// Update the config with the found prefix
+	config.RedisPrefix = foundPrefix
 
 	// Run migration
 	if err := migrateFileSizes(); err != nil {

@@ -19,13 +19,14 @@ import (
 
 // ImageMetadata stores metadata information for images
 type ImageMetadata struct {
-	ID           string    `json:"id"`           // Image ID (without extension)
-	OriginalName string    `json:"originalName"` // Original filename
-	UploadTime   time.Time `json:"uploadTime"`   // Upload timestamp
-	ExpiryTime   time.Time `json:"expiryTime"`   // Expiry timestamp (if set)
-	Format       string    `json:"format"`       // Original format
-	Orientation  string    `json:"orientation"`  // Image orientation
-	Tags         []string  `json:"tags"`         // Image tags for categorization
+	ID           string              `json:"id"`           // Image ID (without extension)
+	OriginalName string              `json:"originalName"` // Original filename
+	UploadTime   time.Time           `json:"uploadTime"`   // Upload timestamp
+	ExpiryTime   time.Time           `json:"expiryTime"`   // Expiry timestamp (if set)
+	Format       string              `json:"format"`       // Original format
+	Orientation  string              `json:"orientation"`  // Image orientation
+	Tags         []string            `json:"tags"`         // Image tags for categorization
+	Sizes        map[string]int64    `json:"sizes"`        // File sizes for different formats
 	Paths        struct {
 		Original string `json:"original"` // Path to original image
 		WebP     string `json:"webp"`     // Path to WebP format

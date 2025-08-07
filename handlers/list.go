@@ -374,55 +374,23 @@ func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Co
 			imageInfo.FileName = baseName + "." + params.format
 		}
 
-		// Get file size based on the requested format and storage type
-		if cfg.StorageType == config.StorageTypeLocal {
-			var filePath string
-			if isGIF {
-				filePath = filepath.Join(cfg.ImageBasePath, "gif", id+".gif")
-			} else {
-				switch params.format {
-				case "original":
-					if paths.Original != "" {
-						// Remove leading slash and "images/" prefix if present
-						cleanPath := strings.TrimPrefix(paths.Original, "/")
-						cleanPath = strings.TrimPrefix(cleanPath, "images/")
-						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
-					} else {
-						filePath = filepath.Join(cfg.ImageBasePath, "original", data["orientation"], id+"."+data["format"])
-					}
-				case "webp":
-					if paths.WebP != "" {
-						cleanPath := strings.TrimPrefix(paths.WebP, "/")
-						cleanPath = strings.TrimPrefix(cleanPath, "images/")
-						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
-					} else {
-						filePath = filepath.Join(cfg.ImageBasePath, data["orientation"], "webp", id+".webp")
-					}
-				case "avif":
-					if paths.AVIF != "" {
-						cleanPath := strings.TrimPrefix(paths.AVIF, "/")
-						cleanPath = strings.TrimPrefix(cleanPath, "images/")
-						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
-					} else {
-						filePath = filepath.Join(cfg.ImageBasePath, data["orientation"], "avif", id+".avif")
-					}
+		// Get file size from Redis metadata (works for both local and S3 storage)
+		if sizesStr := data["sizes"]; sizesStr != "" {
+			var storedSizes map[string]int64
+			if err := json.Unmarshal([]byte(sizesStr), &storedSizes); err == nil {
+				if size, exists := storedSizes[params.format]; exists && size > 0 {
+					imageInfo.Size = size
 				}
 			}
-
-			// Get file size from filesystem
-			if filePath != "" {
-				if fileInfo, err := os.Stat(filePath); err == nil {
-					imageInfo.Size = fileInfo.Size()
-				} else if cfg.DebugMode {
-					logger.Debug("Failed to get file size",
-						zap.String("file_path", filePath),
-						zap.Error(err))
+		}
+		
+		// Fallback: try the legacy size field for backward compatibility
+		if imageInfo.Size == 0 {
+			if sizeStr := data["size"]; sizeStr != "" {
+				if size, err := strconv.ParseInt(sizeStr, 10, 64); err == nil {
+					imageInfo.Size = size
 				}
 			}
-		} else {
-			// For S3 storage, we'd need to make a HEAD request to get size
-			// For now, set size to 0 for S3 to avoid performance impact
-			imageInfo.Size = 0
 		}
 
 		images = append(images, imageInfo)

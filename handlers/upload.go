@@ -137,6 +137,9 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		zap.String("format", imgFormat.Format),
 		zap.Int("size", len(data)))
 
+	var originalSize, webpSize, avifSize int64
+	originalSize = int64(len(data))
+
 	var webpURL, avifURL string
 	var wg sync.WaitGroup
 
@@ -165,10 +168,11 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			}
 
 			webpURL = getPublicURL(webpKey, ctx.cfg)
+			webpSize = int64(len(webpData))
 			logger.Info("WebP conversion completed",
 				zap.String("key", webpKey),
 				zap.String("url", webpURL),
-				zap.Int("size", len(webpData)))
+				zap.Int64("size", webpSize))
 		}()
 
 		// AVIF conversion
@@ -195,16 +199,20 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 			}
 
 			avifURL = getPublicURL(avifKey, ctx.cfg)
+			avifSize = int64(len(avifData))
 			logger.Info("AVIF conversion completed",
 				zap.String("key", avifKey),
 				zap.String("url", avifURL),
-				zap.Int("size", len(avifData)))
+				zap.Int64("size", avifSize))
 		}()
 
 		wg.Wait()
 	} else {
 		logger.Info("Skipping conversions for GIF image",
 			zap.String("filename", fileHeader.Filename))
+		// For GIF, all formats use the same file
+		webpSize = originalSize
+		avifSize = originalSize
 	}
 
 	// Get URL for original image
@@ -234,18 +242,35 @@ func processImage(ctx *uploadContext, fileHeader *multipart.FileHeader) UploadRe
 		Format:       imgFormat.Format,
 		Orientation:  orientation,
 		Tags:         ctx.tags,
+		Sizes:        make(map[string]int64),
 	}
 
 	if !ctx.expiryTime.IsZero() {
 		metadata.ExpiryTime = ctx.expiryTime
 	}
 
+	// Set paths
 	metadata.Paths.Original = originalKey
 	if webpURL != originalURL {
 		metadata.Paths.WebP = filepath.Join(orientation, "webp", imageID+".webp")
 	}
 	if avifURL != originalURL {
 		metadata.Paths.AVIF = filepath.Join(orientation, "avif", imageID+".avif")
+	}
+
+	// Set file sizes - always store the actual sizes
+	metadata.Sizes["original"] = originalSize
+	if webpSize > 0 {
+		metadata.Sizes["webp"] = webpSize
+	} else {
+		// If WebP conversion failed, use original size as fallback
+		metadata.Sizes["webp"] = originalSize
+	}
+	if avifSize > 0 {
+		metadata.Sizes["avif"] = avifSize
+	} else {
+		// If AVIF conversion failed, use original size as fallback
+		metadata.Sizes["avif"] = originalSize
 	}
 
 	if err := utils.MetadataManager.SaveMetadata(ctx.r.Context(), metadata); err != nil {
