@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { CheckIcon, CopyIcon, ImageIcon, FileIcon, Link1Icon, EyeOpenIcon } from '../ui/icons'
 import { ImageData, CopyStatus } from '../../types/image'
 import { getFullUrl } from '../../utils/baseUrl'
 import { copyToClipboard } from '../../utils/clipboard'
-import { CheckIcon, CopyIcon, ImageIcon, FileIcon, Link1Icon } from '../ui/icons'
 
 interface ImageUrlsProps {
   image: ImageData
@@ -18,52 +17,72 @@ interface UrlItemProps {
   iconColor: string
   copyType: string
   copyStatus: CopyStatus | null
-  onCopy: (text: string, type: string, e?: React.MouseEvent<HTMLButtonElement>) => void
+  onCopy: (text: string, type: string) => void
 }
 
 function UrlItem({ title, url, icon, iconColor, copyType, copyStatus, onCopy }: UrlItemProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <div className={iconColor}>{icon}</div>
-        <div className="font-medium">{title}</div>
-      </div>
+  const [showFullUrl, setShowFullUrl] = useState(false);
+  const isLongUrl = url.length > 60;
+  const displayUrl = showFullUrl || !isLongUrl ? url : `${url.substring(0, 45)}...${url.substring(url.length - 15)}`;
 
-      <div className="rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center group relative hover:bg-slate-200 dark:hover:bg-slate-800/80 transition-colors duration-200">
-        <div className="flex-1 px-4 py-3 text-sm font-mono overflow-hidden text-ellipsis">
-          {url}
+  return (
+    <div className="space-y-2">
+      {/* 标题行 */}
+      <div className="flex items-center gap-2">
+        <div className={`${iconColor} p-1.5 rounded-md bg-gray-100 dark:bg-gray-800`}>
+          {icon}
         </div>
-        <button
-          onClick={(e) => onCopy(url, copyType, e)}
-          className="p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-r-lg transition-colors duration-200 relative"
-          title="复制链接"
-        >
-          {copyStatus && copyStatus.type === copyType ? (
-            <CheckIcon className="h-5 w-5 text-green-500" />
-          ) : (
-            <CopyIcon className="h-5 w-5" />
-          )}
-          {copyStatus && copyStatus.type === copyType && (
-            <span className="absolute -top-8 right-0 bg-black/70 text-white text-xs rounded px-2 py-1">
-              已复制!
-            </span>
-          )}
-        </button>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</span>
       </div>
-    </motion.div>
+      
+      {/* URL显示和操作 */}
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        {/* URL显示区域 */}
+        <div className="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400 break-all leading-relaxed">
+          {displayUrl}
+        </div>
+        
+        {/* 操作按钮区域 */}
+        <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-750">
+          <div className="flex items-center gap-2">
+            {isLongUrl && (
+              <button
+                onClick={() => setShowFullUrl(!showFullUrl)}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors flex items-center gap-1"
+              >
+                <EyeOpenIcon className="h-3 w-3" />
+                {showFullUrl ? '收起' : '展开'}
+              </button>
+            )}
+          </div>
+          
+          <button
+            onClick={() => onCopy(url, copyType)}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+            title="复制链接"
+          >
+            {copyStatus && copyStatus.type === copyType ? (
+              <>
+                <CheckIcon className="h-3 w-3 text-green-500" />
+                <span className="text-green-500">已复制</span>
+              </>
+            ) : (
+              <>
+                <CopyIcon className="h-3 w-3" />
+                <span>复制</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
 export function ImageUrls({ image }: ImageUrlsProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus | null>(null)
 
-  const handleCopy = (text: string, type: string, e?: React.MouseEvent<HTMLButtonElement>) => {
-    if (e) e.stopPropagation()
-
+  const handleCopy = (text: string, type: string) => {
     copyToClipboard(text)
       .then(success => {
         if (success) {
@@ -85,11 +104,11 @@ export function ImageUrls({ image }: ImageUrlsProps) {
   const avifUrl = getFullUrl(image.urls?.avif || '')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <UrlItem
         title="原始图片"
         url={originalUrl}
-        icon={<ImageIcon className="h-5 w-5" />}
+        icon={<ImageIcon className="h-4 w-4" />}
         iconColor="text-blue-500"
         copyType="original"
         copyStatus={copyStatus}
@@ -100,7 +119,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
         <UrlItem
           title="WebP 格式"
           url={webpUrl}
-          icon={<FileIcon className="h-5 w-5" />}
+          icon={<FileIcon className="h-4 w-4" />}
           iconColor="text-purple-500"
           copyType="webp"
           copyStatus={copyStatus}
@@ -112,7 +131,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
         <UrlItem
           title="AVIF 格式"
           url={avifUrl}
-          icon={<FileIcon className="h-5 w-5" />}
+          icon={<FileIcon className="h-4 w-4" />}
           iconColor="text-green-500"
           copyType="avif"
           copyStatus={copyStatus}
@@ -123,7 +142,7 @@ export function ImageUrls({ image }: ImageUrlsProps) {
       <UrlItem
         title="Markdown 格式"
         url={`![${image.filename}](${originalUrl})`}
-        icon={<Link1Icon className="h-5 w-5" />}
+        icon={<Link1Icon className="h-4 w-4" />}
         iconColor="text-amber-500"
         copyType="markdown"
         copyStatus={copyStatus}

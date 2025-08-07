@@ -49,7 +49,18 @@ import {
   Star as StarFilledIcon,
   HelpCircle as QuestionMarkIcon,
   Link as Link1Icon,
-  CreditCard as IdCardIcon
+  CreditCard as IdCardIcon,
+  // 新增图标用于不同格式
+  Camera as CameraIcon,
+  Sparkles as SparklesIcon,
+  Zap as ZapIcon,
+  Shield as ShieldIcon,
+  Layers as LayersIcon,
+  Disc as DiscIcon,
+  Hash as HashIcon,
+  Code as CodeIcon,
+  Archive as ArchiveIcon,
+  Package as PackageIcon
 } from 'lucide-react';
 
 export {
@@ -103,7 +114,18 @@ export {
   StarFilledIcon, // 实心星形图标
   QuestionMarkIcon, // 问号/帮助图标
   Link1Icon, // 链接图标
-  IdCardIcon // ID卡/身份图标
+  IdCardIcon, // ID卡/身份图标
+  // 新增的格式相关图标
+  CameraIcon, // 相机图标 - 原始图片
+  SparklesIcon, // 闪亮图标 - 优化格式
+  ZapIcon, // 闪电图标 - 快速格式
+  ShieldIcon, // 盾牌图标 - 安全格式
+  LayersIcon, // 层级图标 - 堆叠格式
+  DiscIcon, // 圆盘图标 - 存储格式
+  HashIcon, // 哈希图标 - 编码格式
+  CodeIcon, // 代码图标 - Markdown格式
+  ArchiveIcon, // 归档图标 - 压缩格式
+  PackageIcon // 包装图标 - 打包格式
 };
 
 // 状态图标 - 为不同类型的状态消息提供图标

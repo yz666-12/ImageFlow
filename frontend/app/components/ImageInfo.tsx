@@ -21,50 +21,42 @@ export const ImageInfo = ({ image }: ImageInfoProps) => {
   const height = 'height' in image ? image.height : undefined;
   const expiryTime = 'expiryTime' in image ? image.expiryTime : undefined;
 
-  return (
-    <div className="space-y-1 mt-2">
-      {/* 标签组 */}
-      <div className="flex flex-wrap gap-1 mb-2">
-        {format && (
-          <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-            format === 'gif'
-              ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300'
-              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300'
-          }`}>
-            {getFormatLabel(format)}
-          </div>
-        )}
-        
-        {orientation && (
-          <div className="flex items-center bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-medium">
-            {getOrientationLabel(orientation)}
-          </div>
-        )}
-        
-        {isImageFile && (
-          <div className="flex items-center bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300 px-3 py-1 rounded-full text-xs font-medium">
-            {formatFileSize(size)}
-          </div>
-        )}
-        
-        {width && height && (
-          <div className="flex items-center bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 px-3 py-1 rounded-full text-xs font-medium">
-            {width} x {height}
-          </div>
-        )}
-        
-        {expiryTime && (
-          <div className="flex items-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-300 px-3 py-1 rounded-full text-xs font-medium">
-            过期: {new Date(expiryTime).toLocaleString()}
-          </div>
-        )}
-      </div>
+  const infoItems = [
+    { label: '格式', value: format ? getFormatLabel(format) : null, color: 'blue' },
+    { label: '方向', value: orientation ? getOrientationLabel(orientation) : null, color: 'purple' },
+    { label: '大小', value: isImageFile ? formatFileSize(size) : null, color: 'green' },
+    { label: '尺寸', value: width && height ? `${width} × ${height}` : null, color: 'amber' },
+    { label: '过期时间', value: expiryTime ? new Date(expiryTime).toLocaleString() : null, color: 'red' }
+  ].filter(item => item.value);
 
-      {/* 图片路径 */}
+  return (
+    <div className="space-y-4">
+      {/* 信息标签 */}
+      {infoItems.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {infoItems.map((item, index) => (
+            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className={`w-2 h-2 rounded-full ${
+                item.color === 'blue' ? 'bg-blue-500' :
+                item.color === 'purple' ? 'bg-purple-500' :
+                item.color === 'green' ? 'bg-green-500' :
+                item.color === 'amber' ? 'bg-amber-500' :
+                'bg-red-500'
+              }`}></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-500 dark:text-gray-400">{item.label}</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 文件路径 */}
       {path && (
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">路径</label>
-          <div className="font-mono text-xs bg-gray-50 dark:bg-gray-800 p-1 rounded text-gray-700 dark:text-gray-300 truncate">
+        <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">存储路径</div>
+          <div className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all bg-white dark:bg-gray-900 p-2 rounded border">
             {path}
           </div>
         </div>
