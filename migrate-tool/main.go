@@ -544,6 +544,8 @@ func main() {
 	// Try different prefixes to find the data
 	possiblePrefixes := []string{
 		cfg.RedisPrefix,
+		"imageflow:s3:",
+		"imageflow:local:",
 		"imageflow:",
 		"",
 	}
