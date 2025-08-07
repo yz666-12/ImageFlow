@@ -27,3 +27,6 @@ coverage.txt
 node_modules/
 
 ImageFlow.exe
+imageflow
+
+logs

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -371,6 +372,57 @@ func listImagesFromRedis(ctx context.Context, params queryParams, cfg *config.Co
 		if params.format != "original" {
 			baseName := strings.TrimSuffix(imageInfo.FileName, filepath.Ext(imageInfo.FileName))
 			imageInfo.FileName = baseName + "." + params.format
+		}
+
+		// Get file size based on the requested format and storage type
+		if cfg.StorageType == config.StorageTypeLocal {
+			var filePath string
+			if isGIF {
+				filePath = filepath.Join(cfg.ImageBasePath, "gif", id+".gif")
+			} else {
+				switch params.format {
+				case "original":
+					if paths.Original != "" {
+						// Remove leading slash and "images/" prefix if present
+						cleanPath := strings.TrimPrefix(paths.Original, "/")
+						cleanPath = strings.TrimPrefix(cleanPath, "images/")
+						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
+					} else {
+						filePath = filepath.Join(cfg.ImageBasePath, "original", data["orientation"], id+"."+data["format"])
+					}
+				case "webp":
+					if paths.WebP != "" {
+						cleanPath := strings.TrimPrefix(paths.WebP, "/")
+						cleanPath = strings.TrimPrefix(cleanPath, "images/")
+						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
+					} else {
+						filePath = filepath.Join(cfg.ImageBasePath, data["orientation"], "webp", id+".webp")
+					}
+				case "avif":
+					if paths.AVIF != "" {
+						cleanPath := strings.TrimPrefix(paths.AVIF, "/")
+						cleanPath = strings.TrimPrefix(cleanPath, "images/")
+						filePath = filepath.Join(cfg.ImageBasePath, cleanPath)
+					} else {
+						filePath = filepath.Join(cfg.ImageBasePath, data["orientation"], "avif", id+".avif")
+					}
+				}
+			}
+
+			// Get file size from filesystem
+			if filePath != "" {
+				if fileInfo, err := os.Stat(filePath); err == nil {
+					imageInfo.Size = fileInfo.Size()
+				} else if cfg.DebugMode {
+					logger.Debug("Failed to get file size",
+						zap.String("file_path", filePath),
+						zap.Error(err))
+				}
+			}
+		} else {
+			// For S3 storage, we'd need to make a HEAD request to get size
+			// For now, set size to 0 for S3 to avoid performance impact
+			imageInfo.Size = 0
 		}
 
 		images = append(images, imageInfo)
