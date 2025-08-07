@@ -438,6 +438,81 @@ func GetImagesByTag(ctx context.Context, tag string) ([]string, error) {
 	return imageIDs, nil
 }
 
+// GetImagesByMultipleTags retrieves image IDs that have ALL specified tags (AND logic)
+func GetImagesByMultipleTags(ctx context.Context, tags []string) ([]string, error) {
+	if !IsRedisMetadataStore() {
+		return nil, fmt.Errorf("redis is not enabled")
+	}
+	
+	if len(tags) == 0 {
+		return []string{}, nil
+	}
+	
+	if len(tags) == 1 {
+		// Single tag, use existing function
+		return GetImagesByTag(ctx, tags[0])
+	}
+	
+	// Multiple tags - use Redis SET intersection
+	tagKeys := make([]string, len(tags))
+	for i, tag := range tags {
+		tagKeys[i] = RedisPrefix + "tag:" + tag
+	}
+	
+	imageIDs, err := RedisClient.SInter(ctx, tagKeys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get images by multiple tags from Redis: %v", err)
+	}
+	
+	logger.Debug("Retrieved images with multiple tags",
+		zap.Strings("tags", tags),
+		zap.Int("count", len(imageIDs)))
+	
+	return imageIDs, nil
+}
+
+// GetAllImageIDs retrieves all image IDs from Redis metadata
+func GetAllImageIDs(ctx context.Context) ([]string, error) {
+	if !IsRedisMetadataStore() {
+		return nil, fmt.Errorf("redis is not enabled")
+	}
+	
+	// Use SCAN to get all metadata keys
+	pattern := RedisPrefix + "metadata:*"
+	var allKeys []string
+	var cursor uint64
+	
+	for {
+		keys, newCursor, err := RedisClient.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan Redis keys: %v", err)
+		}
+		
+		allKeys = append(allKeys, keys...)
+		cursor = newCursor
+		
+		if cursor == 0 {
+			break
+		}
+	}
+	
+	// Extract image IDs from metadata keys
+	imageIDs := make([]string, 0, len(allKeys))
+	metadataPrefix := RedisPrefix + "metadata:"
+	
+	for _, key := range allKeys {
+		if strings.HasPrefix(key, metadataPrefix) {
+			id := strings.TrimPrefix(key, metadataPrefix)
+			imageIDs = append(imageIDs, id)
+		}
+	}
+	
+	logger.Debug("Retrieved all image IDs from Redis",
+		zap.Int("count", len(imageIDs)))
+	
+	return imageIDs, nil
+}
+
 // MigrateMetadataToRedis migrates metadata from JSON files to Redis
 func MigrateMetadataToRedis(ctx context.Context, cfg *config.Config) error {
 	if !IsRedisMetadataStore() {

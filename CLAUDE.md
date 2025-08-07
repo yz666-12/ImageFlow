@@ -114,7 +114,13 @@ The service is configured via environment variables in `.env` file:
 ## API Endpoints
 
 ### Public Endpoints
-- `GET /api/random` - Get random image (optional `?tag=` filter)
+- `GET /api/random` - Get random image with advanced filtering options:
+  - `tag=tag1` or `tags=tag1,tag2,tag3` - Filter by tags (AND logic for multiple tags)
+  - `exclude=nsfw,private` - Exclude images with specified tags 
+  - `orientation=portrait|landscape` - Force specific orientation (overrides device detection)
+  - `format=avif|webp|original` - Prefer specific image format
+  - Device-based orientation: Mobile devices get portrait by default, desktop gets landscape
+  - Example: `/api/random?tags=nature,sunset&exclude=nsfw&orientation=landscape&format=webp`
 - `POST /api/validate-api-key` - Validate API key
 
 ### Authenticated Endpoints (require API key header)
