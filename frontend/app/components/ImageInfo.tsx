@@ -51,16 +51,6 @@ export const ImageInfo = ({ image }: ImageInfoProps) => {
           ))}
         </div>
       )}
-
-      {/* 文件路径 */}
-      {path && (
-        <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">存储路径</div>
-          <div className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all bg-white dark:bg-gray-900 p-2 rounded border">
-            {path}
-          </div>
-        </div>
-      )}
     </div>
   );
 }; 
