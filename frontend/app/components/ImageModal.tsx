@@ -7,7 +7,7 @@ import { ImageData } from "../types/image";
 import { ImageInfo } from "./ImageInfo";
 import { ImageUrls } from "./ImageUrls";
 import { DeleteConfirm } from "./DeleteConfirm";
-import { Cross1Icon, TrashIcon, InfoCircledIcon, Link1Icon, ImageIcon } from "./ui/icons";
+import { Cross1Icon, TrashIcon, InfoCircledIcon, Link1Icon, CameraIcon } from "./ui/icons";
 
 // 统一的图片类型，可以接受管理界面和上传界面的两种不同图片对象
 type ImageType = ImageFile | (ImageData & { status: 'success' });
@@ -64,9 +64,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
             {/* 标题栏 */}
             <div className="flex justify-between items-center px-6 py-5 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <ImageIcon className="h-5 w-5 text-white" />
-                </div>
+                <CameraIcon className="h-6 w-6 text-blue-500" />
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{image.filename}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">图片详细信息</p>
@@ -85,9 +83,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
               {/* 图片信息 */}
               <div>
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                    <InfoCircledIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
+                  <InfoCircledIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white">图片信息</h4>
                 </div>
                 <ImageInfo image={image as any} />
@@ -96,9 +92,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
               {/* 可用链接 */}
               <div>
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
-                    <Link1Icon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </div>
+                  <Link1Icon className="h-5 w-5 text-green-600 dark:text-green-400" />
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white">可用链接</h4>
                 </div>
                 <ImageUrls image={image as any} />

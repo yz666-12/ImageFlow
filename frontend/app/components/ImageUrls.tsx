@@ -4,7 +4,7 @@ import { ImageData } from "../types/image";
 import { buildMarkdownLink } from "../utils/imageUtils";
 import { copyToClipboard } from "../utils/clipboard";
 import { getFullUrl } from "../utils/baseUrl";
-import { CheckIcon, CopyIcon, ImageIcon } from "./ui/icons";
+import { CheckIcon, CopyIcon, CameraIcon, SparklesIcon, ZapIcon, CodeIcon } from "./ui/icons";
 
 type ImageType = ImageFile | (ImageData & { status: 'success' });
 
@@ -81,17 +81,21 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
     label,
     url,
     type,
+    color,
   }: {
-    icon: string;
+    icon: React.ComponentType<{className?: string}>;
     label: string;
     url: string;
     type: string;
-  }) => (
-    <div className="mb-1">
-      <div className="flex items-center gap-1 mb-1">
-        <ImageIcon className={`h-3 w-3 ${icon}`} />
-        <div className="text-xs font-medium">{label}</div>
-      </div>
+    color: string;
+  }) => {
+    const IconComponent = icon;
+    return (
+      <div className="mb-1">
+        <div className="flex items-center gap-2 mb-1">
+          <IconComponent className={`h-4 w-4 ${color}`} />
+          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</div>
+        </div>
 
       <div className="rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center relative">
         <div className="flex-1 px-2 py-1 text-xs font-mono overflow-hidden text-ellipsis">
@@ -101,13 +105,15 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       </div>
     </div>
   );
+};
 
   return (
     <div className="space-y-1">
 
       {/* 原始格式链接 */}
       <UrlBox
-        icon="text-blue-500"
+        icon={CameraIcon}
+        color="text-blue-500"
         label={format === "gif" ? "GIF 动图" : "原始格式"}
         url={originalUrl!}
         type="original"
@@ -117,13 +123,15 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
       {format !== "gif" && (
         <>
           <UrlBox
-            icon="text-purple-500"
+            icon={SparklesIcon}
+            color="text-purple-500"
             label="WebP格式"
             url={webpUrl!}
             type="webp"
           />
           <UrlBox
-            icon="text-green-500"
+            icon={ZapIcon}
+            color="text-green-500"
             label="AVIF格式"
             url={avifUrl!}
             type="avif"
@@ -133,7 +141,8 @@ export const ImageUrls = ({ image }: ImageUrlsProps) => {
 
       {/* Markdown格式链接 */}
       <UrlBox
-        icon="text-amber-500"
+        icon={CodeIcon}
+        color="text-amber-500"
         label="Markdown格式"
         url={markdownLink}
         type="markdown"
