@@ -389,6 +389,14 @@ func (rms *RedisMetadataStore) DeleteMetadata(ctx context.Context, id string) er
 			zap.Error(err))
 	}
 
+	// Remove from main images index
+	imagesKey := RedisPrefix + "images"
+	if err := RedisClient.ZRem(ctx, imagesKey, id).Err(); err != nil {
+		logger.Warn("Failed to remove from main images index",
+			zap.String("id", id),
+			zap.Error(err))
+	}
+
 	// Delete metadata
 	key := rms.prefix + id
 	if err := RedisClient.Del(ctx, key).Err(); err != nil {

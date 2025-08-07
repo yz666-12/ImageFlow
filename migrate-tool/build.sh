@@ -31,9 +31,6 @@ echo ""
 declare -A platforms=(
     ["linux-amd64"]="linux amd64"
     ["linux-arm64"]="linux arm64"
-    ["windows-amd64"]="windows amd64"
-    ["darwin-amd64"]="darwin amd64"
-    ["darwin-arm64"]="darwin arm64"
 )
 
 # 初始化Go模块
@@ -47,9 +44,6 @@ for platform in "${!platforms[@]}"; do
     GOARCH=${PLATFORM[1]}
     
     output_name="migrate-sizes-$platform"
-    if [ "$GOOS" = "windows" ]; then
-        output_name="$output_name.exe"
-    fi
     
     echo "🏗️  Building for $GOOS/$GOARCH..."
     
@@ -109,83 +103,8 @@ echo ""
 exec "$BINARY_PATH" "$@"
 EOF
 
-cat > bin/run-macos.sh << 'EOF'
-#!/bin/bash
-
-# ImageFlow File Size Migration Tool Runner (macOS)
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Check architecture
-ARCH=$(uname -m)
-case $ARCH in
-    x86_64)
-        BINARY="migrate-sizes-darwin-amd64"
-        ;;
-    arm64)
-        BINARY="migrate-sizes-darwin-arm64"
-        ;;
-    *)
-        echo "❌ Unsupported architecture: $ARCH"
-        echo "Supported architectures: x86_64, arm64"
-        exit 1
-        ;;
-esac
-
-BINARY_PATH="$SCRIPT_DIR/$BINARY"
-
-if [ ! -f "$BINARY_PATH" ]; then
-    echo "❌ Binary not found: $BINARY_PATH"
-    echo "Please make sure the migration tool is properly installed"
-    exit 1
-fi
-
-# Make sure binary is executable
-chmod +x "$BINARY_PATH"
-
-# Run the migration tool
-echo "🚀 Running ImageFlow file size migration tool..."
-echo "   Using binary: $BINARY"
-echo ""
-exec "$BINARY_PATH" "$@"
-EOF
-
-cat > bin/run-windows.bat << 'EOF'
-@echo off
-
-REM ImageFlow File Size Migration Tool Runner (Windows)
-
-set SCRIPT_DIR=%~dp0
-set BINARY=migrate-sizes-windows-amd64.exe
-set BINARY_PATH=%SCRIPT_DIR%%BINARY%
-
-if not exist "%BINARY_PATH%" (
-    echo ❌ Binary not found: %BINARY_PATH%
-    echo Please make sure the migration tool is properly installed
-    pause
-    exit /b 1
-)
-
-echo 🚀 Running ImageFlow file size migration tool...
-echo    Using binary: %BINARY%
-echo.
-
-"%BINARY_PATH%" %*
-
-if errorlevel 1 (
-    echo.
-    echo ❌ Migration failed. Please check the error messages above.
-    pause
-    exit /b 1
-)
-
-echo.
-echo ✅ Migration completed successfully!
-pause
-EOF
-
 # 设置脚本执行权限
-chmod +x bin/run-linux.sh bin/run-macos.sh
+chmod +x bin/run-linux.sh
 
 echo ""
 echo "✅ Build completed successfully!"
@@ -194,13 +113,8 @@ echo "📂 Output directory: bin/"
 echo ""
 echo "🚀 Usage:"
 echo "   Linux:   ./bin/run-linux.sh"
-echo "   macOS:   ./bin/run-macos.sh"
-echo "   Windows: bin\\run-windows.bat"
 echo ""
 echo "📝 Or run directly:"
 echo "   Linux x64:   ./bin/migrate-sizes-linux-amd64"
 echo "   Linux ARM64: ./bin/migrate-sizes-linux-arm64"
-echo "   macOS x64:   ./bin/migrate-sizes-darwin-amd64"
-echo "   macOS ARM64: ./bin/migrate-sizes-darwin-arm64"
-echo "   Windows:     bin\\migrate-sizes-windows-amd64.exe"
 echo ""
