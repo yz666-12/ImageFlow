@@ -1,16 +1,25 @@
 module github.com/Yuri-NagaSaki/ImageFlow
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.24.6
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.25.2
 	github.com/aws/aws-sdk-go-v2/config v1.27.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.1
+	github.com/gen2brain/avif v0.4.4
 	github.com/h2non/bimg v1.1.9
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.5.5
 	go.uber.org/zap v1.26.0
+	golang.org/x/image v0.30.0
+)
+
+require (
+	github.com/ebitengine/purego v0.8.3 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 )
 
 require (

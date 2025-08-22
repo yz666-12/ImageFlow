@@ -7,6 +7,8 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	_ "golang.org/x/image/webp"
+	_ "github.com/gen2brain/avif"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
